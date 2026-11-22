@@ -93,6 +93,9 @@ else {
 
 // ------------------------------------------------------------------ judging
 const rate = t => SLOWMO.find(([a, b]) => t >= a && t < b)?.[2] ?? 1; // film seconds per real second in slow motion
+// real seconds at film time t (speeds are judged on the story's clock; a difference straddling the slow
+// motion's edge is measured over the real time it spans, not scaled by one end's rate)
+const realT = t => { let r = t; for (const [a, b, k] of SLOWMO) r -= Math.max(0, Math.min(t, b) - a) * (1 - k); return r; };
 const deg = r => r * 180 / Math.PI;
 const rows = [], details = [];
 const row = (check, shot, what, value, limit, pass, worst = null) => {
@@ -101,7 +104,7 @@ const row = (check, shot, what, value, limit, pass, worst = null) => {
 };
 const fmt = (v, d = 2) => v == null ? '-' : typeof v === 'number' ? (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(d)) : String(v);
 const sec = t => t.toFixed(2) + ' s';
-const gaitOf = (sp, a) => a.leap ? 'gallop' : a.state === 'flee' ? 'gallop' : a.state === 'hunt' ? (a.hunt === 'rush' ? 'sprint' : 'stalk') : a.state === 'forage' || a.state === 'idle' ? 'stand' : SPEED[sp]?.walk ? 'walk' : 'stand';
+const gaitOf = (sp, a) => a.leap ? (SPEED[sp]?.sprint ? 'sprint' : 'gallop') : a.state === 'flee' ? 'gallop' : a.state === 'hunt' ? (a.hunt === 'rush' ? 'sprint' : 'stalk') : a.state === 'forage' || a.state === 'idle' ? 'stand' : SPEED[sp]?.walk ? 'walk' : 'stand';
 const kind = sp => sp.replace(/\d+$/, '');
 const inFrame = s => s && s.front && Math.abs(s.x) <= 1 && Math.abs(s.y) <= 1;
 const seen = a => a && inFrame(a.bodyScreen) && !a.bodyBlock;
@@ -151,12 +154,12 @@ for (const layer of LAYERS) {
   for (const name of names) {
     const fr = frames.filter(f => f.animals[name]);
     if (fr.length < 3) continue;
-    const sp = kind(name), A = fr.map(f => f.animals[name]);
+    const A = fr.map(f => f.animals[name]), sp = A[0].kind || kind(name); // (the species' key: cast names are the plan's, doe, elk1)
     const body = BODY_M[sp] ?? 1.5;
     let worst = { over: 0 }, worstBody = { over: 0 }, worstStride = { over: 0 }, worstScreen = { v: 0 }, maxM = 0, maxBody = 0;
     let sprintRun = 0, sprintMax = 0;
     for (let i = 1; i < A.length - 1; i++) {
-      const a = A[i], p = A[i - 1], q = A[i + 1], t = fr[i].t, slow = rate(t);
+      const a = A[i], p = A[i - 1], q = A[i + 1], t = fr[i].t, slow = (realT(fr[i + 1].t) - realT(fr[i - 1].t)) / (fr[i + 1].t - fr[i - 1].t);
       if (fr[i + 1].t - fr[i - 1].t > 2.5 * dt) continue; // (a gap: not drawn for a while)
       const tiles = Math.hypot(q.x - p.x, q.z - p.z) / (2 * dt) / slow;
       const mps = tiles * TILE_M, bodyMps = tiles / Math.max(.05, a.len) * body;
@@ -192,7 +195,7 @@ for (const layer of LAYERS) {
     let sink = { v: 0 }, float = { v: 0 }, sinkFrames = 0, simGap = 0;
     for (let i = 0; i < A.length; i++) {
       const a = A[i]; if (!a.drawn || a.leap) continue;
-      const hi = Math.max(...a.feet);
+      const hi = Math.max(...a.feet) - (a.crouch || 0); // (a stalking crouch is declared, like a leap: see the probe)
       if (hi > sink.v) sink = { v: hi, t: fr[i].t, feet: a.feet };
       if (hi > L.sink) sinkFrames++;
       if (-hi > float.v) float = { v: -hi, t: fr[i].t };

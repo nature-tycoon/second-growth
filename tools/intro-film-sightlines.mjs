@@ -41,8 +41,8 @@ let land, lines;
 const { openBrowser } = await import('./browser-session.mjs');
 const b = await openBrowser({ label: 'intro-film-sightlines', software: false, width: 640, height: 360 });
 try {
-  await b.navigate('/tools/intro-film.html?layer=forest');
-  await b.waitFor('window.introFilm?.ready', 'Intro film forest layer', 600000);
+  await b.navigate('/tools/intro-film.html?layer=opening');
+  await b.waitFor('window.introFilm?.ready', 'Intro film opening layer', 600000);
   const error = await b.evaluate('window.introFilm.error'); if (error) throw Error(error);
   const res = await b.evaluate(`(async () => {
     const g = introFilm.game, r = introFilm.renderer, w = g.world;

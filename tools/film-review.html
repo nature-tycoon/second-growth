@@ -5,12 +5,13 @@
 <title>Film review</title>
 <!--
   Review a cut of the intro film and leave notes tied to times (first-minutes film rework, f1.md).
-    http://localhost:8347/tools/film-review.html                    the game's copy, assets/intro/intro-film.mp4
-    http://localhost:8347/tools/film-review.html?cut=dist/intro-film/rough/intro-film-rough.mp4
+    http://localhost:8347/tools/film-review.html                    the re-staged rough cut (F3), dist/intro-film/rough/intro-film-rough.mp4
+    http://localhost:8347/tools/film-review.html?cut=assets/intro/intro-film.mp4    the first cut, as the game ships it today
+    http://localhost:8347/tools/film-review.html?cut=dist/intro-film/rough/intro-film-rough-f1.mp4   F1's rough cut of the first cut
   Served by tools/serve.py (it answers byte ranges, which seeking needs). The strip under the player is
   the cut's contact sheet, dist/intro-film/contact/<cut's name>.jpg, made by tools/film-intro.mjs; when
   there is none the page makes one itself from the video. Shot names come from the film's script,
-  tools/intro-film-shots.mjs. Notes stay in this browser (localStorage) and are copied out as plain
+  tools/intro-film-shots.mjs (the first cut's own, below, for the old cuts). Notes stay in this browser (localStorage) and are copied out as plain
   text with "Copy notes"; nothing is written to the server.
 -->
 <style>
@@ -51,6 +52,7 @@
   <header>
     <h1>Film review</h1>
     <a href="film-shots.html" style="color:var(--accent)">Shot list and map →</a>
+    <span class="hint" id="cuts">Compare: <a href="?cut=dist/intro-film/rough/intro-film-rough.mp4" style="color:var(--accent)">re-staged rough cut</a> · <a href="?cut=assets/intro/intro-film.mp4" style="color:var(--accent)">first cut</a></span>
     <form id="cutForm"><input id="cut" aria-label="Cut to review (path from the project folder)"><button>Open</button></form>
   </header>
   <video id="video" controls playsinline preload="auto"></video>
@@ -71,7 +73,7 @@ import { LAYERS } from './intro-film-shots.mjs';
 
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
-const cut = (params.get('cut') || 'assets/intro/intro-film.mp4').replace(/^\/+/, '');
+const cut = (params.get('cut') || 'dist/intro-film/rough/intro-film-rough.mp4').replace(/^\/+/, '');
 const name = cut.split('/').pop().replace(/\.[a-z0-9]+$/i, '');
 const video = $('video'), status = $('status');
 $('cut').value = cut;
@@ -82,7 +84,10 @@ video.onerror = () => { status.textContent = `Can't play /${cut}: check the path
 const clock = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 const clockTenths = t => `${clock(t)}.${Math.floor(t * 10 % 10)}`;
 // Which shot is on screen at t: the latest layer that has started (a dissolve hands over at its start).
-const shots = LAYERS.map((L, i) => ({ name: L.name, from: L.from, to: LAYERS[i + 1] ? Math.min(L.to, LAYERS[i + 1].from) : L.to }));
+// (the first cut, the game's copy and F1's rough cut of it, had its own six layers)
+const FIRST_CUT = [['forest', 2.6, 12], ['chase', 12, 22], ['falls', 22, 31], ['rise', 30, 34], ['overview', 33, 38.4], ['start', 37, 40]].map(([name, from, to]) => ({ name, from, to }));
+const layers = /^assets\/intro\/|-f1\.[a-z0-9]+$/i.test(cut) ? FIRST_CUT : LAYERS;
+const shots = layers.map((L, i) => ({ name: L.name, from: L.from, to: layers[i + 1] ? Math.min(L.to, layers[i + 1].from) : L.to }));
 const shotAt = t => [...shots].reverse().find(s => t >= s.from)?.name ?? 'black';
 
 // ---- notes (kept in this browser per cut; copied out as text)
@@ -125,7 +130,7 @@ $('copy').onclick = async () => {
 
 // ---- shots bar and the play head
 function drawBar() {
-  const bar = $('bar'), d = video.duration || LAYERS.at(-1).to;
+  const bar = $('bar'), d = video.duration || layers.at(-1).to;
   bar.textContent = '';
   for (const s of shots) {
     const el = document.createElement('div'); el.className = 'shot'; el.dataset.name = s.name;

@@ -1,14 +1,17 @@
-// Intro film studio (tools/film-intro.mjs drives it; the script is intro-film-shots.mjs).
+// Intro film studio (tools/film-intro.mjs drives it; the script is intro-film-shots.mjs, derived from
+// the approved shot list, intro-film-plan.mjs).
 //
 //   intro-film.html?layer=<name>   films one layer: the production renderer and models, a frame at a
 //                                  time on a fixed 30 fps clock, each frame handed back as a JPEG
 //   intro-film.html?assemble=1     lays the layers' frames over each other, mixes the sound from the
 //                                  game's recordings and encodes MP4 (H.264 + AAC) and WebM (VP9 + Opus)
 //
-// Staging (allowed in a film, never in play: decision 0001): in the start game the deer and the cougar
-// are posed and moved along planned paths, and drawn by the game's own walker drawing (stride, gallop,
-// head, crouch, the pounce arc for the deer's leap over the fence). In the restored game the elk are
-// posed and then live by the simulation.
+// Staging (allowed in a film, never in play: decision 0001): the plan's animals are posed and moved
+// along its paths (animalAt: smooth curves through its marks, eased starts and stops, real speeds),
+// and drawn by the game's own walker drawing (stride, gallop, head, crouch, and the pounce arc for the
+// doe's fence jump and the cougar's leap). The cameras are the plan's (cameraAt: eased moves, smoothed
+// looks). In the slow motion the whole world's clock runs at the plan's rate. On the restored farm the
+// rest of the wildlife lives by the simulation; the plan's elk are staged.
 import { Renderer } from '../js/render3d/scene.js';
 import { Game } from '../js/game.js';
 import { SPEEDS, ANIMAL_SPEEDS } from '../js/config.js';
@@ -18,97 +21,19 @@ import { PLANT } from '../js/data/plants.js';
 import { isWater } from '../js/config.js';
 import { travelSpeed } from '../js/sim/climb-pace.js';
 import { releaseGame } from './release-fixtures.mjs';
-import { posing } from './website-moment-fixtures.mjs';
 import { muxMp4, muxWebm } from './video-mux.mjs';
-import { FPS, SECONDS, LAYERS, TIME_OF_DAY, BEATS, SOUND } from './intro-film-shots.mjs';
-import { makeProbe } from './intro-film-probe.mjs';
+import { FPS, SECONDS, LAYERS, TIME_OF_DAY, BEATS, SOUND, SLOWMO } from './intro-film-shots.mjs';
+import { SHOTS, ANIMALS, animalAt, cameraAt, mapAt as planMap, realAt } from './intro-film-plan.mjs';
+import { makeProbe, meshGround } from './intro-film-probe.mjs';
 
 const DAY_CYCLE = 360; // scene.js: seconds in the renderer's day (todClock)
 const RUN_SEED = 20261121; // the start game's run seed (weather, starting animals); the land is seed 1987
+const WARM = 45; // frames staged and posed (not drawn) before a layer's first, so a cut never shows a pose still settling
 const params = new URLSearchParams(location.search);
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const lerp = (a, b, t) => a + (b - a) * t;
+const rateAt = t => SLOWMO.find(([a, b]) => t >= a && t < b)?.[2] ?? 1; // the world's clock in the slow motion
 window.introFilm = { ready: false };
-
-// ------------------------------------------------------------------ paths through the trees
-// A path: points every few hundredths of a tile with their arc length, so a position can be read
-// at any distance along it.
-function polyline(points) {
-  const out = [];
-  const cr = (p0, p1, p2, p3, t) => .5 * (2 * p1 + (p2 - p0) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (3 * p1 - p0 - 3 * p2 + p3) * t * t * t);
-  for (let i = 0; i < points.length - 1; i++) {
-    const a = points[Math.max(0, i - 1)], b = points[i], c = points[i + 1], d = points[Math.min(points.length - 1, i + 2)];
-    const n = Math.ceil(Math.hypot(c[0] - b[0], c[1] - b[1]) / .05);
-    for (let k = 0; k < n; k++) out.push([cr(a[0], b[0], c[0], d[0], k / n), cr(a[1], b[1], c[1], d[1], k / n)]);
-  }
-  out.push(points[points.length - 1].slice());
-  return out;
-}
-// Push a path clear of trunks (each { x, z, r }) by `room`, then smooth it, a few times over: the
-// deer threads between the trunks rather than through them. The ends stay put.
-function clearOfTrunks(path, trunks, room, rounds = 40) {
-  for (let r = 0; r < rounds; r++) {
-    for (let i = 1; i < path.length - 1; i++) {
-      const p = path[i];
-      for (const t of trunks) {
-        const dx = p[0] - t.x, dz = p[1] - t.z, d = Math.hypot(dx, dz), need = room + t.r;
-        if (d < need && d > 1e-6) { p[0] += dx / d * (need - d) * .6; p[1] += dz / d * (need - d) * .6; }
-      }
-    }
-    const copy = path.map(p => p.slice());
-    for (let i = 1; i < path.length - 1; i++) for (const k of [0, 1]) path[i][k] = (copy[i - 1][k] + 2 * copy[i][k] + copy[i + 1][k]) / 4;
-  }
-  return path;
-}
-function measure(path) {
-  const s = [0];
-  for (let i = 1; i < path.length; i++) s.push(s[i - 1] + Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]));
-  return { path, s, length: s[s.length - 1] };
-}
-// where along it at distance d, and which way it runs there (over the next third of a tile, so a
-// point nudged round a trunk doesn't swing the heading)
-function along(P, d) {
-  const at = d => {
-    const { path, s } = P;
-    d = Math.max(0, Math.min(P.length, d));
-    let lo = 0, hi = s.length - 1;
-    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (s[m] <= d) lo = m; else hi = m; }
-    const u = s[hi] > s[lo] ? (d - s[lo]) / (s[hi] - s[lo]) : 0;
-    return [lerp(path[lo][0], path[hi][0], u), lerp(path[lo][1], path[hi][1], u)];
-  };
-  const p = at(d), a = at(d - .15), b = at(d + .35);
-  return { x: p[0], y: p[1], heading: Math.atan2(b[1] - a[1], b[0] - a[0]) };
-}
-// A camera spot near `want` (tiles) with a clear line to `at`: not in a trunk, and no trunk across
-// the sight line (the old forest has a tree on nearly every tile). Tries nearby spots, nearest first.
-function clearView(trunks, want, at, room = .45) {
-  const blocked = (x, y) => trunks.some(t => {
-    if (Math.hypot(x - t.x, y - t.z) < room + t.r) return true;
-    const dx = at[0] - x, dy = at[1] - y, L = Math.hypot(dx, dy), u = ((t.x - x) * dx + (t.z - y) * dy) / (L * L);
-    if (u < 0 || u > 1 - .35 / L) return false;
-    return Math.hypot(x + dx * u - t.x, y + dy * u - t.z) < t.r + .16;
-  });
-  for (let ring = 0; ring <= 24; ring++) for (let k = 0; k < Math.max(1, ring * 6); k++) {
-    const a = k / Math.max(1, ring * 6) * Math.PI * 2, x = want[0] + Math.cos(a) * ring * .08, y = want[1] + Math.sin(a) * ring * .08;
-    if (!blocked(x, y)) return [x, y];
-  }
-  return want;
-}
-const nearest = (P, x, y) => { let best = 0, bd = Infinity; P.path.forEach((p, i) => { const d = Math.hypot(p[0] - x, p[1] - y); if (d < bd) { bd = d; best = i; } }); return P.s[best]; };
-// Distance along a path at each frame: speed v (tiles a second) reached over `accel` seconds from
-// `start`, and if `stop` (a distance) is given, slowing to a stand there.
-function schedule(length, start, v, accel, stop = null) {
-  const out = new Map();
-  let d = 0, speed = 0;
-  for (let f = Math.floor(start * FPS); f <= SECONDS * FPS; f++) {
-    out.set(f, d);
-    const t = f / FPS;
-    let goal = t < start ? 0 : v * smooth(start, start + accel, t + 1 / FPS);
-    if (stop != null) goal = Math.min(goal, Math.sqrt(2 * (v * v / 2.4) * Math.max(0, stop - d)));
-    speed = goal; d = Math.min(stop ?? length, d + speed / FPS);
-  }
-  return f => out.get(f) ?? 0;
-}
 
 // ------------------------------------------------------------------ the two farms
 function startGame() {
@@ -118,10 +43,22 @@ function startGame() {
   g.weather = 'clear'; g.snow = 0;
   return g;
 }
-function restoredFarm(pose) {
+function restoredFarm() {
   const { game: g } = releaseGame('pnw', 'forest'); // (restoredGame: native forest, fence and culvert gone, creek free)
   while (g.month !== 3) g.day++; // June: the meadow green, the maples and alders in full leaf
   g.weather = 'clear'; g.snow = 0;
+  // Clear the crowns round the rise's camera, as staging (the eye would stand inside a tree): the rise
+  // is filmed on both farms from the foot of the falls
+  const w = g.world;
+  for (let y = 5; y <= 11; y++) for (let x = 66; x <= 73; x++) { const i = w.idx(x, y); if (!isWater(w.terrain[i])) { w.tree[i] = 0; w.treeG[i] = 0; w.shrub[i] = 0; } }
+  // Thirty years on, the woods north and east have closed in (the fixture's restored farm plants them
+  // thinly, as a map-audit reference): conifers on about half the open tiles there, staging only
+  const rnd = mulberry32(1987), conifers = ['fir', 'fir', 'cedar', 'hemlock'].map(k => PLANT[k]);
+  for (let i = 0; i < w.n; i++) {
+    const x = i % w.w, y = (i / w.w) | 0;
+    if (!(y < 28 || x > 72) || w.tree[i] || isWater(w.terrain[i]) || w.struct[i] >= 0 || w.feature[i] || (x >= 66 && x <= 73 && y >= 5 && y <= 11)) continue;
+    if (rnd() < .5) { const p = conifers[Math.floor(rnd() * conifers.length)]; w.setPlant(i, p, .75 + rnd() * .25); w.treeAge[i] = (p.matureAge ?? 20) * 120; }
+  }
   return g;
 }
 
@@ -140,7 +77,7 @@ function renderer(g) {
   return r;
 }
 // The eye at a point, looking at another: watch mode's eye-level view (sky, haze, close-up models),
-// placed by the film rather than riding behind an animal.
+// placed by the film rather than riding behind an animal. The look-at keeps the horizon level.
 // fov: the vertical field of view in degrees (the eye's own is 50; less is a longer lens).
 function eyeAt(r, pos, look, fov = 50) {
   r.eyeAgent = null; r.followAgent = null; r.eyeWalk = true;
@@ -153,226 +90,136 @@ function eyeAt(r, pos, look, fov = 50) {
     if (Math.abs(this.camera.fov - fov) > 1e-4) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
   };
 }
-// The top of the falls (tile 69,6): the eye stands over the plunge pool just below the lip, at the
-// lip's height, looking up the creek to the forest edge, so the water runs toward it and drops away
-// under the frame. Both farms use it: the restored farm's rise starts from the same view.
-const FC = [69.55, 7.7], LIP = [69.5, 5.3], EYE_UP = .55;
-const fallsFov = t => lerp(50, 30, smooth(25.6, 28.6, t));
 function mapAt(r, x, y, zoom, az) {
   r.eyeWalk = false; r.setEyeLevel(null);
   r.zoom = zoom; r.az = r.azTarget = az; r.centerOn(x, y);
+}
+
+// ------------------------------------------------------------------ the plan's animals
+// How each of the plan's poses is staged for the game's drawing (the drawing reads a.state, a.hunt,
+// a.forage, a.alertT and a.run): browsing and grazing heads down, alert heads up, the cougar's crouch
+// and creep (hunt phase creep: low, head forward), its rush, and the jumps (hunt.leap: the pounce arc).
+function poseState(pose, p, foodTile) {
+  switch (pose) {
+    case 'browse': return { state: 'forage', forage: { food: 'forb', i: foodTile }, hunt: null, alertT: 0, run: 1 };
+    case 'graze': return { state: 'forage', forage: { food: 'grass', i: foodTile }, hunt: null, alertT: 0, run: 1 };
+    case 'alert': case 'stand': return { state: 'idle', forage: null, hunt: null, alertT: 99, run: 1 };
+    case 'walk': return { state: 'idle', forage: null, hunt: null, alertT: 0, run: 1 };
+    case 'run': return { state: 'flee', forage: null, hunt: null, alertT: 99, run: 2.6 };
+    case 'leap': return { state: 'hunt', forage: null, hunt: { leap: { u: p.leap, arc: p.arc } }, alertT: 99, run: 2.6 };
+    case 'crouch': case 'creep': return { state: 'hunt', forage: null, hunt: { phase: 'creep' }, alertT: 0, run: .5 };
+    case 'rush': return { state: 'hunt', forage: null, hunt: { phase: 'rush' }, alertT: 0, run: 2.4 };
+    case 'pounce': return { state: 'hunt', forage: null, hunt: { phase: 'rush', leap: { u: p.leap, arc: p.arc } }, alertT: 0, run: 2.4 };
+  }
+  throw Error('No staging for pose ' + pose);
+}
+function castOf(g, farm) {
+  const W = g.wildlife, cast = {}, defs = {};
+  for (const [name, A] of Object.entries(ANIMALS)) {
+    if (A.farm !== farm) continue;
+    const def = g.catalog.animal[A.species], p = animalAt(name, -1);
+    if (name === 'doe') while (isMaleVariant(def, { id: W.nextId, age: 600 })) W.nextId++; // (a doe: no antlers in March)
+    const a = W.spawn(def, p.x, p.y, { silent: true, age: A.species === 'cougar' ? 700 : 600 });
+    Object.assign(a, { wait: 1e9, hunger: 0, thirst: 0, path: null, heading: p.heading });
+    cast[name] = a; defs[name] = def;
+  }
+  W.recount?.();
+  const last = new Map(), w = g.world;
+  const browseTile = (() => { for (let i = 0; i < w.n; i++) if (w.shrub[i] && w.shrubG[i] > .4) return i; return 0; })();
+  // place them for film frame f: where the plan has them at that frame's real time
+  const stage = f => {
+    const real = realAt(f / FPS);
+    for (const [name, a] of Object.entries(cast)) {
+      const p = animalAt(name, real), def = defs[name], q = last.get(name), moved = q ? Math.hypot(p.x - q.x, p.y - q.y) : 0;
+      // (the legs keep the game's own pace for the ground covered: stride.js groundPace = 1)
+      a.phase += moved * 6 * (def.sprite.beat ?? 1) / Math.max(.05, travelSpeed(def));
+      a.x = a.tx = p.x; a.y = a.ty = p.y; a.heading = p.heading;
+      const tile = w.inb(Math.floor(p.x), Math.floor(p.y)) ? w.idx(Math.floor(p.x), Math.floor(p.y)) : browseTile;
+      Object.assign(a, poseState(p.pose, p, p.pose === 'browse' ? browseTile : tile), { wait: 1e9, path: null, hunger: 0, thirst: 0 });
+      last.set(name, { x: p.x, y: p.y });
+    }
+  };
+  // Staging (film only): the game draws a walker level, so one facing up or down a slope has its
+  // uphill hooves in the ground (f3.md). The film pitches its cast to the drawn ground along the way
+  // each faces (st.pitch, which the drawing adds to the pose; ground walkers never set it), front and
+  // back hooves a third of a body length either side, eased a little so tile edges don't flick it.
+  const tilt = (r, ground) => {
+    for (const a of Object.values(cast)) {
+      const st = r.actors.pose.get(a.id); if (!st) continue;
+      const L = (st.foot || .5) * .32, c = Math.cos(st.yaw), s = Math.sin(st.yaw);
+      const want = Math.atan2(ground(a.x + c * L, a.y - s * L) - ground(a.x - c * L, a.y + s * L), 2 * L);
+      st.pitch = st.pitch == null ? want : st.pitch + (want - st.pitch) * .5;
+    }
+  };
+  return { cast, stage, tilt };
 }
 
 // ------------------------------------------------------------------ one layer
 async function filmLayer(name) {
   const L = LAYERS.find(l => l.name === name);
   if (!L) throw Error('Unknown layer ' + name);
-  const placed = [];
-  let g, r, stage = () => {}, camera, simulate = null;
-  // the animals the motion check follows (tools/intro-film-motion.mjs), and the ground it
-  // gathers trunks, logs and bushes from
-  let cast = {}, box = { x0: 38, x1: 90, z0: -16, z1: 30 };
-  const ground = (x, y) => r.heightAtScene(x, y);
-  const p3 = (x, y, up) => ({ x, y: ground(x, y) + up, z: y });
-
+  const shot = SHOTS.find(s => s.n === L.shot), camShot = L.cameraOf != null ? SHOTS.find(s => s.n === L.cameraOf) : shot;
+  let g, r, stage = () => {}, tilt = () => {}, camera, simulate = null, cast = {}, box;
   if (L.game === 'start') {
     g = startGame();
     r = renderer(g);
-    const W = g.wildlife;
-    // Settle the whole land once from the forest, so the trunks' places (flora.treeSites) are known
     mapAt(r, 60, -4, 1.2, Math.PI / 4);
-    settle(r, g);
-    const trunks = [...r.flora.treeSites.values()].map(s => ({ x: s.transform[0], z: s.transform[2], r: .1 + .12 * Math.min(1.5, s.transform[3] || 1) }))
-      .filter(t => t.z < 8 && t.x > 38 && t.x < 90);
-
-    // ---- the chase: the deer's line through the old forest, out over the fence, away down the field
-    const deerLine = measure(clearOfTrunks(polyline([
-      [48.3, -8.6], [50.5, -9.8], [53.8, -7.6], [57.2, -9.0], [60.6, -6.6], [63.8, -7.4], [66.6, -4.6], [69.4, -2.6],
-      [71.0, -.6], [71.4, 1.6], [71.9, 4.2], [72.8, 7.6], [75.2, 12.2], [78.6, 17.6], [81, 22],
-    ]), trunks.filter(t => t.z < -.8), .34));
-    const deerAt = schedule(deerLine.length, BEATS.bolt, 3.25, .45);
-    // (the leap: over the fence along row 0, from where the line leaves the trees to the field)
-    const leapFrom = nearest(deerLine, 70.95, -.9), leapTo = leapFrom + 1.9;
-    let fenceT = null;
-    for (let f = BEATS.bolt * FPS; f < SECONDS * FPS; f++) if (deerAt(f) >= leapFrom) { fenceT = f / FPS; break; }
-    BEATS.fence = fenceT;
-    // The cougar: from its cover onto the deer's line a little behind it, and along it to the last
-    // trees, where it slows to a stand (the edge: E)
-    const cover = [51.7, -10.7], E = [70.35, -1.75];
-    const joinAt = 5.2, edgeAt = nearest(deerLine, 69.2, -2.7);
-    const catLine = measure(clearOfTrunks(polyline([cover, ...deerLine.path.filter((_, i) => deerLine.s[i] >= joinAt && deerLine.s[i] <= edgeAt).filter((_, i) => i % 6 === 0), E]),
-      trunks.filter(t => t.z < -1.2), .3));
-    const catAt = schedule(catLine.length, BEATS.breakCover, 2.65, .5, catLine.length);
-    let catStop = null; for (let f = Math.ceil(BEATS.breakCover * FPS); f < SECONDS * FPS; f++) if (catAt(f) >= catLine.length - .06) { catStop = f / FPS; break; }
-
-    // a doe (no antlers in March) and an adult cougar
-    const doe = g.catalog.animal.deer, cat = g.catalog.animal.cougar;
-    while (isMaleVariant(doe, { id: W.nextId, age: 600 })) W.nextId++;
-    const deer = W.spawn(doe, 48, -9, { silent: true, age: 600 });
-    const cougar = W.spawn(cat, 51, -11, { silent: true, age: 700 });
-    const browseTile = (() => { const w = g.world; for (let i = 0; i < w.n; i++) if (w.shrub[i] && w.shrubG[i] > .4) return i; return 0; })();
-    for (const a of [deer, cougar]) Object.assign(a, { wait: 1e9, hunger: 0, thirst: 0, path: null });
-    cast = { deer, cougar };
-    const last = new Map();
-    const place = (a, def, x, y, heading) => {
-      const p = last.get(a.id), moved = p ? Math.hypot(x - p.x, y - p.y) : 0;
-      // (the legs keep the game's own pace for the ground covered: stride.js groundPace = 1)
-      a.phase += moved * 6 * (def.sprite.beat ?? 1) / Math.max(.05, travelSpeed(def));
-      a.x = a.tx = x; a.y = a.ty = y; if (heading != null) a.heading = heading;
-      last.set(a.id, { x, y });
-    };
-    stage = f => {
-      const t = f / FPS;
-      // the deer: browsing ferns, head up at headUp, then away
-      if (t < BEATS.bolt) {
-        place(deer, doe, 48.3, -8.6, along(deerLine, .9).heading);
-        if (t < BEATS.headUp) Object.assign(deer, { state: 'forage', forage: { food: 'forb', i: browseTile }, alertT: 0, run: 1 });
-        else Object.assign(deer, { state: 'idle', forage: null, alertT: 99, run: 1 });
-      } else {
-        const d = deerAt(f), p = along(deerLine, d);
-        place(deer, doe, p.x, p.y, p.heading);
-        const u = (d - leapFrom) / (leapTo - leapFrom);
-        if (u > 0 && u < 1) Object.assign(deer, { state: 'hunt', hunt: { leap: { u, arc: .75 } }, run: 2.6 });
-        else Object.assign(deer, { state: 'flee', hunt: null, forage: null, alertT: 99, run: 2.6 });
-      }
-      // the cougar: low in cover, then the rush, then a stand at the last trees, watching
-      const c = catAt(f), q = along(catLine, c);
-      const toward = Math.atan2(-8.6 - cover[1], 48.3 - cover[0]);
-      if (t < BEATS.breakCover) { place(cougar, cat, cover[0], cover[1], toward); Object.assign(cougar, { state: 'hunt', hunt: { phase: 'creep' }, run: .5 }); }
-      else if (c < catLine.length - .06) {
-        place(cougar, cat, q.x, q.y, q.heading);
-        Object.assign(cougar, { state: 'hunt', hunt: { phase: t < BEATS.breakCover + .7 ? 'creep' : 'rush' }, run: 2.4, alertT: 0 });
-      } else {
-        // (watching the deer go: it turns its head and shoulders after it, slowly)
-        const dp = along(deerLine, deerAt(f)), look = Math.atan2(dp.y - E[1], dp.x - E[0]);
-        const h = cougar.heading + Math.atan2(Math.sin(look - cougar.heading), Math.cos(look - cougar.heading)) * .04;
-        place(cougar, cat, E[0], E[1], h); Object.assign(cougar, { state: 'idle', hunt: null, alertT: 99, run: 1 });
-      }
-    };
-
-    // ---- the cameras
-    const fallsLook = [E[0] + .3, E[1] + .2];
-    const eye = { pos: null, look: null };
-    // the forest shot: from the south of the browsing deer, a slow push in, the sight line clear of trunks
-    // (the sight line runs to the deer's head, a little ahead of its middle along the way it faces)
-    const deerSpot = [48.3, -8.6], h0 = along(deerLine, .9).heading, head = [deerSpot[0] + Math.cos(h0) * .3, deerSpot[1] + Math.sin(h0) * .3];
-    const c0 = clearView(trunks, [47.85, -6.2], head), c1 = clearView(trunks, [lerp(c0[0], head[0], .18), lerp(c0[1], head[1], .18)], head);
-    if (name === 'forest') camera = f => {
-      const t = f / FPS, u = smooth(L.from, L.to, t);
-      eyeAt(r, p3(lerp(c0[0], c1[0], u), lerp(c0[1], c1[1], u), .46), p3(lerp(deerSpot[0], head[0], .5), lerp(deerSpot[1], head[1], .5), .34 + .1 * smooth(BEATS.headUp - .4, BEATS.headUp + .8, t)));
-    };
-    if (name === 'chase') {
-      // the forest shot's last framing, then riding alongside the chase on its right (south) side
-      const start = { pos: p3(c1[0], c1[1], .46), look: p3(lerp(deerSpot[0], head[0], .5), lerp(deerSpot[1], head[1], .5), .44) };
-      let pos = { ...start.pos }, look = { ...start.look };
-      camera = f => {
-        const t = f / FPS, dt = 1 / FPS, k = smooth(BEATS.bolt, BEATS.bolt + 1.2, t);
-        const dp = along(deerLine, deerAt(f)), cp = along(catLine, catAt(f));
-        const dx = Math.cos(dp.heading), dy = Math.sin(dp.heading);
-        const lx = lerp(cp.x, dp.x, .62), ly = lerp(cp.y, dp.y, .62);
-        const [gx, gy] = clearView(trunks, [dp.x - dx * .9 - dy * 1.45, dp.y - dy * .9 + dx * 1.45], [lx, ly], .4);
-        const kp = 1 - Math.exp(-dt * 2.2 * k), kl = 1 - Math.exp(-dt * 3.5 * k);
-        pos.x += (gx - pos.x) * kp; pos.z += (gy - pos.z) * kp; pos.y = ground(pos.x, pos.z) + .5;
-        look.x += (lx - look.x) * kl; look.z += (ly - look.z) * kl; look.y = ground(look.x, look.z) + .38;
-        eyeAt(r, pos, look);
-      };
-    }
-    if (name === 'falls') {
-      let look = null;
-      camera = f => {
-        const t = f / FPS, dt = 1 / FPS;
-        const dp = along(deerLine, deerAt(f)), cp = along(catLine, catAt(f));
-        // (between the two while the deer is near, then settling on the cougar at the edge: the
-        // last framing is fixed, so the restored farm's rise starts from exactly this view)
-        const near = Math.min(1, 9 / Math.max(1, Math.hypot(dp.x - FC[0], dp.y - FC[1]) + Math.hypot(dp.x - cp.x, dp.y - cp.y) * .3));
-        const gx = lerp(lerp(cp.x, dp.x, .45 * near + .1), fallsLook[0], smooth(26.5, 29.2, t));
-        const gy = lerp(lerp(cp.y, dp.y, .45 * near + .1), fallsLook[1], smooth(26.5, 29.2, t));
-        if (!look) look = { x: 70.8, z: -.6 };
-        const kl = 1 - Math.exp(-dt * 2.4);
-        look.x += (gx - look.x) * kl; look.z += (gy - look.z) * kl;
-        if (t >= 29.2) { look.x = fallsLook[0]; look.z = fallsLook[1]; }
-        eyeAt(r, { x: FC[0], y: ground(LIP[0], LIP[1]) + EYE_UP, z: FC[1] }, { x: look.x, y: ground(look.x, look.z) + .45, z: look.z }, fallsFov(t));
-      };
-    }
-    if (name === 'start') {
-      // The first visit's start view, exactly (Renderer.resetView), with the farm's own animals
-      // living, and the posed pair gone
-      W.remove(deer, 'film'); W.remove(cougar, 'film'); cast = {};
-      stage = () => {};
-      simulate = film => { let days = film * ANIMAL_SPEEDS[1]; while (days > 0) { const d = Math.min(days, .05); g.wildlife.update(d); g.visitors.update(d); days -= d; } };
-      g.speed = 1; g.wildlife.lifePace = SPEEDS[1] / ANIMAL_SPEEDS[1];
-      camera = () => { const v = r.startView; mapAt(r, v.x, v.y, v.zoom, v.az); };
-    }
-    window.introFilm.paths = { deer: deerLine.length, cougar: catLine.length, fence: fenceT, catStop, forestCamera: [c0, c1], trunks: trunks.length, hash: deerLine.path.reduce((h, p) => (h * 31 + Math.round(p[0] * 100) + Math.round(p[1] * 100) * 7) % 1e9, 7) };
-    g.speed = 1; // (the walker drawing strides only while the game runs; nothing here steps the simulation but `start`)
+    box = { x0: 38, x1: 90, z0: -16, z1: 30 };
   } else {
     g = restoredFarm();
-    const pose = posing(g, placed);
-    // Clear the crowns round the falls camera and between it and the edge, as staging (the eye would
-    // stand inside a tree): the rise starts from the falls view
-    const w = g.world;
-    for (let y = 5; y <= 11; y++) for (let x = 66; x <= 73; x++) { const i = w.idx(x, y); if (!isWater(w.terrain[i])) { w.tree[i] = 0; w.treeG[i] = 0; w.shrub[i] = 0; } }
-    // Thirty years on, the woods north and east have closed in (the fixture's restored farm plants them
-    // thinly, as a map-audit reference): conifers on about half the open tiles there, staging only
-    const rnd = mulberry32(1987), conifers = ['fir', 'fir', 'cedar', 'hemlock'].map(k => PLANT[k]);
-    for (let i = 0; i < w.n; i++) {
-      const x = i % w.w, y = (i / w.w) | 0;
-      if (!(y < 28 || x > 72) || w.tree[i] || isWater(w.terrain[i]) || w.struct[i] >= 0 || w.feature[i] || (x >= 66 && x <= 73 && y >= 5 && y <= 11)) continue;
-      if (rnd() < .5) { const p = conifers[Math.floor(rnd() * conifers.length)]; w.setPlant(i, p, .75 + rnd() * .25); w.treeAge[i] = (p.matureAge ?? 20) * 120; }
-    }
-    // Roosevelt elk in the meadow below the start view's middle, then left to live (watch pace off:
-    // normal pace, so they graze rather than hurry); a black-tailed doe and fawn by the forest
-    const herd = [pose('elk', 49, 31, 'land', -.4), pose('elk', 50, 33, 'land', .3), pose('elk', 47, 32, 'land', -1.2), pose('elk', 52, 31, 'land', .9), pose('elk', 48, 34, 'land', 2.2),
-      pose('deer', 42, 36, 'land', .2)];
-    herd.forEach((a, n) => { a.wait = .05 + n * .04; });
-    cast = Object.fromEntries(herd.map((a, n) => [n < 5 ? 'elk' + (n + 1) : 'deer', a])); box = { x0: 36, x1: 80, z0: -4, z1: 40 };
-    g.wildlife.recount();
     r = renderer(g); r.setWorld(g);
-    g.speed = 1; g.wildlife.lifePace = SPEEDS[1] / ANIMAL_SPEEDS[1];
+    box = { x0: 36, x1: 80, z0: -4, z1: 40 };
+  }
+  settle(r, g);
+  const ground = meshGround(r);
+  if (name === 'start') {
+    // The first visit's start view, exactly (Renderer.resetView), with the farm's own animals living
     simulate = film => { let days = film * ANIMAL_SPEEDS[1]; while (days > 0) { const d = Math.min(days, .05); g.wildlife.update(d); g.visitors.update(d); days -= d; } };
-    const fallsLook = [70.65, -1.55];
-    if (name === 'rise') camera = f => {
-      const t = f / FPS, u = smooth(L.from, L.to, t), v = smooth(L.from + .3, L.to, t);
-      // from the falls view up and back, turning to look north-west and down like the usual view (34°)
-      const h0 = Math.atan2(fallsLook[1] - FC[1], fallsLook[0] - FC[0]), h1 = Math.atan2(-1, -1);
-      const yaw = h0 + Math.atan2(Math.sin(h1 - h0), Math.cos(h1 - h0)) * v;
-      const pitch = lerp(Math.atan2(ground(fallsLook[0], fallsLook[1]) + .45 - ground(LIP[0], LIP[1]) - EYE_UP, Math.hypot(fallsLook[0] - FC[0], fallsLook[1] - FC[1])), -34 * Math.PI / 180, v);
-      const x = lerp(FC[0], 73, u), y = lerp(FC[1], 14.5, u), base = ground(LIP[0], LIP[1]) + EYE_UP;
-      const pos = { x, y: base + lerp(0, 9, u * u * (3 - 2 * u)), z: y }, c = Math.cos(pitch);
-      eyeAt(r, pos, { x: pos.x + Math.cos(yaw) * c * 5, y: pos.y + Math.sin(pitch) * 5, z: pos.z + Math.sin(yaw) * c * 5 }, lerp(fallsFov(L.from), 50, smooth(L.from, L.from + 1.6, t)));
-    };
-    if (name === 'overview') {
-      const end = r.startView;
-      camera = f => {
-        const t = f / FPS, u = smooth(L.from, 36.6, t), e = u; // (eased in and out, then held)
-        mapAt(r, lerp(62.5, end.x, e), lerp(5.5, end.y, e), Math.exp(lerp(Math.log(1.35), Math.log(end.zoom), e)), end.az);
-      };
+    g.wildlife.lifePace = SPEEDS[1] / ANIMAL_SPEEDS[1];
+  } else {
+    ({ cast, stage, tilt } = castOf(g, L.game));
+    if (L.game === 'restored') {
+      // the rest of the restored farm's wildlife lives (the staged elk are placed again after each step)
+      g.wildlife.lifePace = SPEEDS[1] / ANIMAL_SPEEDS[1];
+      simulate = film => { let days = film * ANIMAL_SPEEDS[1]; while (days > 0) { const d = Math.min(days, .05); g.wildlife.update(d); g.visitors.update(d); days -= d; } };
     }
+  }
+  g.speed = 1; // (the walker drawing strides only while the game runs)
+  if (camShot.camera.map) {
+    const end = r.startView;
+    camera = f => { const v = name === 'start' ? end : planMap(camShot, f / FPS, end); mapAt(r, v.x, v.y, v.zoom, v.az); };
+  } else {
+    camera = f => {
+      // (the renderer's smooth ground for the camera's heights: the drawn mesh's triangles give a
+      // smoothed look tiny kinks, and a point on a triangle's edge can fall back to another ground)
+      const c = cameraAt(camShot, f / FPS, (x, y) => r.heightAtScene(x, y));
+      eyeAt(r, { x: c.pos[0], y: c.pos[2], z: c.pos[1] }, { x: c.look[0], y: c.look[2], z: c.look[1] }, c.fov);
+    };
   }
   const tod = TIME_OF_DAY[name];
   const first = Math.round(L.from * FPS), lastFrame = Math.min(SECONDS * FPS - 1, Math.round(L.to * FPS) - 1);
-  // the restored farm's animals live from 30 s (the rise), so the overview finds them where the rise left them
-  const simFrom = Math.round(30 * FPS);
+  const begin = Math.max(0, first - WARM);
+  // the restored farm's wildlife lives from its first layer's start, so each finds it where the last left it
   if (simulate) {
-    const from = L.game === 'restored' ? simFrom : first;
-    for (let f = from; f < first; f++) simulate(1 / FPS);
+    const from = L.game === 'restored' ? Math.max(0, Math.round(LAYERS.find(l => l.game === 'restored').from * FPS) - WARM) : begin;
+    for (let f = from; f < begin; f++) simulate(rateAt(f / FPS) / FPS);
   }
-  stage(first); camera(first);
+  stage(begin); camera(begin);
   settle(r, g);
   let clock = 1e6;
-  // One frame staged and drawn. Frames must come in order (the cameras ease from the last frame).
-  // step: film frames this many apart (a rough cut at 10 fps films every third), the world's clock
-  // and the simulation still run through the frames skipped.
-  let at = first;
+  // One frame staged and drawn. Frames must come in order. Frames before `first` (the warm-up) and
+  // those skipped by a rough cut (every third) are staged and posed, not drawn.
+  let at = begin;
   function advance(f) {
     for (; at <= f; at++) {
-      const t = at / FPS;
-      if (at > first && simulate) simulate(1 / FPS);
-      stage(at); camera(at);
-      r.todClock = lerp(tod[0], tod[1], (t - L.from) / (L.to - L.from)) * DAY_CYCLE;
-      clock += 1000 / FPS; r.diagnosticTime = clock;
-      if (at < f) { const draw = r.gl.render; r.gl.render = () => {}; r.draw(g, ui, at > first ? 1 / FPS : 0); r.gl.render = draw; continue; } // (posed, not drawn)
-      r.draw(g, ui, at > first ? 1 / FPS : 0);
+      const t = at / FPS, rate = rateAt(t);
+      if (at > begin && simulate) simulate(rate / FPS);
+      stage(at); tilt(r, ground); camera(at);
+      r.todClock = lerp(tod[0], tod[1], Math.max(0, (t - L.from) / (L.to - L.from))) * DAY_CYCLE;
+      clock += 1000 / FPS * rate; r.diagnosticTime = clock;
+      const dt = at > begin ? rate / FPS : 0;
+      if (at < f) { const draw = r.gl.render; r.gl.render = () => {}; r.draw(g, ui, dt); r.gl.render = draw; continue; } // (posed, not drawn)
+      r.draw(g, ui, dt);
     }
   }
   async function frame(f) {

@@ -191,10 +191,10 @@ try {
         // live view shows more or less ground at other window shapes, the same middle and scale.
         camera: { x: +camera.target.x.toFixed(4), y: +camera.target.z.toFixed(4), groundHeight: +camera.target.y.toFixed(4), zoom: camera.zoom, az: camera.az, timeOfDay: +camera.timeOfDay.toFixed(4), pixelsPerTile: camera.ppu, width: camera.width, height: camera.height, resetView: true },
       },
-      beats: { ...BEATS, fence: +JSON.parse(await readFile(framesDir + 'falls.json', 'utf8')).beats.fence.toFixed(2) },
+      beats: Object.fromEntries(Object.entries(BEATS).map(([k, v]) => [k, +v.toFixed(2)])),
       layers: LAYERS,
       look: 'Balanced detail, shadows on, no weather, 1920×1080 at a pixel ratio of 1',
-      staging: 'Start game: the farm as a first visit opens it (seed 1987, run seed 20261121). The deer and cougar are posed and moved along planned lines that thread the old forest\'s trunks, drawn by the game\'s own walker drawing (stride, gallop, head, crouch; the deer\'s leap over the fence is the pounce arc). Restored game: release-fixtures\' restored PNW (the fence and culvert gone), September, elk and a deer posed in the meadow and then living by the simulation. Nothing is painted or generated.',
+      staging: 'Staged from the approved shot list (tools/intro-film-plan.mjs): one camera per shot, eased moves and smoothed looks. Start game: the farm as a first visit opens it (seed 1987, run seed 20261121); the doe and the cougar are posed and moved along the plan\'s paths at real speeds (smooth curves through its marks), pitched to the slope, drawn by the game\'s own walker drawing (stride, gallop, head, crouch; the doe\'s fence jump and the cougar\'s pounce are the pounce arc), with 1.5 s of half-speed slow motion at the pounce. Restored game: release-fixtures\' restored PNW (the fence and culvert gone), June, three elk staged in the meadow, the rest of its wildlife living by the simulation. Nothing is painted or generated.',
       sound: SOUND.map(s => ({ ...credit(s.file), at: s.at })),
       outputs,
     }, null, 2) + '\n');

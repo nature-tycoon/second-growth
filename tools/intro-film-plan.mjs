@@ -61,7 +61,7 @@ export const ANIMALS = {
       [18.75, 69.8, -3.0, 'run', 'the cougar lands a body length behind her'],
       [19.44, 70.1, -2.0, 'run', ''],
       [20.37, 70.95, -0.9, 'run', 'out between the last trees'],
-      [20.97, 71.1, 0.0, 'leap', 'takes off'],
+      [20.89, 71.08, -0.12, 'leap', 'takes off'], // (F3: 1 m earlier than F2's 71.1, 0.0 at 20.97 s: a hollow along the fence line sank her hooves 0.036 as she gathered; the arc still tops out over the fence)
       [21.66, 71.25, 1.1, 'run', 'lands in the field'],
       [22.62, 71.6, 2.5, 'run', ''],
       [24.41, 72.15, 5.1, 'run', 'past the waterfall on the far bank'],
@@ -104,7 +104,7 @@ export const SHOTS = [
     sound: 'creek and wind fade up; a raven far off',
   },
   {
-    n: 1, from: 1.5, to: 5.5, fadeIn: 1, title: 'The opening', farm: 'start', subjects: ['doe', 'cougar'],
+    n: 1, layer: 'opening', from: 1.5, to: 5.5, fadeIn: 1, title: 'The opening', farm: 'start', subjects: ['doe', 'cougar'],
     see: 'Misty old forest, morning sun through the gap where the creek runs out of the trees. A doe browses in the salmonberry, side-on, head down. Low in the sword ferns at the left of the frame, too small to notice, the cougar is already there.',
     camera: { move: 'very slow push in', lens: 'wide', fov: 46, pos: [69.35, -0.75, .4], to: [69.33, -1.05, .4], look: [68.95, -5.2, .26] },
     where: 'At the forest edge, in the creek\'s opening, looking north up it',
@@ -112,7 +112,7 @@ export const SHOTS = [
     sound: 'creek, wind in the firs, a Pacific wren',
   },
   {
-    n: 2, from: 5.5, to: 8.5, title: 'Her ears', farm: 'start', subjects: ['doe'],
+    n: 2, layer: 'ears', from: 5.5, to: 8.5, title: 'Her ears', farm: 'start', subjects: ['doe'],
     see: 'Close on the doe\'s head and ears as she chews: one ear turns back, then the other. She doesn\'t look up.',
     camera: { move: 'still', lens: 'long', fov: 5.5, pos: [72.55, -1.86, .3], look: ['doe', 'head'] },
     where: 'Low, 34 m off to the south-east, between the alders',
@@ -120,7 +120,7 @@ export const SHOTS = [
     sound: 'close: her chewing, a twig; the creek behind',
   },
   {
-    n: 3, from: 8.5, to: 12, title: 'The cougar', farm: 'start', subjects: ['cougar'],
+    n: 3, layer: 'eyes', from: 8.5, to: 12, title: 'The cougar', farm: 'start', subjects: ['cougar'],
     see: 'Long lens, low among the ferns: two eyes and the shoulders of a cougar, flat to the ground, fixed on the doe. It was there in the first shot. At 9.8 s it starts to creep.',
     camera: { move: 'still', lens: 'long', fov: 5.5, pos: [71.35, -3.04, .25], look: ['cougar', 'head'] },
     where: 'Low at the forest edge, 30 m south-east of the cougar, so it looks almost toward us',
@@ -128,23 +128,25 @@ export const SHOTS = [
     sound: 'the forest goes quiet; wind only',
   },
   {
-    n: 4, from: 12, to: 15.5, title: 'The stalk', farm: 'start', subjects: ['cougar', 'doe'],
+    n: 4, layer: 'stalk', from: 12, to: 15.5, title: 'The stalk', farm: 'start', subjects: ['cougar', 'doe'],
     see: 'Both in one frame from the side: the cougar at left creeps a paw at a time toward the doe at right, freezes when her ear flicks, creeps on. She keeps browsing.',
-    camera: { move: 'still', lens: 'medium-long', fov: 22, pos: [68.75, -0.85, .32], look: [68.95, -5.15, .24] },
+    camera: { move: 'still', lens: 'medium-long', fov: 22, pos: [68.75, -1.25, .32], look: [68.95, -5.15, .24] },
+    // (F3: 0.4 tiles further up the opening than F2's 68.75, -0.85: there a trunk hid the crouched cougar's body half the shot, as drawn)
     where: 'At the forest edge, 35 m south, between the two',
     animals: 'Cougar creeps from 13 m to 9 m. Doe browses.',
     sound: 'wind; one soft crack under a paw at 15.8 s',
   },
   {
-    n: 5, from: 15.5, to: 17.35, title: 'Head up', farm: 'start', subjects: ['doe'],
+    n: 5, layer: 'headup', from: 15.5, to: 17.35, title: 'Head up', farm: 'start', subjects: ['doe'],
     see: 'Back to the close on the doe: her head snaps up, ears forward, frozen.',
-    camera: { move: 'still', lens: 'long', fov: 8, pos: [72.55, -1.86, .3], look: [69.66, -4.94, .5] },
+    camera: { move: 'still', lens: 'long', fov: 9.5, pos: [72.55, -1.86, .3], look: [69.66, -4.94, .5] },
+    // (F3: 9.5°, not 8°: as drawn, her whirl at 16.7 s crossed the 8° frame at 0.78 widths a second, limit 0.7)
     where: 'As shot 2',
     animals: 'Doe head up at 16.0 s, still.',
     sound: 'silence but the creek',
   },
   {
-    n: 6, from: 17.35, to: 20.6, title: 'The burst', farm: 'start', subjects: ['doe', 'cougar'],
+    n: 6, layer: 'burst', from: 17.35, to: 20.6, title: 'The burst', farm: 'start', subjects: ['doe', 'cougar'],
     see: 'Wider: she springs away down the opening toward us, the cougar explodes out of the ferns behind her. The pounce in slow motion (17.75–19.25 s, half speed): it lands a body length short. Back to full speed, she veers right past us and out of frame; the cougar runs on.',
     camera: { move: 'still, panning gently with the doe', lens: 'normal', fov: 38, pos: [69.15, -0.2, .36], look: { follow: { doe: .6, cougar: .4 } } },
     where: 'In the creek opening at the forest edge, low',
@@ -152,7 +154,7 @@ export const SHOTS = [
     sound: 'crash of ferns, hooves; the slow motion\'s sound drops to a low hush',
   },
   {
-    n: 7, from: 20.6, to: 24, title: 'Over the fence', farm: 'start', subjects: ['doe', 'cougar'],
+    n: 7, layer: 'fence', from: 20.6, to: 24, title: 'Over the fence', farm: 'start', subjects: ['doe', 'cougar'],
     see: 'The open field from beside the waterfall: the forest edge and the old fence behind. The doe bursts out of the trees, clears the fence and bounds down the far bank of the creek, past the falls. The cougar arrives at the last trees and stops.',
     camera: { move: 'still', lens: 'normal', fov: 44, pos: [63.9, 5.9, .45], look: [70.8, 2.5, .3] },
     where: 'In the field west of the creek, below the falls, looking north-east',
@@ -160,7 +162,7 @@ export const SHOTS = [
     sound: 'the waterfall swells; hooves on grass',
   },
   {
-    n: 8, from: 24, to: 26.8, title: 'It watches', farm: 'start', subjects: ['cougar'],
+    n: 8, layer: 'watch', from: 24, to: 26.8, title: 'It watches', farm: 'start', subjects: ['cougar'],
     see: 'Long lens on the cougar at the edge of the trees: it stands, tail tip flicking, head turning slowly to follow the doe. It does not step out into the open.',
     camera: { move: 'still', lens: 'long', fov: 9, pos: [70.66, 4.0, .4], look: ['cougar', 'head', 'stand'] },
     where: 'On the creek\'s east bank above the falls, 39 m south',
@@ -168,23 +170,32 @@ export const SHOTS = [
     sound: 'waterfall; a crow calls',
   },
   {
-    n: 9, from: 26.8, to: 30, title: 'The rise', farm: 'start',
+    n: 9, layer: 'rise', from: 26.8, to: 30, title: 'The rise', farm: 'start',
     see: 'From beside the falls the camera rises slowly and turns west over the bare farm: the fence, the straightened creek, the bare field. The cougar a speck at the forest edge.',
-    camera: { move: 'smooth rise and turn', lens: 'normal', fov: 40, pos: [69.2, 9.2, .5], to: [70.0, 11.5, 3.0], look: [70.2, -1.0, .3], lookTo: [64, 2, 0] },
+    camera: { move: 'smooth rise and turn', lens: 'normal', fov: 40, pos: [69.2, 9.2, .5], to: [70.0, 11.5, 2.7], look: [70.2, -1.0, .3], lookTo: [64, 2, 0], until: 31.4 },
+    // (the move runs on to 31.4 s under the dissolve: shot 10 films its second half on the restored farm)
     where: 'Starts at the foot of the falls, ends about 20 m up, a little south',
     animals: 'Cougar still at the edge.',
     sound: 'waterfall fades, wind',
   },
   {
-    n: 10, from: 29.2, to: 32.2, fadeIn: .8, title: '30 years on', farm: 'restored', subjects: ['elk1', 'elk2', 'elk3'],
+    n: 10, layer: 'overview', from: 29.2, to: 32.2, fadeIn: .8, title: '30 years on', farm: 'restored', subjects: ['elk1', 'elk2', 'elk3'],
     see: 'Dissolve, mid-rise, to the same farm 30 years on: old forest closed in, the creek free and winding, no fence. The usual high view glides gently to where the game starts: elk grazing in the meadow.',
-    camera: { move: 'slow glide (map view)', lens: 'map', map: { from: { x: 60, y: 21, zoom: .9 }, to: { x: 44, y: 38, zoom: .62 }, az: Math.PI / 4 } },
+    camera: {
+      move: 'the rise, on the restored farm, then a slow glide (map view)', lens: 'map',
+      // the dissolve at 29.2 s is mid-rise, with the same camera on both farms (Cole, f2.md 5); the rise
+      // films on to 31.4 s as layer rise30, and the map view dissolves over its end from 30.8 s
+      rise: { layer: 'rise30', of: 9, until: 31.4 }, glide: { from: 30.8, fade: .6, until: 32.6 },
+      // (F3: the glide starts nearer, at 52, 30, zoom .75, not 60, 21, .9, and eases until 32.6 s under the
+      // last dissolve: from 60, 21 in the 1.4 s it has, the land slid 0.84 screen widths a second, limit 0.35)
+      map: { from: { x: 52, y: 30, zoom: .75 }, to: { x: 44, y: 38, zoom: .62 }, az: Math.PI / 4 },
+    },
     where: 'The game\'s own map view',
     animals: 'Three elk graze and walk at 0.8 m/s or less.',
     sound: 'meadowlark, wind in grass',
   },
   {
-    n: 11, from: 31.6, to: 33, fadeIn: 1.2, title: 'Today', farm: 'start',
+    n: 11, layer: 'start', from: 31.6, to: 33, fadeIn: 1.2, title: 'Today', farm: 'start',
     see: 'The rewind: the restored farm dissolves back to today\'s bare farm at the same view, which is exactly the first-visit start view. The film ends here and the game begins.',
     camera: { move: 'still', lens: 'map', map: { from: { x: 44, y: 38, zoom: .62 }, to: { x: 44, y: 38, zoom: .62 }, az: Math.PI / 4 } },
     where: 'The first-visit start view (assets/intro/intro-film.json lastFrame: x 44, y 38, zoom 0.62, az 45°, afternoon)',
@@ -193,49 +204,144 @@ export const SHOTS = [
   },
 ];
 
-// Where an animal is at a real time: { x, y, pose, heading } (heading: radians, atan2(dy, dx))
-export function animalAt(name, real) {
-  const A = ANIMALS[name], m = A.marks;
-  if (real <= m[0][0]) return at(0, 0);
-  for (let i = 0; i < m.length - 1; i++) if (real <= m[i + 1][0]) return at(i, (real - m[i][0]) / Math.max(1e-6, m[i + 1][0] - m[i][0]));
-  return at(m.length - 2, 1);
-  function at(i, u) {
-    const a = m[i], b = m[Math.min(m.length - 1, i + 1)];
-    const x = a[1] + (b[1] - a[1]) * u, y = a[2] + (b[2] - a[2]) * u;
-    const moving = Math.hypot(b[1] - a[1], b[2] - a[2]) > 1e-3;
-    let heading;
-    if (moving) heading = Math.atan2(b[2] - a[2], b[1] - a[1]);
-    else {
-      // standing: toward the mark's own face point (turning to the next one), else its `face` point
-      // until it has first moved, then the way it last moved
-      const toward = f => Math.atan2(f[1] - y, f[0] - x);
-      if (a[5]) { const h0 = toward(a[5]), h1 = b[5] ? toward(b[5]) : h0; heading = h0 + Math.atan2(Math.sin(h1 - h0), Math.cos(h1 - h0)) * u; }
-      else {
-        let k = i; while (k > 0 && Math.hypot(m[k][1] - m[k - 1][1], m[k][2] - m[k - 1][2]) < 1e-3) k--;
-        heading = k > 0 ? Math.atan2(m[k][2] - m[k - 1][2], m[k][1] - m[k - 1][1]) : A.face ? toward(A.face) : 0;
-      }
+
+// ------------------------------------------------------------------ motion (F3: the film stages from this)
+const clamp01 = u => Math.min(1, Math.max(0, u));
+const lerp = (a, b, u) => a + (b - a) * u;
+const mix = (a, b, u) => a.map((v, i) => v + (b[i] - v) * u);
+// Each animal's path is a Catmull-Rom curve through its marks' places, so corners round off. Its
+// distance along the curve over time is the marks' straight-line schedule smoothed by a Gaussian of
+// EASE seconds, so starts, stops and changes of pace ease in over about 2 × EASE either side, and its
+// speed never goes over the fastest stretch's own average. It passes each mark close to the mark's
+// time (exactly, where the pace doesn't change). Jumps (pose leap or pounce) are set by distance:
+// take-off and landing are the marks' places.
+export const EASE = .15;
+const LEAPS = { leap: .75, pounce: .5 }; // arc height in body lengths (the drawing's hunt.leap.arc)
+// fastest speed (m/s) each slow pose may be drawn at; faster, the animal takes the gait of the nearest
+// stretch whose gait is that fast (a doe springing off from browsing gallops, a cougar easing into its
+// rush from the creep rushes, one pulling up runs until it stands)
+const TOP = { browse: 1, alert: 1, crouch: .8, creep: .95, stand: 1, graze: 1.5, walk: 1.8 };
+const tracks = new Map();
+function track(name) {
+  let T = tracks.get(name); if (T) return T;
+  const m = ANIMALS[name].marks, pts = [], ptOf = [];
+  for (const k of m) { const q = pts.at(-1); if (!q || Math.hypot(k[1] - q[0], k[2] - q[1]) > 1e-4) pts.push([k[1], k[2]]); ptOf.push(pts.length - 1); }
+  const cr = (p0, p1, p2, p3, t) => .5 * (2 * p1 + (p2 - p0) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (3 * p1 - p0 - 3 * p2 + p3) * t * t * t);
+  const path = [pts[0].slice()], s = [0], sAt = [0];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[Math.max(0, i - 1)], b = pts[i], c = pts[i + 1], d = pts[Math.min(pts.length - 1, i + 2)];
+    const n = Math.max(8, Math.ceil(Math.hypot(c[0] - b[0], c[1] - b[1]) / .01));
+    for (let k = 1; k <= n; k++) {
+      const p = [cr(a[0], b[0], c[0], d[0], k / n), cr(a[1], b[1], c[1], d[1], k / n)], q = path.at(-1);
+      s.push(s.at(-1) + Math.hypot(p[0] - q[0], p[1] - q[1])); path.push(p);
     }
-    return { x, y, pose: u < 1 ? a[3] : b[3], heading };
+    sAt.push(s.at(-1));
   }
+  const markS = ptOf.map(k => sAt[k]);
+  // the schedule on a fine clock, then smoothed
+  const dt = 1 / 240, t0 = m[0][0] - 4 * EASE, n = Math.ceil((m.at(-1)[0] + 4 * EASE - t0) / dt) + 1;
+  const raw = new Float64Array(n), dist = new Float64Array(n);
+  for (let i = 0, j = 0; i < n; i++) {
+    const t = t0 + i * dt;
+    while (j < m.length - 2 && t > m[j + 1][0]) j++;
+    raw[i] = m.length < 2 ? 0 : lerp(markS[j], markS[j + 1], clamp01((t - m[j][0]) / Math.max(1e-6, m[j + 1][0] - m[j][0])));
+  }
+  const R = Math.ceil(3 * EASE / dt), w = []; let sum = 0;
+  for (let k = -R; k <= R; k++) { const v = Math.exp(-.5 * (k * dt / EASE) ** 2); w.push(v); sum += v; }
+  for (let i = 0; i < n; i++) { let v = 0; for (let k = -R; k <= R; k++) v += w[k + R] * raw[Math.min(n - 1, Math.max(0, i + k))]; dist[i] = v / sum; }
+  // the stretches between marks: moving or not, and their pose
+  const legs = m.slice(0, -1).map((k, i) => ({ from: k[0], to: m[i + 1][0], pose: k[3], moving: markS[i + 1] - markS[i] > 1e-4, s0: markS[i], s1: markS[i + 1] }));
+  T = { m, path, s, markS, t0, dt, dist, legs };
+  tracks.set(name, T);
+  return T;
+}
+function pointAt(T, d) {
+  const { path, s } = T;
+  d = Math.min(s.at(-1), Math.max(0, d));
+  let lo = 0, hi = s.length - 1;
+  while (hi - lo > 1) { const k = (lo + hi) >> 1; if (s[k] <= d) lo = k; else hi = k; }
+  const u = s[hi] > s[lo] ? (d - s[lo]) / (s[hi] - s[lo]) : 0;
+  return [lerp(path[lo][0], path[hi][0], u), lerp(path[lo][1], path[hi][1], u)];
+}
+// Where an animal is at a real time: { x, y, pose, heading, speed (tiles a real second), leap (0..1
+// through a jump, else null), arc }. heading: radians, atan2(dy, dx).
+export function animalAt(name, real) {
+  const A = ANIMALS[name], T = track(name), m = T.m;
+  const g = Math.min(T.dist.length - 1.001, Math.max(0, (real - T.t0) / T.dt)), i = Math.floor(g), f = g - i;
+  const d = lerp(T.dist[i], T.dist[i + 1], f), speed = (T.dist[i + 1] - T.dist[i]) / T.dt;
+  const [x, y] = pointAt(T, d);
+  // which stretch by the clock
+  let k = 0; while (k < T.legs.length - 1 && real > T.legs[k].to) k++;
+  let pose = real >= m.at(-1)[0] ? m.at(-1)[3] : T.legs[k].pose;
+  // a jump, by distance
+  let leap = null, arc = 0;
+  for (const L of T.legs) if (LEAPS[L.pose] && d > L.s0 && d < L.s1) { leap = (d - L.s0) / (L.s1 - L.s0); arc = LEAPS[L.pose]; pose = L.pose; }
+  if (!leap && TOP[pose] != null && speed * TILE_M > TOP[pose]) {
+    let best = null, bd = Infinity;
+    for (const L of T.legs) if (L.moving && !(TOP[L.pose] <= speed * TILE_M)) { const gap = real < L.from ? L.from - real : real > L.to ? real - L.to : 0; if (gap < bd) { bd = gap; best = L; } }
+    if (best) pose = LEAPS[best.pose] ? 'run' : best.pose;
+  }
+  // heading: the way the path runs, and standing, toward the mark's own face point (turning to the
+  // next one), else its `face` point until it has first moved, then the way it last moved. It turns
+  // from the one to the other as it gathers or loses pace (over its first 1.2 m/s), so a start from a
+  // stand is a turn, not a snap.
+  const pa = pointAt(T, d - .04), pb = pointAt(T, d + .04), run = Math.atan2(pb[1] - pa[1], pb[0] - pa[0]);
+  const toward = q => Math.atan2(q[1] - y, q[0] - x), a = m[k], b = m[Math.min(m.length - 1, k + 1)];
+  const u = clamp01((real - a[0]) / Math.max(1e-6, b[0] - a[0]));
+  let still;
+  if (a[5]) { const h0 = toward(a[5]), h1 = b[5] ? toward(b[5]) : h0; still = h0 + Math.atan2(Math.sin(h1 - h0), Math.cos(h1 - h0)) * u; }
+  else if (d > 1e-3) { const p = pointAt(T, d - .08); still = Math.atan2(y - p[1], x - p[0]); }
+  else still = A.face ? toward(A.face) : run;
+  const wv = clamp01(speed / .15), w = wv * wv * (3 - 2 * wv);
+  const heading = still + Math.atan2(Math.sin(run - still), Math.cos(run - still)) * w;
+  return { x, y, pose, heading, speed, leap, arc };
 }
 // The animal's head and body points: [x, y, up] (up above the ground)
 export function partsOf(name, real, pose) {
   const p = animalAt(name, real), P = POSES[pose || p.pose], c = Math.cos(p.heading), s = Math.sin(p.heading);
   return { ...p, head: [p.x + c * P.fwd, p.y + s * P.fwd, P.head], body: [p.x, p.y, P.body] };
 }
-// The camera of an eye-level shot at film time t: { pos: [x, y, up], look: [x, y, up], fov }
-const smooth = u => { u = Math.min(1, Math.max(0, u)); return u * u * (3 - 2 * u); };
-const mix = (a, b, u) => a.map((v, i) => v + (b[i] - v) * u);
-export function cameraAt(shot, t) {
+
+// The camera of an eye-level shot at film time t: { pos: [x, y, up], look: [x, y, up], fov }. With
+// ground(x, y) (the drawn ground), `up` comes back as a height in the scene instead (abs: true), and a
+// moving camera's height is eased between its keys' heights, so it doesn't ride every bump.
+// Moves ease in and out (quintic: speed and acceleration start and end at zero) over the shot, or to
+// camera.until when the move runs on under a dissolve. A look that follows animals is smoothed over
+// LOOK_EASE seconds (Gaussian), so the camera never chases an animal frame by frame.
+export const LOOK_EASE = .45;
+const ease = u => { u = clamp01(u); return u * u * u * (u * (u * 6 - 15) + 10); };
+function lookAt(c, t, ground) {
+  const abs = p => ground ? [p[0], p[1], ground(p[0], p[1]) + p[2]] : p;
+  const real = realAt(t);
+  if (Array.isArray(c.look) && typeof c.look[0] === 'string') return abs(partsOf(c.look[0], real, c.look[2])[c.look[1]]);
+  let x = 0, y = 0, up = 0;
+  for (const [name, w] of Object.entries(c.look.follow)) { const b = abs(partsOf(name, real).body); x += b[0] * w; y += b[1] * w; up += b[2] * w; }
+  return [x, y, up];
+}
+export function cameraAt(shot, t, ground = null) {
   const c = shot.camera; if (!c || c.map) return null;
-  const u = smooth((t - shot.from) / (shot.to - shot.from)), real = realAt(t);
-  const pos = c.to ? mix(c.pos, c.to, u) : c.pos;
+  const end = c.until ?? shot.to, e = ease((t - shot.from) / (end - shot.from));
+  const at = p => ground ? [p[0], p[1], ground(p[0], p[1]) + p[2]] : p;
+  const pos = c.to ? mix(at(c.pos), at(c.to), e) : at(c.pos);
   let look;
-  if (Array.isArray(c.look) && typeof c.look[0] === 'string') look = partsOf(c.look[0], real, c.look[2])[c.look[1]];
-  else if (c.look.follow) {
-    let x = 0, y = 0, up = 0;
-    for (const [name, w] of Object.entries(c.look.follow)) { const b = partsOf(name, real).body; x += b[0] * w; y += b[1] * w; up += b[2] * w; }
-    look = [x, y, up];
-  } else look = c.lookTo ? mix(c.look, c.lookTo, u) : c.look;
-  return { pos, look, fov: c.fov };
+  if (Array.isArray(c.look) && typeof c.look[0] !== 'string') look = c.lookTo ? mix(at(c.look), at(c.lookTo), e) : at(c.look);
+  else {
+    // smoothed over the shot (held at its ends): a Gaussian over samples on a fixed clock, so the
+    // weights slide smoothly with t (samples taken at offsets from t would each cross every step in
+    // the target, a pose's height say, one at a time, and the turn would shudder)
+    let sum = 0; look = [0, 0, 0];
+    const G = 1 / 120;
+    for (let k = Math.ceil((t - 4 * LOOK_EASE) / G); k <= Math.floor((t + 4 * LOOK_EASE) / G); k++) {
+      const w = Math.exp(-.5 * ((k * G - t) / LOOK_EASE) ** 2), q = lookAt(c, Math.min(end, Math.max(shot.from, k * G)), ground);
+      look = look.map((v, j) => v + q[j] * w); sum += w;
+    }
+    look = look.map(v => v / sum);
+  }
+  return { pos, look, fov: c.fov, abs: !!ground };
+}
+// The map view of a map shot at film time t: { x, y, zoom, az } (end: the start view, when given)
+export function mapAt(shot, t, end = null) {
+  const c = shot.camera, M = c.map, to = end || M.to, from = c.glide?.from ?? shot.from;
+  const e = ease((t - from) / ((c.glide?.until ?? shot.to) - from));
+  return { x: lerp(M.from.x, to.x, e), y: lerp(M.from.y, to.y, e), zoom: Math.exp(lerp(Math.log(M.from.zoom), Math.log(to.zoom), e)), az: M.az };
 }

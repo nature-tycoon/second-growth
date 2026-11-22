@@ -118,10 +118,12 @@ export function makeProbe(r, g, cast, box) {
       const def = g.catalog.animals[a.sp] || a.def;
       const x = drawn ? st.x : a.x, z = drawn ? st.z : a.y, y = drawn ? st.y : r.heightAtScene(a.x, a.y);
       const yaw = drawn ? st.yaw : -(a.heading || 0), len = drawn ? st.foot : .5, tall = drawn ? st.tall : .5;
-      const c = Math.cos(yaw), s = Math.sin(yaw);
-      // the hooves: front and back pairs, a third of the body length either side of the middle
+      const c = Math.cos(yaw), s = Math.sin(yaw), pitch = drawn ? st.pitch || 0 : 0;
+      // the hooves: front and back pairs, a third of the body length either side of the middle (with
+      // the body's pitch, nose up positive: the film pitches its cast to the slope)
       const feet = [[.32, .08], [.32, -.08], [-.32, .08], [-.32, -.08]].map(([f, sd]) => {
-        const fx = x + c * f * len + s * sd * len, fz = z - s * f * len + c * sd * len; return +(ground(fx, fz) - y).toFixed(4);
+        const fl = f * len * Math.cos(pitch), fx = x + c * fl + s * sd * len, fz = z - s * fl + c * sd * len;
+        return +(ground(fx, fz) - y - Math.sin(pitch) * f * len).toFixed(4);
       });
       // the head where the model has its eyes (dipped while grazing), else forward and high
       let head;
@@ -133,7 +135,10 @@ export function makeProbe(r, g, cast, box) {
       const body = drawn ? { x: st.center.x, y: st.center.y, z: st.center.z } : { x, y: y + tall * .5, z };
       const o = { x: cam.position.x, y: cam.position.y, z: cam.position.z };
       rec.animals[name] = {
-        sp: a.sp, drawn, x, y, z, yaw, len, tall, feet,
+        sp: a.sp, kind: def?.key ?? null, drawn, x, y, z, yaw, pitch, len, tall, feet,
+        // (the stalking crouch: the drawing lowers the whole body by this, actors-ground.js headPose, a
+        // declared pose like a leap: the motion check measures the hooves without it)
+        crouch: drawn && st.crouch > .01 ? +(st.crouch * (def.sprite.leg || def.sprite.h || 8) * (st.sc || 1) * .3).toFixed(4) : 0,
         groundSim: r.heightAtScene(x, z), state: a.state, hunt: a.hunt?.phase || null, leap: !!a.hunt?.leap, legs: a.phase, legPhase: drawn ? st.legPhase ?? null : null,
         head: [head.x, head.y, head.z], body: [body.x, body.y, body.z],
         headScreen: screen(head), bodyScreen: screen(body),
