@@ -26,7 +26,7 @@ export function dabbleTip(def, a, time) {
 // The head's target (1 down, 0 level, below 0 up) for an animal at a meal, or null when it isn't
 // eating. `w` is the world (to tell a browsed shrub from a tree).
 export function mealHead(a, w, time) {
-  const bite = Math.sin(time * 6 + a.id * 1.3);
+  const bite = Math.sin(time * (a.forage?.biteRate ?? 6) + a.id * 1.3); // (biteRate: set only by staging, the intro film)
   if (a.state === 'feed') return 0.85 + 0.15 * bite - (Math.sin(time * 1.7 + a.id) > 0.85 ? 0.35 : 0);
   if (a.state !== 'forage' || !a.forage || a.forage.food === 'cleaned') return null;
   const { food, i } = a.forage;

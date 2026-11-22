@@ -50,13 +50,13 @@ function restoredFarm() {
   // Clear the crowns round the rise's camera, as staging (the eye would stand inside a tree): the rise
   // is filmed on both farms from the foot of the falls
   const w = g.world;
-  for (let y = 5; y <= 11; y++) for (let x = 66; x <= 73; x++) { const i = w.idx(x, y); if (!isWater(w.terrain[i])) { w.tree[i] = 0; w.treeG[i] = 0; w.shrub[i] = 0; } }
+  for (let y = 5; y <= 14; y++) for (let x = 66; x <= 73; x++) { const i = w.idx(x, y); if (!isWater(w.terrain[i])) { w.tree[i] = 0; w.treeG[i] = 0; w.shrub[i] = 0; } }
   // Thirty years on, the woods north and east have closed in (the fixture's restored farm plants them
   // thinly, as a map-audit reference): conifers on about half the open tiles there, staging only
   const rnd = mulberry32(1987), conifers = ['fir', 'fir', 'cedar', 'hemlock'].map(k => PLANT[k]);
   for (let i = 0; i < w.n; i++) {
     const x = i % w.w, y = (i / w.w) | 0;
-    if (!(y < 28 || x > 72) || w.tree[i] || isWater(w.terrain[i]) || w.struct[i] >= 0 || w.feature[i] || (x >= 66 && x <= 73 && y >= 5 && y <= 11)) continue;
+    if (!(y < 28 || x > 72) || w.tree[i] || isWater(w.terrain[i]) || w.struct[i] >= 0 || w.feature[i] || (x >= 66 && x <= 73 && y >= 5 && y <= 14)) continue;
     if (rnd() < .5) { const p = conifers[Math.floor(rnd() * conifers.length)]; w.setPlant(i, p, .75 + rnd() * .25); w.treeAge[i] = (p.matureAge ?? 20) * 120; }
   }
   return g;
@@ -104,7 +104,8 @@ function mapAt(r, x, y, zoom, az) {
 // and creep (hunt phase creep: low, head forward), its rush, and the jumps (hunt.leap: the pounce arc).
 function poseState(pose, p, foodTile) {
   switch (pose) {
-    case 'browse': return { state: 'forage', forage: { food: 'forb', i: foodTile }, hunt: null, alertT: 0, run: 1 };
+    // (biteRate: a slower bite than the game's, about 0.4 Hz, not 1: Cole, rough cut, "head bobbing looks weird")
+    case 'browse': return { state: 'forage', forage: { food: 'forb', i: foodTile, biteRate: 2.5 }, hunt: null, alertT: 0, run: 1 };
     case 'graze': return { state: 'forage', forage: { food: 'grass', i: foodTile }, hunt: null, alertT: 0, run: 1 };
     case 'alert': case 'stand': return { state: 'idle', forage: null, hunt: null, alertT: 99, run: 1 };
     case 'walk': return { state: 'idle', forage: null, hunt: null, alertT: 0, run: 1 };
@@ -175,14 +176,15 @@ function nearGap(r, shot, subject) {
     // toward the animal and along the look (a panning shot looks past it)
     for (const [x, y] of [[a.x, a.y], [q.look[0], q.look[1]]]) {
       const dx = x - q.pos[0], dy = y - q.pos[1], d = Math.hypot(dx, dy), da = Math.hypot(a.x - q.pos[0], a.y - q.pos[1]);
-      if (d > .05) lines.push({ x: q.pos[0], y: q.pos[1], ux: dx / d, uy: dy / d, to: da - KEEP, near: Math.min(NEAR_GAP, da - .3) });
+      if (d > .05) lines.push({ x: q.pos[0], y: q.pos[1], ux: dx / d, uy: dy / d, to: da - KEEP, near: Math.min(NEAR_GAP, da - .3), shrubTo: c.clearShrubs != null ? da - c.clearShrubs : -1 });
     }
   }
-  const inGap = (x, z) => lines.some(L => {
+  const inGap = (x, z, shrub) => lines.some(L => {
     const px = x - L.x, pz = z - L.y, u = px * L.ux + pz * L.uy, side = Math.abs(px * L.uy - pz * L.ux);
     if (u < -.1) return false;
     if (u <= L.near && side <= .15 + Math.max(0, u) * wide) return true; // (the clearing the camera stands in)
-    return u <= L.to && side <= .12 + Math.max(0, u) * tan;              // (the wedge toward the animal)
+    // (the wedge toward the animal; a shot may clear shrubs, not ferns, closer in: camera.clearShrubs)
+    return u <= (shrub ? Math.max(L.to, L.shrubTo) : L.to) && side <= .12 + Math.max(0, u) * tan;
   });
   const F = r.flora, thin = new Set([F.shrubs, F.grass, F.tallGrass, F.small]), pool = F.pool.bind(F);
   let skipped = 0;
@@ -190,7 +192,8 @@ function nearGap(r, shot, subject) {
     const p = pool(key, build, mat, ...rest);
     if (!p.filmGap && thin.has(mat) && !/^(litter|contact|log|rocks|stump|snag)/.test(key)) {
       const add = p.add.bind(p);
-      p.add = (x, y, z, ...a) => { if (inGap(x, z)) { skipped++; return; } add(x, y, z, ...a); };
+      const shrub = mat === F.shrubs;
+      p.add = (x, y, z, ...a) => { if (inGap(x, z, shrub)) { skipped++; return; } add(x, y, z, ...a); };
       p.filmGap = true;
     }
     return p;

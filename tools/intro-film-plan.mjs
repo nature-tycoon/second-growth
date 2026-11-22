@@ -11,7 +11,7 @@
 // are judged in real seconds, so the slow motion never hides a too-fast run.
 
 export const FPS = 30;
-export const SECONDS = 33;
+export let SECONDS = 35; // (33 approved, 35 with the longer pull-out; TRIMS below take it to 32.8)
 export const TILE_M = 8;
 // [from, to, rate] in film seconds: 1.5 s of film at half speed round the cougar's pounce
 export const SLOWMO = [[17.75, 19.25, .5]];
@@ -89,9 +89,9 @@ export const ANIMALS = {
     ],
   },
   // the restored farm, 30 years on: elk grazing in the meadow below the start view, at a slow walk
-  elk1: { species: 'elk', farm: 'restored', label: 'Elk', marks: [[29, 48.2, 31.4, 'graze', 'grazes'], [33, 48.55, 31.55, 'graze', '']] },
-  elk2: { species: 'elk', farm: 'restored', label: 'Elk', marks: [[29, 50.3, 33.1, 'walk', 'walks slowly'], [33, 50.9, 33.0, 'walk', '']] },
-  elk3: { species: 'elk', farm: 'restored', label: 'Elk', marks: [[29, 46.9, 33.0, 'graze', 'grazes'], [33, 47.1, 33.3, 'graze', '']] },
+  elk1: { species: 'elk', farm: 'restored', label: 'Elk', marks: [[31, 48.2, 31.4, 'graze', 'grazes'], [35, 48.55, 31.55, 'graze', '']] },
+  elk2: { species: 'elk', farm: 'restored', label: 'Elk', marks: [[31, 50.3, 33.1, 'walk', 'walks slowly'], [35, 50.9, 33.0, 'walk', '']] },
+  elk3: { species: 'elk', farm: 'restored', label: 'Elk', marks: [[31, 46.9, 33.0, 'graze', 'grazes'], [35, 47.1, 33.3, 'graze', '']] },
 };
 
 // The shots, in film seconds. camera.pos and camera.look are [x, y, up]; `to` and `lookTo` are where
@@ -106,7 +106,7 @@ export const SHOTS = [
   {
     n: 1, layer: 'opening', from: 1.5, to: 5.5, fadeIn: 1, title: 'The opening', farm: 'start', subjects: ['doe', 'cougar'],
     see: 'Misty old forest, morning sun through the gap where the creek runs out of the trees. A doe browses in the salmonberry, side-on, head down. Low in the sword ferns at the left of the frame, too small to notice, the cougar is already there.',
-    camera: { move: 'very slow push in', lens: 'wide', fov: 46, pos: [69.35, -0.75, .4], to: [69.33, -1.05, .4], look: [68.95, -5.2, .26] },
+    camera: { move: 'very slow push in', lens: 'wide', fov: 46, pos: [69.35, -0.75, .4], to: [69.31, -1.35, .4], look: [68.95, -5.2, .26] },
     where: 'At the forest edge, in the creek\'s opening, looking north up it',
     animals: 'Doe browses. Cougar lies still.',
     sound: 'creek, wind in the firs, a Pacific wren',
@@ -130,7 +130,8 @@ export const SHOTS = [
   {
     n: 4, layer: 'stalk', from: 12, to: 15.5, title: 'The stalk', farm: 'start', subjects: ['cougar', 'doe'],
     see: 'Both in one frame from the side: the cougar at left creeps a paw at a time toward the doe at right, freezes when her ear flicks, creeps on. She keeps browsing.',
-    camera: { move: 'still', lens: 'medium-long', fov: 22, pos: [68.75, -1.25, .32], look: [68.95, -5.15, .24] },
+    camera: { move: 'still', lens: 'medium-long', fov: 22, pos: [68.75, -1.25, .32], look: [68.95, -5.15, .24], clearShrubs: .3 },
+    // (Cole, rough cut: "remove the bush from in front of the cougar": shrubs on the line are cleared to 0.3 tiles short of it, ferns kept)
     // (F3: 0.4 tiles further up the opening than F2's 68.75, -0.85: there a trunk hid the crouched cougar's body half the shot, as drawn)
     where: 'At the forest edge, 35 m south, between the two',
     animals: 'Cougar creeps from 13 m to 9 m. Doe browses.',
@@ -148,7 +149,8 @@ export const SHOTS = [
   {
     n: 6, layer: 'burst', from: 17.35, to: 20.6, title: 'The burst', farm: 'start', subjects: ['doe', 'cougar'],
     see: 'Wider: she springs away down the opening toward us, the cougar explodes out of the ferns behind her. The pounce in slow motion (17.75–19.25 s, half speed): it lands a body length short. Back to full speed, she veers right past us and out of frame; the cougar runs on.',
-    camera: { move: 'still, panning gently with the doe', lens: 'normal', fov: 38, pos: [69.15, -0.2, .36], look: { follow: { doe: .6, cougar: .4 } } },
+    camera: { move: 'still, panning gently with the doe', lens: 'normal', fov: 38, pos: [69.15, -0.2, .62], look: { follow: { doe: .6, cougar: .4 } }, lookUp: .3 },
+    // (Cole, rough cut: "too low, shows too much ground": the camera stands at 0.62, not 0.36, and aims 0.3 above the pair, so they run in the frame's lower half with the forest above: ground 56% of the frame to 35–48%)
     where: 'In the creek opening at the forest edge, low',
     animals: 'Doe gallops 12 m/s. Cougar sprints 16 m/s, pounces, misses.',
     sound: 'crash of ferns, hooves; the slow motion\'s sound drops to a low hush',
@@ -172,20 +174,20 @@ export const SHOTS = [
   {
     n: 9, layer: 'rise', from: 26.8, to: 30, title: 'The rise', farm: 'start',
     see: 'From beside the falls the camera rises slowly and turns west over the bare farm: the fence, the straightened creek, the bare field. The cougar a speck at the forest edge.',
-    camera: { move: 'smooth rise and turn', lens: 'normal', fov: 40, pos: [69.2, 9.2, .5], to: [70.0, 11.5, 2.7], look: [70.2, -1.0, .3], lookTo: [64, 2, 0], until: 31.4 },
+    camera: { move: 'smooth rise and turn', lens: 'normal', fov: 40, pos: [69.2, 9.2, .5], to: [70.8, 13.2, 4.2], look: [70.2, -1.0, .3], lookTo: [64, 2, 0], until: 33.4 },
     // (the move runs on to 31.4 s under the dissolve: shot 10 films its second half on the restored farm)
     where: 'Starts at the foot of the falls, ends about 20 m up, a little south',
     animals: 'Cougar still at the edge.',
     sound: 'waterfall fades, wind',
   },
   {
-    n: 10, layer: 'overview', from: 29.2, to: 32.2, fadeIn: .8, title: '30 years on', farm: 'restored', subjects: ['elk1', 'elk2', 'elk3'],
+    n: 10, layer: 'overview', from: 29.2, to: 34.2, fadeIn: .8, title: '30 years on', farm: 'restored', subjects: ['elk1', 'elk2', 'elk3'],
     see: 'Dissolve, mid-rise, to the same farm 30 years on: old forest closed in, the creek free and winding, no fence. The usual high view glides gently to where the game starts: elk grazing in the meadow.',
     camera: {
       move: 'the rise, on the restored farm, then a slow glide (map view)', lens: 'map',
       // the dissolve at 29.2 s is mid-rise, with the same camera on both farms (Cole, f2.md 5); the rise
       // films on to 31.4 s as layer rise30, and the map view dissolves over its end from 30.8 s
-      rise: { layer: 'rise30', of: 9, until: 31.4 }, glide: { from: 30.8, fade: .6, until: 32.6 },
+      rise: { layer: 'rise30', of: 9, until: 33.4 }, glide: { from: 32.8, fade: .6, until: 34.6 },
       // (F3: the glide starts nearer, at 52, 30, zoom .75, not 60, 21, .9, and eases until 32.6 s under the
       // last dissolve: from 60, 21 in the 1.4 s it has, the land slid 0.84 screen widths a second, limit 0.35)
       map: { from: { x: 52, y: 30, zoom: .75 }, to: { x: 44, y: 38, zoom: .62 }, az: Math.PI / 4 },
@@ -195,7 +197,7 @@ export const SHOTS = [
     sound: 'meadowlark, wind in grass',
   },
   {
-    n: 11, layer: 'start', from: 31.6, to: 33, fadeIn: 1.2, title: 'Today', farm: 'start',
+    n: 11, layer: 'start', from: 33.6, to: 35, fadeIn: 1.2, title: 'Today', farm: 'start',
     see: 'The rewind: the restored farm dissolves back to today\'s bare farm at the same view, which is exactly the first-visit start view. The film ends here and the game begins.',
     camera: { move: 'still', lens: 'map', map: { from: { x: 44, y: 38, zoom: .62 }, to: { x: 44, y: 38, zoom: .62 }, az: Math.PI / 4 } },
     where: 'The first-visit start view (assets/intro/intro-film.json lastFrame: x 44, y 38, zoom 0.62, az 45°, afternoon)',
@@ -203,6 +205,39 @@ export const SHOTS = [
     sound: 'a robin; wind',
   },
 ];
+
+// ------------------------------------------------------------------ Cole's rough-cut notes (2026-11-22)
+// Also in the numbers above: the opening's push goes twice as far ("pan up a little too slow"), the
+// burst's camera stands higher and aims above the pair (lookUp: "too low, shows too much ground"), the stalk clears
+// the bush in front of the cougar (clearShrubs), and the rise pulls out further over the restored
+// forest (to 70.8, 13.2, 4.2 by 33.4 s, not 70.0, 11.5, 2.7 by 31.4 s; 2 s more), its shots and the
+// elk 2 s later.
+// Trims, applied here to the numbers above so they stay as approved: [film second, seconds cut,
+// story]. story: the story's clock loses the same seconds (before the slow motion only: nothing
+// happens in them, or a freeze shortens); otherwise only the film's later shots move up, the story
+// running on across the cut (the restored farm's elk move up with their shots).
+export const TRIMS = [
+  [.8, .7, true],     // a shorter black opening
+  [13.3, .5, true],   // the stalk, a little shorter: the cougar's freeze, 0.8 s to 0.3 s
+  [25, 1, false],     // the cougar watches 1.8 s, not 2.8 s
+];
+{
+  const less = (t, at, cut) => t > at ? t - Math.min(cut, t - at) : t;
+  for (const [at, cut, story] of [...TRIMS].sort((a, b) => b[0] - a[0])) {
+    const f = t => less(t, at, cut);
+    for (const s of SHOTS) {
+      s.from = f(s.from); s.to = f(s.to);
+      const c = s.camera; if (!c) continue;
+      if (c.until != null) c.until = f(c.until);
+      if (c.rise) c.rise.until = f(c.rise.until);
+      if (c.glide) { c.glide.from = f(c.glide.from); c.glide.until = f(c.glide.until); }
+    }
+    for (const w of SLOWMO) { w[0] = f(w[0]); w[1] = f(w[1]); }
+    for (const A of Object.values(ANIMALS)) if (story || A.farm === 'restored') for (const m of A.marks) m[0] = f(m[0]);
+    SECONDS = +(SECONDS - cut).toFixed(3);
+  }
+  for (const s of SHOTS) { s.from = +s.from.toFixed(3); s.to = +s.to.toFixed(3); }
+}
 
 
 // ------------------------------------------------------------------ motion (F3: the film stages from this)
@@ -337,6 +372,7 @@ export function cameraAt(shot, t, ground = null) {
     }
     look = look.map(v => v / sum);
   }
+  if (c.lookUp) look = [look[0], look[1], look[2] + c.lookUp]; // (aimed above its subject)
   return { pos, look, fov: c.fov, abs: !!ground };
 }
 // The map view of a map shot at film time t: { x, y, zoom, az } (end: the start view, when given)
