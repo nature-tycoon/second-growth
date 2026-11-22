@@ -3,6 +3,16 @@
 All 10 sessions landed on `claude/ideas-first-minutes` (s1 be9fa92 … s10 b9890ed). Nothing pushed.
 Each question has the session's recommended answer. "Keep" means the session built it that way.
 
+## Cole's answers (2026-11-21)
+
+- Bird calls: yes, both (crow and raven). Not done yet: the next batch downloads them, credits them,
+  and re-assembles the film's sound.
+- Film line: keep "The forest stops at the fence. Bring it back."
+- PostHog: done. The project's test-account filter now also has "`tester` is not set" (next to the
+  Internal / Test users cohort).
+- Crows count toward health: keep.
+- Faster download (item 5): not asked yet; check itch's compression first.
+
 ## Need Cole's decision
 
 1. **Download two real bird calls** (decision 0002: only with Cole's OK). An American crow call
