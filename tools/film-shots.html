@@ -12,7 +12,7 @@
 -->
 <style>
   :root { --bg: #15191a; --panel: #1f2526; --line: #343c3d; --text: #e7ece8; --dim: #9aa7a0; --accent: #8fc79a; --mark: #f0d27a;
-    --doe: #f2b36b; --cougar: #e0605a; --elk: #c9a2f0; --cam: #7fc4ff; }
+    --buck: #f2b36b; --cougar: #e0605a; --elk: #c9a2f0; --cam: #7fc4ff; }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, sans-serif; }
   main { max-width: 1400px; margin: 0 auto; padding: 16px; }
@@ -67,7 +67,7 @@
         <span><i style="background:#2d4a33"></i>old forest</span><span><i style="background:#8a9a5c"></i>field</span><span><i style="background:#3f7fb0"></i>water</span>
         <span><i style="background:#c9b58a;height:3px"></i>fence</span><span><i style="background:#fff;border-radius:50%"></i>waterfall</span>
         <span><i style="background:var(--cam)"></i>camera and what it sees</span>
-        <span><i style="background:var(--doe)"></i>doe</span><span><i style="background:var(--cougar)"></i>cougar</span><span><i style="background:var(--elk)"></i>elk</span>
+        <span><i style="background:var(--buck)"></i>buck</span><span><i style="background:var(--cougar)"></i>cougar</span><span><i style="background:var(--elk)"></i>elk</span>
         <span>dots: trunks · times: film seconds · dashed: 9 tiles out (animals stay inside) · 1 tile = 8 m</span>
       </div>
     </section>
@@ -89,7 +89,7 @@ const data = await (await fetch('intro-film-map.json', { cache: 'no-cache' })).j
 const { land, report } = data;
 $('made').textContent = `Sight lines checked ${report.made} on the start game (seed 1987).`;
 const CAM = '#7fc4ff', ELK = '#c9a2f0'; // (SVG attributes don't take CSS variables)
-const COLOR = { doe: '#f2b36b', cougar: '#e0605a', elk1: ELK, elk2: ELK, elk3: ELK };
+const COLOR = { buck: '#f2b36b', cougar: '#e0605a', elk1: ELK, elk2: ELK, elk3: ELK };
 const VIEWS = { action: [61.5, -9.6, 14.5, 20], farm: [34, -12, 60, 56] }; // [x, y, width, height] in tiles
 let view = 'action', on = null;
 const fmt = t => t.toFixed(1) + ' s';
@@ -115,10 +115,10 @@ for (const s of SHOTS) {
   tr.onclick = () => { $('time').value = (s.from + s.to) / 2; if (s.camera?.map) setView('farm'); else if (s.camera) setView('action'); draw(); };
   $('rows').append(tr);
 }
-const fails = report.failures.length, ch = report.chase, cg = report.animals.cougar, doe = report.animals.doe;
+const fails = report.failures.length, ch = report.chase, cg = report.animals.cougar, buck = report.animals.buck;
 $('summary').innerHTML = `${fails ? `<span class="bad">${fails} problem${fails > 1 ? 's' : ''}: ${report.failures.join('; ')}</span>` : '<span class="ok">Every planned camera has a clear line to its animals\' heads.</span>'}
-  Slow motion ${SLOWMO.map(([a, b, r]) => `${a}–${b} s at ${r}×`).join(', ')}. Fastest: doe ${Math.max(...doe.legs.map(l => l.speed)).toFixed(1)} m/s, cougar ${Math.max(...cg.legs.map(l => l.speed)).toFixed(1)} m/s
-  (sprinting ${cg.sprintSeconds} s; it never gets ahead of the doe, closest ${ch.closestM} m). ${report.notes.length ? `<br><span class="dim">${report.notes.join('; ')}</span>` : ''}`;
+  Slow motion ${SLOWMO.map(([a, b, r]) => `${a}–${b} s at ${r}×`).join(', ')}. Fastest: buck ${Math.max(...buck.legs.map(l => l.speed)).toFixed(1)} m/s, cougar ${Math.max(...cg.legs.map(l => l.speed)).toFixed(1)} m/s
+  (sprinting ${cg.sprintSeconds} s; it never gets ahead of the buck, closest ${ch.closestM} m). ${report.notes.length ? `<br><span class="dim">${report.notes.join('; ')}</span>` : ''}`;
 
 // ---- the map
 const svg = $('map');

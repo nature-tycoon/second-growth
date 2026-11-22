@@ -4,10 +4,10 @@
   "seed": 1987,
   "seconds": 31.8,
   "fps": 30,
-  "sourceRevision": "377415b64b5a4acca9cccb2bcee38d8d1091e0b5",
+  "sourceRevision": "c9cc9e8dd76bb118aba56229ca061e119149fa16",
   "sourceDate": "2026-11-22",
   "uncommittedGameChanges": true,
-  "madeAt": "2026-11-22T18:27:52.626Z",
+  "madeAt": "2026-11-22T18:47:29.029Z",
   "madeWith": "node tools/film-intro.mjs (tools/intro-film.mjs, tools/intro-film-shots.mjs)",
   "lastFrame": {
     "image": "assets/intro/intro-film-last.jpg",
@@ -37,7 +37,7 @@
       "shot": 1,
       "title": "The opening",
       "subjects": [
-        "doe",
+        "buck",
         "cougar"
       ],
       "name": "opening",
@@ -50,9 +50,9 @@
     {
       "game": "start",
       "shot": 2,
-      "title": "Her ears",
+      "title": "His ears",
       "subjects": [
-        "doe"
+        "buck"
       ],
       "name": "ears",
       "from": 4.8,
@@ -81,7 +81,7 @@
       "title": "The stalk",
       "subjects": [
         "cougar",
-        "doe"
+        "buck"
       ],
       "name": "stalk",
       "from": 11.3,
@@ -95,7 +95,7 @@
       "shot": 5,
       "title": "Head up",
       "subjects": [
-        "doe"
+        "buck"
       ],
       "name": "headup",
       "from": 13.3,
@@ -109,7 +109,7 @@
       "shot": 6,
       "title": "The burst",
       "subjects": [
-        "doe",
+        "buck",
         "cougar"
       ],
       "name": "burst",
@@ -124,7 +124,7 @@
       "shot": 7,
       "title": "Over the fence",
       "subjects": [
-        "doe",
+        "buck",
         "cougar"
       ],
       "name": "fence",
@@ -187,7 +187,7 @@
     }
   ],
   "look": "Balanced detail, shadows on, no weather, 1920×1080 at a pixel ratio of 1",
-  "staging": "Staged from the approved shot list (tools/intro-film-plan.mjs): one camera per shot, eased moves and smoothed looks. Start game: the farm as a first visit opens it (seed 1987, run seed 20261121); the doe and the cougar are posed and moved along the plan's paths at real speeds (smooth curves through its marks), pitched to the slope, drawn by the game's own walker drawing (stride, gallop, head, crouch; the doe's fence jump and the cougar's pounce are the pounce arc), with 1.5 s of half-speed slow motion at the pounce. Restored game: release-fixtures' restored PNW (the fence and culvert gone), June, three elk staged in the meadow, the rest of its wildlife living by the simulation. Nothing is painted or generated.",
+  "staging": "Staged from the approved shot list (tools/intro-film-plan.mjs): one camera per shot, eased moves and smoothed looks. Start game: the farm as a first visit opens it (seed 1987, run seed 20261121); the buck and the cougar are posed and moved along the plan's paths at real speeds (smooth curves through its marks), pitched to the slope, drawn by the game's own walker drawing (stride, gallop, head, crouch; the buck's fence jump and the cougar's pounce are the pounce arc), with 1.5 s of half-speed slow motion at the pounce. Restored game: release-fixtures' restored PNW (the fence and culvert gone), June, three elk staged in the meadow, the rest of its wildlife living by the simulation. Nothing is painted or generated.",
   "sound": [
     {
       "file": "field-bed-stream-1",
@@ -285,8 +285,8 @@
         {
           "file": "assets/intro/intro-film.mp4",
           "kind": "mp4",
-          "bytes": 3770881,
-          "sha256": "f69f9222ce608d9e4bbbeec70e03c67cb36d49531e6d610b1a1a3ca50f97514b",
+          "bytes": 3777224,
+          "sha256": "61831b734745cc2ee0beea77775eb933bed937966ea321830ed92084414a2f5d",
           "checked": {
             "duration": 31.872,
             "width": 1280,
@@ -298,8 +298,8 @@
         {
           "file": "assets/intro/intro-film.webm",
           "kind": "webm",
-          "bytes": 3475559,
-          "sha256": "42c0972bb75a6717b534f984afdef0666a9b397a038858949aaaabf841a1db8b",
+          "bytes": 3473057,
+          "sha256": "bcdb4fab1032b6f9dfd134c8c4e18aa267f324919423166f7e9f6a31960961fc",
           "checked": {
             "duration": 31.8,
             "width": 1280,
@@ -327,8 +327,8 @@
         {
           "file": "website/review-media/video/intro-film-1080.mp4",
           "kind": "mp4",
-          "bytes": 7530051,
-          "sha256": "4a7a8087c6e408f1ce2befec5b4f5316d9ae431d4cbc3905890e3274a4d586cd",
+          "bytes": 7527431,
+          "sha256": "673d1a32989ae8cd9ab765b64a0709c1d27e6904f6b95f70c4c9d1f1108fd50a",
           "checked": {
             "duration": 31.872,
             "width": 1920,
@@ -338,10 +338,24 @@
           }
         },
         {
+          "file": "assets/intro/intro-film-1080.mp4",
+          "kind": "mp4",
+          "bytes": 7527431,
+          "sha256": "673d1a32989ae8cd9ab765b64a0709c1d27e6904f6b95f70c4c9d1f1108fd50a",
+          "checked": {
+            "duration": 31.872,
+            "width": 1920,
+            "height": 1080,
+            "soundSeconds": 31.87,
+            "soundRms": 0.0698
+          },
+          "game": true
+        },
+        {
           "file": "website/review-media/video/intro-film-1080.webm",
           "kind": "webm",
-          "bytes": 7372951,
-          "sha256": "e23c3a4eaa2c4df9b2cd548be1d8635f067703e199df6e1402783a23633a730d",
+          "bytes": 7379483,
+          "sha256": "a93f2d323b57c052ecc8e53e95c9b018f51c776a90282fa87fb5fb0ac0c67fef",
           "checked": {
             "duration": 31.8,
             "width": 1920,

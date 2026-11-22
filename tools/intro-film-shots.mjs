@@ -34,11 +34,11 @@ export const TIME_OF_DAY = Object.fromEntries(LAYERS.map(L => [L.name, [tod(L, L
 // the beats (seconds of the film), from the animals' marks
 const markOf = (name, pose) => ANIMALS[name].marks.find(m => m[3] === pose)?.[0];
 export const BEATS = {
-  headUp: filmAt(markOf('doe', 'alert')),     // the doe lifts her head
-  bolt: filmAt(markOf('doe', 'run')),         // she springs away
+  headUp: filmAt(markOf('buck', 'alert')),     // the buck lifts his head
+  bolt: filmAt(markOf('buck', 'run')),         // he springs away
   breakCover: filmAt(markOf('cougar', 'rush')), // the cougar rushes
   pounce: filmAt(markOf('cougar', 'pounce')),  // its leap (slow motion)
-  fence: filmAt(markOf('doe', 'leap')),       // she clears the fence
+  fence: filmAt(markOf('buck', 'leap')),       // he clears the fence
 };
 
 // For the motion check (tools/intro-film-motion.mjs): each layer's subjects, the animals whose head
@@ -47,7 +47,7 @@ export const BEATS = {
 // [from, to, rate] in film seconds, which scales measured speeds back up. Jumps are declared by the
 // plan (pose leap or pounce: a.hunt.leap) and allowed off the ground.
 export const SUBJECTS = Object.fromEntries(LAYERS.filter(L => L.subjects.length).map(L => [L.name, L.subjects]));
-export const PREDATOR = { name: 'cougar', prey: 'doe', attacks: BEATS.breakCover };
+export const PREDATOR = { name: 'cougar', prey: 'buck', attacks: BEATS.breakCover };
 
 // The sound: real recordings from assets/sounds (decision 0002; credits in their provenance,
 // field-sources.json), placed and faded on the film's clock (31.8 s; F3 retimed it to the restaged cut). No raven in the library yet: a
@@ -58,11 +58,11 @@ export const SOUND = [
   // wind in the firs; it carries the shots where the forest goes quiet (the cougar's eyes, the stalk)
   { file: 'field-bed-wind-1', at: 0, loop: true, ramp: [[0, 0], [1.6, .32], [7.8, .3], [8.5, .42], [13.3, .36], [15.15, .3], [23.2, .32], [26, .42], [31.8, .28]] },
   { file: 'field-raven-1', at: .1, gain: .35 },           // far off in the black: a common raven (NPS, Yellowstone)
-  { file: 'field-pacific-wren-1', at: 2.6, gain: .3 },    // the opening and her ears; done before the cougar's eyes (7.8 s), when the forest goes quiet
+  { file: 'field-pacific-wren-1', at: 2.6, gain: .3 },    // the opening and his ears; done before the cougar's eyes (7.8 s), when the forest goes quiet
   // (the clips are levelled to about -23 dB; their gains set each within 3 dB of the creek and waterfall
   // under it, the far hooves within 8: at a third of that they were lost in the water, measured on the mix)
-  { file: 'field-twig-snap-1', at: 13.15, gain: .6 },    // under the cougar's paw as it creeps on: the snap lands at the cut, half a second before her head comes up
-  { file: 'field-hooves-1', at: 14.7, gain: .7 },        // her spring and gallop toward us (muffled by the slow motion's hush)
+  { file: 'field-twig-snap-1', at: 13.15, gain: .6 },    // under the cougar's paw as it creeps on: the snap lands at the cut, half a second before his head comes up
+  { file: 'field-hooves-1', at: 14.7, gain: .7 },        // his spring and gallop toward us (muffled by the slow motion's hush)
   { file: 'field-hooves-2', at: 20, gain: .5 },          // landing past the fence and bounding away down the far bank, 70 m off
   { file: 'field-american-crow-1', at: 21.9, gain: 1 },  // while the cougar watches
   { file: 'field-meadowlark-1', at: 26, gain: .3 },       // 30 years on, the meadow

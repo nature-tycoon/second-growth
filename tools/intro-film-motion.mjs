@@ -11,7 +11,7 @@
 //               ahead of its prey along the chase
 //   5 camera    speed, acceleration, jerk, turn rate and its change, roll, and sudden swings of the
 //               look point
-//   6 cover     plants filling the frame (Cole's rough-cut note: plants hid the doe in the first shot):
+//   6 cover     plants filling the frame (Cole's rough-cut note: plants hid the buck in the first shot):
 //               the share of the frame covered by plants within 5 m of the lens, and in front of the
 //               key animal; the game's tracking lens on it in every forest shot; and no sky painted
 //               over the land
@@ -167,7 +167,7 @@ for (const layer of LAYERS) {
   for (const name of names) {
     const fr = frames.filter(f => f.animals[name]);
     if (fr.length < 3) continue;
-    const A = fr.map(f => f.animals[name]), sp = A[0].kind || kind(name); // (the species' key: cast names are the plan's, doe, elk1)
+    const A = fr.map(f => f.animals[name]), sp = A[0].kind || kind(name); // (the species' key: cast names are the plan's, buck, elk1)
     const body = BODY_M[sp] ?? 1.5;
     let worst = { over: 0 }, worstBody = { over: 0 }, worstStride = { over: 0 }, worstScreen = { v: 0 }, maxM = 0, maxBody = 0;
     let sprintRun = 0, sprintMax = 0;

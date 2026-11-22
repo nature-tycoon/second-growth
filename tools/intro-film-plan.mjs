@@ -33,13 +33,13 @@ export function filmAt(r) {
 }
 
 // How each animal stands, for the sight lines: head and body heights above the ground (scene units,
-// read from the first cut's probe: a doe stands 0.59 tall, a crouched cougar 0.43), and how far the
+// read from the first cut's probe: a doe stood 0.59 tall, a crouched cougar 0.43; the buck that replaced her is drawn about 12% bigger, his rack above that), and how far the
 // head sits ahead of the body's middle. These are approximate: F3's motion check measures the real pose.
 export const POSES = {
-  browse: { head: .22, body: .30, fwd: .2 },   // doe, head down in the salmonberry
-  alert: { head: .52, body: .30, fwd: .17 },   // doe, head up, ears turning
-  run: { head: .45, body: .30, fwd: .2 },      // doe galloping
-  leap: { head: .75, body: .58, fwd: .2 },     // doe over the fence (the arc's top)
+  browse: { head: .25, body: .34, fwd: .22 },   // buck, head down in the salmonberry
+  alert: { head: .58, body: .34, fwd: .19 },   // buck, head up, ears turning
+  run: { head: .50, body: .34, fwd: .22 },      // buck galloping
+  leap: { head: .80, body: .62, fwd: .22 },     // buck over the fence (the arc's top)
   crouch: { head: .24, body: .17, fwd: .22 },  // cougar, eyes and shoulders above the ferns
   creep: { head: .26, body: .19, fwd: .22 },   // cougar, belly low, one paw at a time
   rush: { head: .34, body: .24, fwd: .24 },    // cougar sprinting
@@ -53,8 +53,8 @@ export const POSES = {
 // optional point it faces from this mark while standing]. Between marks it moves in a straight line
 // at constant speed, which is what the speed check reads. face: where it looks before it first moves.
 export const ANIMALS = {
-  doe: {
-    species: 'deer', farm: 'start', label: 'Doe', face: [70.5, -4.6],
+  buck: {
+    species: 'deer', farm: 'start', label: 'Buck', face: [70.5, -4.6],
     marks: [
       [0, 69.5, -5.0, 'browse', 'browses salmonberry in the creek opening, facing east-south-east'],
       [15.9, 69.5, -5.0, 'browse', ''],
@@ -62,10 +62,10 @@ export const ANIMALS = {
       [17.0, 69.5, -5.0, 'run', 'springs away from the cougar'],
       [17.79, 69.65, -4.43, 'run', 'up to a full gallop (12 m/s)'],
       [18.08, 69.75, -4.0, 'run', ''],
-      [18.75, 69.8, -3.0, 'run', 'the cougar lands a body length behind her'],
+      [18.75, 69.8, -3.0, 'run', 'the cougar lands a body length behind him'],
       [19.44, 70.1, -2.0, 'run', ''],
       [20.37, 70.95, -0.9, 'run', 'out between the last trees'],
-      [20.89, 71.08, -0.12, 'leap', 'takes off'], // (F3: 1 m earlier than F2's 71.1, 0.0 at 20.97 s: a hollow along the fence line sank her hooves 0.036 as she gathered; the arc still tops out over the fence)
+      [20.89, 71.08, -0.12, 'leap', 'takes off'], // (F3: 1 m earlier than F2's 71.1, 0.0 at 20.97 s: a hollow along the fence line sank his hooves 0.036 as he gathered; the arc still tops out over the fence)
       [21.66, 71.25, 1.1, 'run', 'lands in the field'],
       [22.62, 71.6, 2.5, 'run', ''],
       [24.41, 72.15, 5.1, 'run', 'past the waterfall on the far bank'],
@@ -76,22 +76,22 @@ export const ANIMALS = {
   cougar: {
     species: 'cougar', farm: 'start', label: 'Cougar', face: [69.5, -5.0],
     marks: [
-      [0, 67.95, -5.6, 'crouch', 'lies low in the sword ferns, 13 m from the doe, still'],
+      [0, 67.95, -5.6, 'crouch', 'lies low in the sword ferns, 13 m from the buck, still'],
       [9.8, 67.95, -5.6, 'creep', 'starts to creep'],
-      [12.8, 68.14, -5.53, 'creep', 'freezes (doe flicks an ear)'],
+      [12.8, 68.14, -5.53, 'creep', 'freezes (buck flicks an ear)'],
       [13.6, 68.14, -5.53, 'creep', 'creeps on'],
-      [15.9, 68.37, -5.44, 'creep', 'freezes as the doe looks up, 9 m away'],
+      [15.9, 68.37, -5.44, 'creep', 'freezes as the buck looks up, 9 m away'],
       [17.0, 68.37, -5.44, 'rush', 'rushes'],
       [17.57, 68.75, -4.95, 'rush', ''],
       [17.84, 68.98, -4.78, 'pounce', 'pounces (slow motion)'],
-      // (Cole, rough cut: "too close together, intersecting": it springs and lands well behind her, 3 m
+      // (Cole, rough cut: "too close together, intersecting": it springs and lands well behind him, 3 m
       // between their bodies at the landing and never under 1.5 m, and runs on a little slower; F2 had it
-      // spring at 69.12, -4.62 and land at 69.8, -3.8, a body's length from her middle)
-      [18.39, 69.6, -4.35, 'rush', 'lands behind her: missed'],
+      // spring at 69.12, -4.62 and land at 69.8, -3.8, a body's length from his middle)
+      [18.39, 69.6, -4.35, 'rush', 'lands behind him: missed'],
       [18.9, 69.86, -3.45, 'rush', 'runs on'],
       [19.5, 70.02, -2.62, 'rush', 'slows'],
       [20.6, 70.2, -1.05, 'stand', 'pulls up at the last trees', [71.6, 2.5]],
-      [24, 70.2, -1.05, 'stand', 'stands and watches the doe go; tail flicks', [72.6, 6.5]],
+      [24, 70.2, -1.05, 'stand', 'stands and watches the buck go; tail flicks', [72.6, 6.5]],
       [32, 70.2, -1.05, 'stand', '', [72.6, 6.5]],
     ],
   },
@@ -111,70 +111,71 @@ export const SHOTS = [
     sound: 'creek and wind fade up; a raven far off',
   },
   {
-    n: 1, layer: 'opening', from: 1.5, to: 5.5, fadeIn: 1, title: 'The opening', farm: 'start', subjects: ['doe', 'cougar'],
-    see: 'Misty old forest, morning sun through the gap where the creek runs out of the trees. A doe browses in the salmonberry, side-on, head down. Low in the sword ferns at the left of the frame, too small to notice, the cougar is already there.',
+    n: 1, layer: 'opening', from: 1.5, to: 5.5, fadeIn: 1, title: 'The opening', farm: 'start', subjects: ['buck', 'cougar'],
+    see: 'Misty old forest, morning sun through the gap where the creek runs out of the trees. A buck browses in the salmonberry, side-on, head down. Low in the sword ferns at the left of the frame, too small to notice, the cougar is already there.',
     camera: { move: 'very slow push in', lens: 'wide', fov: 46, pos: [69.35, -0.75, .4], to: [69.31, -1.35, .4], look: [68.95, -5.2, .26] },
     where: 'At the forest edge, in the creek\'s opening, looking north up it',
-    animals: 'Doe browses. Cougar lies still.',
+    animals: 'Buck browses. Cougar lies still.',
     sound: 'creek, wind in the firs, a Pacific wren',
   },
   {
-    n: 2, layer: 'ears', from: 5.5, to: 8.5, title: 'Her ears', farm: 'start', subjects: ['doe'],
-    see: 'Close on the doe\'s head and ears as she chews: one ear turns back, then the other. She doesn\'t look up.',
-    camera: { move: 'still', lens: 'long', fov: 5.5, pos: [72.55, -1.86, .3], look: ['doe', 'head'] },
+    n: 2, layer: 'ears', from: 5.5, to: 8.5, title: 'His ears', farm: 'start', subjects: ['buck'],
+    see: 'Close on the buck\'s head and ears as he chews: one ear turns back, then the other. He doesn\'t look up.',
+    camera: { move: 'still', lens: 'long', fov: 5.5, pos: [72.55, -1.86, .3], look: ['buck', 'head'] },
     where: 'Low, 34 m off to the south-east, between the alders',
-    animals: 'Doe chews, ears flick.',
-    sound: 'close: her chewing, a twig; the creek behind',
+    animals: 'Buck chews, ears flick.',
+    sound: 'close: his chewing, a twig; the creek behind',
   },
   {
     n: 3, layer: 'eyes', from: 8.5, to: 12, title: 'The cougar', farm: 'start', subjects: ['cougar'],
-    see: 'Long lens, low among the ferns: two eyes and the shoulders of a cougar, flat to the ground, fixed on the doe. It was there in the first shot. At 9.8 s it starts to creep.',
+    see: 'Long lens, low among the ferns: two eyes and the shoulders of a cougar, flat to the ground, fixed on the buck. It was there in the first shot. At 9.8 s it starts to creep.',
     camera: { move: 'still', lens: 'long', fov: 5.5, pos: [71.35, -3.04, .25], look: ['cougar', 'head'] },
     where: 'Low at the forest edge, 30 m south-east of the cougar, so it looks almost toward us',
     animals: 'Cougar still, then begins to creep (under 1 m/s).',
     sound: 'the forest goes quiet; wind only',
   },
   {
-    n: 4, layer: 'stalk', from: 12, to: 15.5, title: 'The stalk', farm: 'start', subjects: ['cougar', 'doe'],
-    see: 'Both in one frame from the side: the cougar at left creeps a paw at a time toward the doe at right, freezes when her ear flicks, creeps on. She keeps browsing.',
+    n: 4, layer: 'stalk', from: 12, to: 15.5, title: 'The stalk', farm: 'start', subjects: ['cougar', 'buck'],
+    see: 'Both in one frame from the side: the cougar at left creeps a paw at a time toward the buck at right, freezes when his ear flicks, creeps on. He keeps browsing.',
     camera: { move: 'still', lens: 'medium-long', fov: 22, pos: [68.75, -1.25, .32], look: [68.95, -5.15, .24], clearShrubs: .3 },
     // (Cole, rough cut: "remove the bush from in front of the cougar": shrubs on the line are cleared to 0.3 tiles short of it, ferns kept)
     // (F3: 0.4 tiles further up the opening than F2's 68.75, -0.85: there a trunk hid the crouched cougar's body half the shot, as drawn)
     where: 'At the forest edge, 35 m south, between the two',
-    animals: 'Cougar creeps from 13 m to 9 m. Doe browses.',
+    animals: 'Cougar creeps from 13 m to 9 m. Buck browses.',
     sound: 'wind; one soft crack under a paw at 15.8 s',
   },
   {
-    n: 5, layer: 'headup', from: 15.5, to: 17.35, title: 'Head up', farm: 'start', subjects: ['doe'],
-    see: 'Back to the close on the doe: her head snaps up, ears forward, frozen.',
-    camera: { move: 'still', lens: 'long', fov: 9.5, pos: [72.55, -1.86, .3], look: [69.66, -4.94, .5] },
-    // (F3: 9.5°, not 8°: as drawn, her whirl at 16.7 s crossed the 8° frame at 0.78 widths a second, limit 0.7)
+    n: 5, layer: 'headup', from: 15.5, to: 17.35, title: 'Head up', farm: 'start', subjects: ['buck'],
+    see: 'Back to the close on the buck: his head snaps up, ears forward, frozen.',
+    camera: { move: 'still', lens: 'long', fov: 11, pos: [72.55, -1.86, .3], look: [69.66, -4.94, .5] },
+    // (F3: 9.5°, not 8°: as drawn, the doe's whirl at 16.7 s crossed the 8° frame at 0.78 widths a second, limit 0.7;
+    // 11° for the buck, drawn about 12% bigger: he crossed the 9.5° frame at 0.76)
     where: 'As shot 2',
-    animals: 'Doe head up at 16.0 s, still.',
+    animals: 'Buck head up at 16.0 s, still.',
     sound: 'silence but the creek',
   },
   {
-    n: 6, layer: 'burst', from: 17.35, to: 20.6, title: 'The burst', farm: 'start', subjects: ['doe', 'cougar'],
-    see: 'Wider: she springs away down the opening toward us, the cougar explodes out of the ferns behind her. The pounce in slow motion (17.75–19.25 s, half speed): it lands a body length short. Back to full speed, she veers right past us and out of frame; the cougar runs on.',
-    camera: { move: 'still, panning gently with the doe', lens: 'normal', fov: 40, pos: [69.15, -0.2, .62], look: { follow: { doe: .6, cougar: .4 } }, lookUp: .3 },
-    // (fov 40, not 38: with the cougar further back, the doe passing the camera crossed the 38° frame at
+    n: 6, layer: 'burst', from: 17.35, to: 20.6, title: 'The burst', farm: 'start', subjects: ['buck', 'cougar'],
+    see: 'Wider: he springs away down the opening toward us, the cougar explodes out of the ferns behind him. The pounce in slow motion (17.75–19.25 s, half speed): it lands a body length short. Back to full speed, he veers right past us and out of frame; the cougar runs on.',
+    camera: { move: 'still, panning gently with the buck', lens: 'normal', fov: 40, pos: [69.15, -0.2, .62], look: { follow: { buck: .6, cougar: .4 } }, lookUp: .3 },
+    // (fov 40, not 38: with the cougar further back, the buck passing the camera crossed the 38° frame at
     // 0.70 widths a second, the limit)
     // (Cole, rough cut: "too low, shows too much ground": the camera stands at 0.62, not 0.36, and aims 0.3 above the pair, so they run in the frame's lower half with the forest above: ground 56% of the frame to 35–48%)
     where: 'In the creek opening at the forest edge, low',
-    animals: 'Doe gallops 12 m/s. Cougar sprints 16 m/s, pounces, misses.',
+    animals: 'Buck gallops 12 m/s. Cougar sprints 16 m/s, pounces, misses.',
     sound: 'crash of ferns, hooves; the slow motion\'s sound drops to a low hush',
   },
   {
-    n: 7, layer: 'fence', from: 20.6, to: 24, title: 'Over the fence', farm: 'start', subjects: ['doe', 'cougar'],
-    see: 'The open field from beside the waterfall: the forest edge and the old fence behind. The doe bursts out of the trees, clears the fence and bounds down the far bank of the creek, past the falls. The cougar arrives at the last trees and stops.',
+    n: 7, layer: 'fence', from: 20.6, to: 24, title: 'Over the fence', farm: 'start', subjects: ['buck', 'cougar'],
+    see: 'The open field from beside the waterfall: the forest edge and the old fence behind. The buck bursts out of the trees, clears the fence and bounds down the far bank of the creek, past the falls. The cougar arrives at the last trees and stops.',
     camera: { move: 'still', lens: 'normal', fov: 44, pos: [63.9, 5.9, .45], look: [70.8, 2.5, .3] },
     where: 'In the field west of the creek, below the falls, looking north-east',
-    animals: 'Doe leaps the fence (20.9–21.7 s real). Cougar pulls up at the edge.',
+    animals: 'Buck leaps the fence (20.9–21.7 s real). Cougar pulls up at the edge.',
     sound: 'the waterfall swells; hooves on grass',
   },
   {
     n: 8, layer: 'watch', from: 24, to: 26.8, title: 'It watches', farm: 'start', subjects: ['cougar'],
-    see: 'Long lens on the cougar at the edge of the trees: it stands, tail tip flicking, head turning slowly to follow the doe. It does not step out into the open.',
+    see: 'Long lens on the cougar at the edge of the trees: it stands, tail tip flicking, head turning slowly to follow the buck. It does not step out into the open.',
     camera: { move: 'still', lens: 'long', fov: 9, pos: [70.66, 4.0, .4], look: ['cougar', 'head', 'stand'] },
     where: 'On the creek\'s east bank above the falls, 39 m south',
     animals: 'Cougar stands, tail flicks, watches.',
@@ -212,7 +213,7 @@ export const SHOTS = [
 // ------------------------------------------------------------------ Cole's rough-cut notes (2026-11-22)
 // Also in the numbers above: the opening's push goes twice as far ("pan up a little too slow"), the
 // burst's camera stands higher and aims above the pair (lookUp: "too low, shows too much ground"), the
-// stalk clears the bush in front of the cougar (clearShrubs), the cougar lands well behind the doe, and
+// stalk clears the bush in front of the cougar (clearShrubs), the cougar lands well behind the buck, and
 // the rise is one sweep to the start view on both farms (camera.sweep), its shots and the elk later.
 // Trims, applied here to the numbers above so they stay as approved: [film second, seconds cut, kind].
 //   story: both clocks lose the seconds (before the slow motion only: nothing happens in them)
@@ -222,7 +223,7 @@ export const SHOTS = [
 export const TRIMS = [
   [.8, .7, 'story'],    // a shorter black opening
   [14, 1.5, 'skip'],    // (Cole, 2nd notes) the stalk cuts as the cougar creeps on again, straight to the
-                        // doe half a second before her head comes up: the story jumps 1.5 s (F3's first
+                        // buck half a second before his head comes up: the story jumps 1.5 s (F3's first
                         // trim instead shortened the cougar's freeze, which hurried its creep into a rush)
   [24.9, 1.4, 'film'],  // the cougar watches 1.4 s, not 2.8 s
 ];
@@ -261,7 +262,7 @@ const mix = (a, b, u) => a.map((v, i) => v + (b[i] - v) * u);
 export const EASE = .15;
 const LEAPS = { leap: .75, pounce: .5 }; // arc height in body lengths (the drawing's hunt.leap.arc)
 // fastest speed (m/s) each slow pose may be drawn at; faster, the animal takes the gait of the nearest
-// stretch whose gait is that fast (a doe springing off from browsing gallops, a cougar easing into its
+// stretch whose gait is that fast (a buck springing off from browsing gallops, a cougar easing into its
 // rush from the creep rushes, one pulling up runs until it stands)
 const TOP = { browse: 1, alert: 1, crouch: .8, creep: .95, stand: 1, graze: 1.5, walk: 1.8 };
 const tracks = new Map();

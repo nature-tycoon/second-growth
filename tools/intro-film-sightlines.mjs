@@ -6,7 +6,7 @@
 //     check uses on the filmed frames)
 //   - the subject in the frame (16:9 at the shot's lens) and the camera clear of trunks
 //   - the animals' speeds in real seconds against the motion check's limits, the cougar never ahead
-//     of the doe, every animal within 9 tiles of the farm (f1.md: further out it is drawn sunk)
+//     of the buck, every animal within 9 tiles of the farm (f1.md: further out it is drawn sunk)
 //   - the camera's speed and pan rate
 // It also writes the land round the film for the top-down map (tools/film-shots.html):
 // tools/intro-film-map.json, with these results in it. No images, nothing drawn on the GPU.
@@ -137,7 +137,7 @@ for (const shot of SHOTS) {
     if (ss.length && gap < .12) fail(`shot ${shot.n}: camera ${gap.toFixed(2)} from a trunk`);
   }
 }
-// the animals: speeds (real), sprint time, reach beyond the farm, the cougar never ahead of the doe
+// the animals: speeds (real), sprint time, reach beyond the farm, the cougar never ahead of the buck
 for (const [name, A] of Object.entries(ANIMALS)) {
   const m = A.marks, legs = [];
   let sprint = 0;
@@ -154,11 +154,11 @@ for (const [name, A] of Object.entries(ANIMALS)) {
   if (reach > FARM_REACH) fail(`${name} ${reach.toFixed(1)} tiles beyond the farm`);
 }
 {
-  // ahead: the cougar's distance along the doe's path, against the doe's, while it chases
-  const doe = ANIMALS.doe.marks, along = (x, y) => {
+  // ahead: the cougar's distance along the buck's path, against the buck's, while it chases
+  const buck = ANIMALS.buck.marks, along = (x, y) => {
     let best = Infinity, s = 0, at = 0;
-    for (let i = 1; i < doe.length; i++) {
-      const [ax, ay] = [doe[i - 1][1], doe[i - 1][2]], [bx, by] = [doe[i][1], doe[i][2]], L = Math.hypot(bx - ax, by - ay);
+    for (let i = 1; i < buck.length; i++) {
+      const [ax, ay] = [buck[i - 1][1], buck[i - 1][2]], [bx, by] = [buck[i][1], buck[i][2]], L = Math.hypot(bx - ax, by - ay);
       if (L < 1e-6) continue;
       const u = Math.max(0, Math.min(1, ((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / (L * L))), d = Math.hypot(ax + (bx - ax) * u - x, ay + (by - ay) * u - y);
       if (d < best) { best = d; at = s + u * L; }
@@ -168,12 +168,12 @@ for (const [name, A] of Object.entries(ANIMALS)) {
   };
   let ahead = -Infinity, when = null, gap = Infinity;
   for (let r = 17; r <= 20.4; r += .02) {
-    const d = animalAt('doe', r), c = animalAt('cougar', r), a = along(c.x, c.y) - along(d.x, d.y);
+    const d = animalAt('buck', r), c = animalAt('cougar', r), a = along(c.x, c.y) - along(d.x, d.y);
     if (a > ahead) { ahead = a; when = r; }
     gap = Math.min(gap, Math.hypot(d.x - c.x, d.y - c.y));
   }
   report.chase = { cougarAheadMax: +ahead.toFixed(2), at: +when.toFixed(2), closest: +gap.toFixed(2), closestM: +(gap * TILE_M).toFixed(1) };
-  if (ahead > .1) fail(`cougar ${ahead.toFixed(2)} tiles ahead of the doe at ${when.toFixed(2)} s`);
+  if (ahead > .1) fail(`cougar ${ahead.toFixed(2)} tiles ahead of the buck at ${when.toFixed(2)} s`);
 }
 report.slowmo = SLOWMO;
 report.made = new Date().toLocaleDateString('en-CA'); // (local date, YYYY-MM-DD)

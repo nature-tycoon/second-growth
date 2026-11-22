@@ -9,7 +9,7 @@
 // Staging (allowed in a film, never in play: decision 0001): the plan's animals are posed and moved
 // along its paths (animalAt: smooth curves through its marks, eased starts and stops, real speeds),
 // and drawn by the game's own walker drawing (stride, gallop, head, crouch, and the pounce arc for the
-// doe's fence jump and the cougar's leap). The cameras are the plan's (cameraAt: eased moves, smoothed
+// buck's fence jump and the cougar's leap). The cameras are the plan's (cameraAt: eased moves, smoothed
 // looks). In the slow motion the whole world's clock runs at the plan's rate. On the restored farm the
 // rest of the wildlife lives by the simulation; the plan's elk are staged.
 import { Renderer } from '../js/render3d/scene.js';
@@ -123,7 +123,7 @@ function castOf(g, farm) {
   for (const [name, A] of Object.entries(ANIMALS)) {
     if (A.farm !== farm) continue;
     const def = g.catalog.animal[A.species], p = animalAt(name, -1);
-    if (name === 'doe') while (isMaleVariant(def, { id: W.nextId, age: 600 })) W.nextId++; // (a doe: no antlers in March)
+    if (name === 'buck') while (!isMaleVariant(def, { id: W.nextId, age: 600 })) W.nextId++; // (a buck, antlered as the game draws him all year; Cole chose this over a March buck's shed head, 2026-11-22)
     const a = W.spawn(def, p.x, p.y, { silent: true, age: A.species === 'cougar' ? 700 : 600 });
     Object.assign(a, { wait: 1e9, hunger: 0, thirst: 0, path: null, heading: p.heading });
     cast[name] = a; defs[name] = def;
@@ -227,7 +227,7 @@ async function filmLayer(name) {
   }
   g.speed = 1; // (the walker drawing strides only while the game runs)
   // the tracking lens on the shot's key animal, in every shot on today's farm (Cole's rough-cut note:
-  // plants hid the doe in the first shot)
+  // plants hid the buck in the first shot)
   const lens = L.game === 'start' && cast[L.subjects[0]] || null;
   // The sweep up to the start view (plan: camera.sweep) ends framing the ground exactly as the map
   // view frames it: the renderer's own start view, read from its map camera (orthographic). On the way

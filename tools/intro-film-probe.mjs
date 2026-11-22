@@ -183,7 +183,7 @@ export function makeProbe(r, g, cast, box, render = null, { key = null, keep = 1
       };
     }
     // plants covering the frame: within NEAR_COVER of the lens, and in front of the key animal (nearer
-    // than `keep` short of it: the foreground, which hid the doe in the first shot)
+    // than `keep` short of it: the foreground, which hid the buck in the first shot)
     if (r.eyeOn && render) {
       rec.nearCover = nearCover(r, render);
       rec.skyOverLand = skyOverLand(r, render);
