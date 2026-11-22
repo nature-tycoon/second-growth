@@ -12,6 +12,7 @@ const date = s => tr(s); // a date inside a sentence, e.g. "March, Year 2"
 // "un tigrillo", "una guatusa": close enough for the animal names on this map
 const art = n => (/a$/.test(n.split(' ')[0]) ? 'una ' : 'un ') + n;
 const DIR = { north: 'norte', east: 'este', south: 'sur', west: 'oeste' };
+const SALES = { 'visitor donations': 'donaciones de visitantes', 'palm fruit sales': 'venta de fruta de palma', 'fruit sales': 'venta de fruta', 'co-op sales': 'ventas de la cooperativa' };
 const LIMITS = { 'too shady': 'mucha sombra', 'too sunny': 'mucho sol', 'too dry': 'muy seco', 'too wet': 'muy húmedo', 'soil too poor': 'tierra muy pobre', 'cannot grow on this ground': 'no crece en este terreno' };
 const limits = s => s.split(', ').map(x => LIMITS[x] || x).join(', ');
 // units on progress lines ("12 / 60 trees")
@@ -102,6 +103,7 @@ addStrings({
   'Show or hide the map': 'Mostrar u ocultar el mapa', Map: 'Mapa', Expand: 'Abrir', Collapse: 'Cerrar',
   'Expand panel': 'Abrir panel', 'Collapse panel': 'Cerrar panel', 'Show me': 'Mostrame', 'Crown fire': 'Incendio de copas', Wildfire: 'Incendio', Flood: 'Inundación',
   'Hide goals': 'Ocultar metas', 'Show goals': 'Mostrar metas', 'Chapter details': 'Detalles del capítulo',
+  'Hide goal': 'Ocultar meta', 'Show goal': 'Mostrar meta', 'Next goal': 'Próxima meta', 'All goals': 'Todas las metas', 'Nearer goal: ': 'Meta más cercana: ',
 
   // ---------------------------------------------------------------- tool groups and tools
   Inspect: 'Mirar', // (short enough for the toolbar button) 'Click tiles and animals to learn about them.': 'Tocá cuadros y animales para conocerlos.',
@@ -556,6 +558,10 @@ addPatterns([
   ['The dike is breached. Over the next few weeks the tide will flood in and out of the old pond, and it will turn to tidal mud and marsh. Mangrove seedlings will drift in on the tide and take root, fastest next to healthy mangroves.', 'Se rompió el bordo. En las próximas semanas la marea va a entrar y salir de la camaronera vieja, y se va a volver lodo y estero. Las semillas de mangle llegarán flotando con la marea y pegarán, más rápido junto a los manglares sanos.'],
   ['The culvert is out! The creek now flows freely into the river, and fish can reach the upper creek.', '¡Se quitó la alcantarilla! La quebrada corre libre hasta el estero, y los peces pueden subir.'],
   [/^Not enough money\. Monthly grants will top up your budget\. Healthier land earns bigger grants\.$/, 'No alcanza la plata. Las ayudas de cada mes llenan el presupuesto. La tierra más sana gana ayudas más grandes.'],
+  [/^Not enough money\. Next grant: about (\$[\d,]+) in (\d+) days?(?:, plus (.+?) \((\$[\d,]+) last month\))?\.(?: Goals pay more: (.+), (\$[\d,]+)\.)?$/, (_, gr, d, src, amt, goal, pay) => `No alcanza la plata. La próxima ayuda: unos ${gr} en ${d} ${d === '1' ? 'día' : 'días'}${src ? `, más ${SALES[src] || src} (${amt} el mes pasado)` : ''}.${goal ? ` Las metas pagan más: ${goal}, ${pay}.` : ''}`],
+  [/^The (.+) here have died out for now\. Their numbers rise and fall on their own, and their habitat is still here, so new ones will move in\.$/, (_, a) => `Por ahora no quedan ${low(a)} aquí. Sus números suben y bajan solos, y su hábitat sigue aquí, así que llegarán otros.`],
+  [/^The last (.+) have left: too few (.+) here to live on\. Habitat for those brings them back\.$/, (_, a, f) => `Se fueron los últimos ${low(a)}: hay muy pocos ${low(f).replace(/ and /g, ' y ')} para vivir. Dales hábitat a esos y volverán.`],
+  [/^The last (.+) have left: the farm no longer has room for them\. What they need: (.+)$/, (_, a, h) => `Se fueron los últimos ${low(a)}: la finca ya no tiene lugar para ellos. Lo que necesitan: ${h}`],
   [/^(.+) won't survive here: try (.+?)(?: \((.+)\))?\.$/, (_, p, b, l) => `${p} no va a sobrevivir aquí: probá ${b}${l ? ` (${limits(l)})` : ''}.`],
   [/^(.+) won't survive here(?: \((.+)\))?\. Green previews show where it will grow\.$/, (_, p, l) => `${p} no va a sobrevivir aquí${l ? ` (${limits(l)})` : ''}. Lo verde muestra dónde va a crecer.`],
   [/^(.+) unlocks in Chapter (\d+), "(.+)"\. Finish this chapter's goals to get there\.$/, '$1 se abre en el capítulo $2, "$3". Cumplí las metas de este capítulo para llegar.'],

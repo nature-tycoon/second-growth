@@ -14,7 +14,7 @@ import { wallowDay } from './sim/wallows.js';
 import { updatePlants, seedRain, rootsLoosen } from './sim/plants.js';
 import { Wildlife } from './sim/animals.js';
 import { aOne } from './data/animals.js';
-import { ecoScore, monthlyGrant, nativePlantSpecies, speciesPresent } from './sim/goals.js';
+import { ecoScore, monthlyGrant, nativePlantSpecies, speciesPresent, adoptChain } from './sim/goals.js';
 import { Visitors } from './sim/visitors.js';
 import { Events } from './sim/events.js';
 import { checkCampaign } from './sim/campaign.js';
@@ -53,6 +53,7 @@ export class Game {
     this.catalog = mapCatalog(this.mapDefinition.id);
     Object.assign(this, createFarmState({ seed, runSeed, mode, difficulty, map: this.mapDefinition.id }));
     this.dayRun = null; this.saveDue = false;
+    if (this.mapDefinition.goalChain) this.flags.chain = 1; // (a new farm starts the chain from scratch)
     this.loaded = false;
     this.saveReady = false; // the welcome screen must never overwrite a saved farm
     this.saveEpoch = (this.saveEpoch || 0) + 1;
@@ -336,6 +337,7 @@ export class Game {
 
   // dailyOnly: the goals marked `daily` (the first goal, so its reward follows the first stroke)
   checkGoals(dailyOnly = false) {
+    adoptChain(this); // (an older save's met steps, no grant: goals.js)
     for (const g of this.catalog.goals) {
       if (this.goalsDone[g.key] || dailyOnly && !g.daily) continue;
       if (g.check(this)) {

@@ -119,12 +119,19 @@ export class SessionAnalytics {
       if (kind === 'fire' || kind === 'grassfire') track('wildfire', { crown: !!g.events.severe, routine: kind === 'grassfire', ...snapshot() });
       else if (kind === 'flood') track('flood', { tiles: g.events.floodTiles, ...snapshot() });
     });
-    // a wild species the farm had last month and has lost (the last otter gone): up to 5 a session
+    // a wild species the farm had last month and has lost (the last otter gone): up to 5 a session.
+    // Not a migrant gone for its off season (the thrushes, hummingbirds and bats that leave PNW in
+    // the fall were most of these until 2026-11-21); cause: 'natural' | 'habitat' | 'prey' (wildlife-population's lostCause).
     const present = () => new Set(g.wildlife.state.flatMap((st, k) => st.pop > 0 && !g.catalog.animals[k]?.domestic ? [g.catalog.animals[k].key] : []));
+    const offSeason = key => { const def = g.catalog.animal[key]; return !!def?.season && !def.season.includes(g.month); };
     let had = present(), hadWorld = g.world;
     g.on('month', () => {
       const now = present();
-      if (g.world === hadWorld) for (const key of had) if (!now.has(key) && T.lost < 5) { T.lost++; track('species_lost', { ...snapshot(), species_present: now.size, species: key }); }
+      if (g.world === hadWorld) for (const key of had) if (!now.has(key) && !offSeason(key) && T.lost < 5) {
+        T.lost++;
+        const st = g.wildlife.state[g.catalog.animal[key].index];
+        track('species_lost', { ...snapshot(), species_present: now.size, species: key, ...(st.lostCause && { cause: st.lostCause }) });
+      }
       had = now; hadWorld = g.world; // (a new game in the same page isn't a loss)
       const s = snapshot();
       setContext({ ...s, ...context() });

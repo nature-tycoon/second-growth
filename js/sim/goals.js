@@ -1,6 +1,6 @@
 // Ecosystem score, grant income, and restoration goals.
 
-import { H, F, T, clamp } from '../config.js';
+import { H, F, T, clamp, DAYS_PER_YEAR } from '../config.js';
 
 
 export function speciesPresent(game) {
@@ -78,9 +78,69 @@ export const FIRST_GOAL = { key: 'sprout', name: 'First sprouts', reward: 500, d
   done: 'Your seeds are in. Watch the new shoots fill in over the coming weeks; animals come to the food and cover they make.',
   check: g => g.stats.planted >= 10, prog: g => `${Math.min(10, g.stats.planted)} / 10 planted` };
 
+// The long goal on PNW: the cougar the intro film shows, with nearer steps first (deer on the
+// field, an owl hunting the meadow, elk at the creek), so a first visit sees the next step at once.
+// Each step is met only through the simulation (decision 0001): the animal has to find the farm on
+// its own rules, and its first real hunt or drink is a keystone moment (MOMENTS in maps/pnw.js).
+// A step also counts once the species has lived here a full year without the moment being caught
+// on camera, so a step never sticks. Its line says what the habitat still lacks, from the same
+// carrying capacity the wildlife uses.
+const since = (g, key) => g.catalog.animal[key] ? g.wildlife.state[g.catalog.animal[key].index].since : null;
+const watched = (g, moment, key) => g.flags.moments?.[moment] != null ||
+  pop(g, key) > 0 && since(g, key) != null && g.day - since(g, key) >= DAYS_PER_YEAR;
+// A farm saved before the chain: the steps it has already met are marked done, without a grant or
+// a "returns" cinematic for animals that have lived there for years (Game.checkGoals).
+export function adoptChain(g) {
+  const chain = g.catalog.definition.goalChain;
+  if (!chain || g.flags.chain) return;
+  g.flags.chain = 1;
+  if (!g.day) return;
+  const moments = g.flags.moments ||= {};
+  for (const goal of g.catalog.goals.filter(x => x.chain)) {
+    if (!pop(g, goal.key)) continue;
+    g.goalsDone[goal.key] ??= g.day;
+    if (goal.moment) moments[goal.moment] ??= g.day;
+  }
+}
+export function habitatProgress(g, key, seen) {
+  const def = g.catalog.animal[key];
+  if (!def) return '';
+  const st = g.wildlife.state[def.index], need = def.minK ?? 1;
+  if (st.pop > 0) return seen;
+  if (st.K >= need) return 'The habitat is ready: one should find the farm soon';
+  const prey = def.prey?.filter(k => g.catalog.animal[k]).map(k => g.catalog.animal[k]);
+  if (st.preyK != null && st.preyK < need && (st.habitatK ?? 0) >= need) {
+    return `Not enough prey yet (${prey.map(p => p.name.toLowerCase()).join(', ')})`;
+  }
+  return `Habitat ${Math.min(99, Math.floor(100 * (st.habitatK ?? st.K) / need))}% of what it needs`;
+}
+export const PNW_CHAIN = {
+  title: 'Toward the cougar',
+  steps: ['deer', 'owl', 'elk', 'cougar'],
+};
+const PNW_CHAIN_GOALS = [
+  { key: 'deer', name: 'Deer on the field', reward: 1000, chain: true,
+    desc: 'Black-tailed deer step in from the forest edge once the boundary fence is out. Shrubs and young trees give them browse and cover.',
+    check: g => pop(g, 'deer') > 0,
+    prog: g => perimeterFence(g.world) ? 'The fence still keeps them out' : habitatProgress(g, 'deer', 'Done') },
+  { key: 'owl', name: 'An owl hunts the meadow', reward: 2000, chain: true,
+    desc: 'A great horned owl roosts in trees and hunts voles in open meadow. Plant meadow right up against young forest: it hunts the edge.',
+    moment: 'owlHunt', check: g => watched(g, 'owlHunt', 'owl'),
+    prog: g => habitatProgress(g, 'owl', 'An owl lives here: watch for it hunting at dusk') },
+  { key: 'elk', name: 'Elk come down to the creek', reward: 3000, chain: true,
+    desc: 'Roosevelt elk need room: big meadows to graze, forest to hide in, the fence gone, and a creek or pond to drink from.',
+    moment: 'elkCreek', check: g => watched(g, 'elkCreek', 'elk'),
+    prog: g => perimeterFence(g.world) ? 'The fence still keeps them out' : habitatProgress(g, 'elk', 'The herd is here: watch for it at the water') },
+  { key: 'cougar', name: 'The cougar returns', reward: 4000, chain: true, // (Top of the food web pays for the same cat too)
+    desc: 'A cougar hunts from cover. It needs a big, connected forest to stalk through and plenty of deer and elk to hunt.',
+    moment: 'cougarHunt', check: g => watched(g, 'cougarHunt', 'cougar'),
+    prog: g => habitatProgress(g, 'cougar', 'A cougar is here: watch for it stalking') },
+];
+
 // Pacific Northwest (Hollis farm) milestones.
 export const PNW_GOALS = [
   FIRST_GOAL,
+  ...PNW_CHAIN_GOALS,
   { key: 'plant', name: 'Break ground', reward: 1000,
     desc: 'Plant 200 native plants anywhere on the farm.',
     check: g => g.stats.planted >= 200, prog: g => `${Math.min(200, g.stats.planted)} / 200 planted` },

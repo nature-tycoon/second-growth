@@ -1,6 +1,7 @@
 // Shared player-action lifecycle. Controls and scripted players use the same
 // tool rules, prices, bookkeeping and completion work. Drawing stays with the UI.
-import { T } from './config.js';
+import { T, DAYS_PER_MONTH, money } from './config.js';
+import { monthlyGrant } from './sim/goals.js';
 import { strokeTiles, toolCost } from './tools.js';
 import { plantLimits, plantSuit } from './sim/plants.js';
 import { toolUnlocked } from './sim/campaign.js';
@@ -129,7 +130,7 @@ export class ToolActions {
       g.flags.steepGradeHint = true;
       g.notify('Fill & grade levels everything to the height where your stroke starts, and stops where the ground is more than a few metres higher or lower. Start a new stroke there to grade it at its own level.', 'info');
     }
-    if (stroke.broke) g.notify('Not enough money. Monthly grants will top up your budget. Healthier land earns bigger grants.', 'warn');
+    if (stroke.broke) g.notify(brokeLine(g), 'warn');
     if (!stroke.count && stroke.unsuitable && tool.species) {
       const { limits, better } = stroke.lastBad != null ? refusal(g, stroke.lastBad, tool) : { limits: [], better: null };
       // (the tool that suits comes before the reasons: a phone shows two lines of a warning)
@@ -143,6 +144,20 @@ export class ToolActions {
       }
     }
   }
+}
+
+// A stroke refused for money: when money comes next and what earns it, in one line. The grant is
+// paid as each month closes (Game.monthWork); sales and donations last month say what else comes in;
+// the nearest open goal is the bigger payout. Ran through a refused stroke, not the sim.
+const EARNERS = { visitors: 'visitor donations', palms: 'palm fruit sales', fruit: 'fruit sales', coop: 'co-op sales' };
+export function brokeLine(g) {
+  const days = DAYS_PER_MONTH - (g.day % DAYS_PER_MONTH);
+  const grant = Math.round(monthlyGrant(g, g.cache.score?.total ?? 0) * (g.mapDefinition.grantScale ?? 1) * g.diff.grants);
+  const sales = Object.entries(g.lastLedger?.in || {}).filter(([k, v]) => EARNERS[k] && v > 0).sort((a, b) => b[1] - a[1])[0];
+  const goal = g.catalog.goals.find(x => !g.goalsDone[x.key] && !x.chain) || g.catalog.goals.find(x => !g.goalsDone[x.key]);
+  return `Not enough money. Next grant: about ${money(grant)} in ${days} ${days === 1 ? 'day' : 'days'}` +
+    (sales ? `, plus ${EARNERS[sales[0]]} (${money(sales[1])} last month)` : '') + '.' +
+    (goal ? ` Goals pay more: ${goal.name}, ${money(g.goalReward(goal.reward))}.` : '');
 }
 
 // Why a planting tool is refused on tile i (plantLimits of its first plant) and the unlocked tool

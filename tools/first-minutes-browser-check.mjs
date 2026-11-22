@@ -190,6 +190,30 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
     assert.ok(lapsed.line, 'one line on what changed');
     console.log(`  time-lapse: ${lapsed.line}`);
 
+    // the next goal is on screen once the first is done: on PNW the chain toward the cougar the intro
+    // film shows, its next step named, and opened, every step with what it still needs
+    const tracker = await b.evaluate(`(async()=>{ const {ui}=window.secondGrowth, q=document.getElementById('quest');
+      ui.questOpen=false; ui.renderQuest(true); const r=q.getBoundingClientRect();
+      const head={ shown:!q.classList.contains('hidden') && r.width>0, label:q.querySelector('.q-ch')?.textContent, step:q.querySelector('.q-head b')?.textContent,
+        inView:r.left>=-1 && r.right<=innerWidth+1 && r.bottom<=innerHeight+1 };
+      q.querySelector('.q-head').click(); await new Promise(r=>setTimeout(r,50));
+      const rows=[...q.querySelectorAll('.q-goal')].map(x=>x.textContent), more=!!q.querySelector('.q-more'), b2=q.getBoundingClientRect();
+      const opened=window.events.some(e=>e.event==='goal_tracker_opened');
+      q.querySelector('.q-head').click();
+      return { ...head, rows, more, opened, openBottom:b2.bottom<=innerHeight+1 }; })()`);
+    assert.ok(tracker.shown && tracker.inView, 'the goal tracker shows once the first goal is done, inside the screen');
+    assert.equal(tracker.label, 'Toward the cougar', 'it is the long goal toward the cougar');
+    assert.match(tracker.step, /^(Deer on the field|An owl hunts the meadow|Elk come down to the creek|The cougar returns)$/, 'it names the next step');
+    assert.equal(tracker.rows.length, 4, 'opened, it lists the four steps');
+    assert.ok(tracker.rows.at(-1).includes('cover'), 'each step says what helps');
+    assert.ok(tracker.more && tracker.opened && tracker.openBottom, 'all goals one tap away, goal_tracker_opened sent, the list fits on screen');
+    if (shots) {
+      await b.evaluate(`(()=>{ const {ui}=window.secondGrowth; ui.questOpen=true; ui.renderQuest(true); })()`);
+      await writeFile(`${shots}/tracker-${width}x${height}.png`, Buffer.from((await b.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+      await b.evaluate(`(()=>{ const {ui}=window.secondGrowth; ui.questOpen=false; ui.renderQuest(true); })()`);
+    }
+    console.log(`  goal tracker: ${tracker.label} > ${tracker.step}`);
+
     // the follow-up, then the one-time story offer: never while the player is busy, only on a pause
     // (the phone size) or after a while without input (the desktop size, the idle clock wound on)
     await b.waitFor(`window.secondGrowth.ui.storyPending`, 'story offer queued after the goal', 20000);

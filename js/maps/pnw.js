@@ -2,7 +2,7 @@
 
 import buildPnwPlants from '../data/plants-pnw.js';
 import buildPnwAnimals from '../data/animals-pnw.js';
-import { PNW_GOALS } from '../sim/goals.js';
+import { PNW_GOALS, PNW_CHAIN } from '../sim/goals.js';
 import { generateFarm, pnwBorderCell } from '../world.js';
 
 export default {
@@ -19,6 +19,22 @@ export default {
   plants: buildPnwPlants,
   animals: buildPnwAnimals,
   goals: PNW_GOALS,
+  goalChain: PNW_CHAIN, // (the long goal shown on screen in free play: the cougar, nearer steps first)
+  // keystone moments for the chain's steps (fired by moments.js when the animal really does it)
+  moments: {
+    owlHunt: {
+      title: 'An owl over the meadow',
+      text: 'A great horned owl has left its roost in your young trees to hunt the meadow. Voles live in the grass you planted, and the trees beside it give the owl a perch to watch from. Meadow next to forest is where hunters find their food.',
+    },
+    elkCreek: {
+      title: 'Elk at the creek',
+      text: 'Roosevelt elk have come down to the creek. With the fence gone they can move between the forest and the meadows, and the water ties their range together. Elk were hunted out of these valleys a century ago; this herd chose to come back.',
+    },
+    cougarHunt: {
+      title: 'The cougar returns',
+      text: 'A cougar is stalking through the forest you grew. It hunts from cover, so it needs trees that join up, and deer and elk enough to feed it. Its presence keeps the deer moving, so streamside plants can recover. The valley has its top predator again.',
+    },
+  },
   generate: generateFarm,
   stones: 0.05, // the odds loosening the soil turns up stones on a tile (0035): glacial outwash and till: the valley floor is full of cobbles
   borderCell: pnwBorderCell,

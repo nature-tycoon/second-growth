@@ -867,7 +867,7 @@ export class UI {
   toast(n) {
     this.journal.unshift(n);
     if (this.journal.length > 120) this.journal.pop();
-    if (settings.notifications === 'hidden') return;
+    if (settings.notifications === 'hidden' || n.journal) return; // (n.journal: the journal only, no pop-up)
     // "important only": routine updates skip the pop-up but stay in the journal
     if (settings.notifications === 'important' && (n.kind === 'info' || n.kind === 'season') && !n.loc) return;
     if (this.holdInFirstMinutes(n)) return;
@@ -1724,8 +1724,14 @@ export class UI {
   renderQuest(force = false) {
     const q = $('#quest'), g = this.game, c = currentChapter(g);
     document.body.classList.toggle('campaign', !!c);
-    if (!c) { q.classList.add('hidden'); return; }
     const now = performance.now();
+    if (!c) {
+      const shown = this.renderGoalTracker(q, force, now);
+      document.body.classList.toggle('quest-on', shown);
+      if (!shown) q.classList.add('hidden');
+      return;
+    }
+    document.body.classList.add('quest-on');
     if (!force && now - (this.questAt || 0) < 1000) return;
     this.questAt = now;
     const k = g.campaign.chapter, doneN = c.goals.filter(o => goalMet(g, o)).length;
@@ -1738,6 +1744,40 @@ export class UI {
     q.querySelector('.q-head').addEventListener('click', () => { this.questOpen = !this.questOpen; this.renderQuest(true); });
     q.querySelector('.q-help')?.addEventListener('click', () => { if (!helpOpen) track('quest_help', { chapter: k + 1, chapter_key: c.key, objectives_done: doneN }); this.questHelpChapter = helpOpen ? null : c.key; this.renderQuest(true); });
     q.querySelector('.q-more')?.addEventListener('click', () => this.openChapter(k, true));
+  }
+
+  // Free play's goal tracker, in the chapter tracker's place: once the first goal is done (so the
+  // opening stays clear), the next goal is always on screen. On a map with a goal chain (PNW: the
+  // cougar the intro promised) it names the chain's next step, and opens to every step with what
+  // helps and what the habitat still lacks; elsewhere it shows the next open goal. Returns whether
+  // it's showing.
+  renderGoalTracker(q, force, now) {
+    const g = this.game, goals = g.catalog.goals, done = k => !!g.goalsDone[k];
+    if (g.mode !== 'free' || g.visiting || !goals.length || !done(goals[0].key) || this.opening?.running || this.timelapse?.busy) return false;
+    const chain = g.catalog.definition.goalChain, steps = chain?.steps.map(k => goals.find(x => x.key === k)).filter(Boolean) || [];
+    const next = steps.find(x => !done(x.key)), near = goals.find(x => !done(x.key) && !x.chain);
+    const head = next || near;
+    if (!head) return false;
+    if (!force && now - (this.questAt || 0) < 1000) return !q.classList.contains('hidden');
+    this.questAt = now;
+    const row = (x, label = '') => { const ok = done(x.key); return `<div class="q-goal ${ok ? 'ok' : ''}"><span class="q-box">${ok ? '✓' : ''}</span><span>${label}<b>${x.name}</b>${ok ? '' : ` · ${money(g.goalReward(x.reward))}`}${ok ? '' : `<span class="q-desc">${x.desc}</span><small>${x.prog(g)}</small>`}</span></div>`; };
+    const body = next
+      ? steps.map(x => row(x)).join('') + (near ? `<p class="q-tip">Nearer goal: <b>${near.name}</b> (${near.prog(g)}), ${money(g.goalReward(near.reward))}</p>` : '')
+      : row(head);
+    q.classList.remove('hidden');
+    q.classList.toggle('open', !!this.questOpen);
+    const label = next ? chain.title : 'Next goal';
+    const count = next ? `${steps.filter(x => done(x.key)).length}/${steps.length}` : `${goals.filter(x => done(x.key)).length}/${goals.length}`;
+    const html = `<button class="q-head" title="${this.questOpen ? 'Hide goal' : 'Show goal'}"><span class="q-ch">${label}</span><b>${head.name}</b><span class="q-n">${count}</span><span class="q-caret">${this.questOpen ? '▴' : '▾'}</span></button>` +
+      (this.questOpen ? `<div class="q-body">${body}<button class="q-more">All goals</button></div>` : '');
+    if (!setHTML(q, html)) return true;
+    q.querySelector('.q-head').addEventListener('click', () => {
+      this.questOpen = !this.questOpen;
+      if (this.questOpen) track('goal_tracker_opened', { map: g.map, next: head.key });
+      this.renderQuest(true);
+    });
+    q.querySelector('.q-more')?.addEventListener('click', () => this.openGoals());
+    return true;
   }
 
   // Photo mode: everything but the land goes away, the edges of the view soften into a vignette,

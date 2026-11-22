@@ -41,6 +41,15 @@ export function arrivalFinding(def, st) {
 // waders that don't live in herds (herds and deer families keep their young with them).
 const disperses = def => !def.herd && !def.familyHerd && !def.patrol && !def.reef && (def.move === 'ground' || def.move === 'semi');
 
+// Why a species' last animal went (speciesLost): its habitat still holds one (natural), its prey or
+// hosts are too few (prey), or the habitat itself is too small (habitat). From the month's capacity.
+function lossCause(def, st) {
+  const need = def.minK ?? 1;
+  if (st.K >= need) return 'natural'; // (and so new ones can still move in: immigration needs K >= minK)
+  const food = Math.min(st.preyK ?? Infinity, st.hostK ?? Infinity);
+  return food < need && (st.habitatK ?? 0) >= need ? 'prey' : 'habitat';
+}
+
 export class WildlifePopulation {
   updateGlobals() {
     const w = this.game.world, st = w.stats || {};
@@ -474,6 +483,33 @@ export class WildlifePopulation {
       game.notify(lt ? `${lt[0]}: ${list(left)}.${first ? ' ' + lt[1] : ''}` : `Heading south for the winter: ${list(left)}.${first ? ' They remember good habitat and come back in spring if it is still here.' : ''}`, 'info');
     }
     this.recount();
+    this.speciesLost(m);
+  }
+
+  // A resident species whose last animal went this month. Why decides how it's told: with its
+  // habitat still here it's nature (a vole crash, an old animal, a hunt), kept to the journal; with
+  // the habitat or the prey gone, the player can do something, so it's a warning that says what.
+  // Migrants gone for their off season aren't losses (they're announced as leaving, above).
+  speciesLost(m) {
+    const game = this.game, cat = game.catalog, here = new Int32Array(cat.animals.length);
+    for (const a of this.agents) if (!a.leaving && a.passUntil == null) here[a.sp]++;
+    for (const def of cat.animals) {
+      const st = this.state[def.index], was = st.residents || 0;
+      st.residents = here[def.index];
+      if (here[def.index]) { st.since ??= game.day; st.lostCause = null; } else st.since = null; // (living here since: goals.js's year-long fallback)
+      if (!was || here[def.index] || def.domestic || def.special || def.season && !def.season.includes(m)) continue;
+      const cause = st.lostCause = lossCause(def, st);
+      if (game.day - (st.lostNoted ?? -1e9) < DAYS_PER_YEAR) continue; // (one note a year for a species that comes and goes)
+      st.lostNoted = game.day;
+      if (cause === 'natural') {
+        game.notify(`The ${many(def)} here have died out for now. Their numbers rise and fall on their own, and their habitat is still here, so new ones will move in.`, 'info', null, { journal: true });
+      } else if (cause === 'prey') {
+        const food = (def.prey || def.needs || []).filter(k => cat.animal[k]).map(k => many(cat.animal[k]));
+        game.notify(`The last ${many(def)} have left: too few ${food.length > 1 ? food.slice(0, -1).join(', ') + ' and ' + food.at(-1) : food[0]} here to live on. Habitat for those brings them back.`, 'warn');
+      } else {
+        game.notify(`The last ${many(def)} have left: the farm no longer has room for them. What they need: ${def.hint}`, 'warn');
+      }
+    }
   }
 
   leave(a) {

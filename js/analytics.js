@@ -104,6 +104,8 @@ export function reportLoadingLeft() {
 //   watch_mode { map, from: 'follow_deer'|'timelapse' }   "Follow a deer" in the opening (ui/opening.js), or the time-lapse
 //   intro_started { first, muted }, intro_skipped { second, first }, intro_finished { first }   the intro film (ui/intro.js; first: a first visit's, else a replay)
 //   intro_replay { from: 'start'|'menu', map }   "Watch intro" from the start menu or the menu
+//   goal_tracker_opened { map, next }   free play's goal tracker opened (ui.js renderGoalTracker; on PNW the chain toward the cougar)
+//   species_lost now skips migrants away for their season and carries cause: 'natural'|'habitat'|'prey' (session 10)
 // (Names reserved for later sessions go here, so they stay consistent.)
 // trackOnce sends an event the first time per page load only.
 const sentOnce = new Set();
