@@ -36,6 +36,15 @@ export const BEATS = {
   fence: null,      // when the deer clears the fence (set by the staging from its path)
 };
 
+// For the motion check (tools/intro-film-motion.mjs): each shot's subjects, the animals whose
+// head and body must be in sight (the first is the key one), the predator whose entrance is checked
+// (shown before it attacks, never popping up mid-shot, never ahead of its prey), and slow-motion
+// sections, [from, to, rate] in film seconds (rate 0.5: half speed), which scale the speeds back up.
+// Jumps are declared by the staging (an animal in a leap: a.hunt.leap) and allowed off the ground.
+export const SUBJECTS = { forest: ['deer'], chase: ['deer', 'cougar'], falls: ['cougar', 'deer'] }; // (at the falls the deer bounds out of frame; the cougar holds it)
+export const PREDATOR = { name: 'cougar', prey: 'deer', attacks: BEATS.breakCover };
+export const SLOWMO = [];
+
 // The sound: real recordings from assets/sounds (decision 0002; credits in their provenance,
 // field-sources.json), placed and faded on the film's clock. No raven in the library yet: a
 // Steller's jay calls instead (s8.md). gain is linear; ramps are [time, gain] points.

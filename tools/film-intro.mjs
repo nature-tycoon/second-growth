@@ -8,12 +8,21 @@
 //   nice -n 15 node tools/film-intro.mjs --layers=chase    film only these layers again, then assemble
 //   nice -n 15 node tools/film-intro.mjs --assemble        assemble from the frames already filmed
 //   nice -n 15 node tools/film-intro.mjs --layers=falls --no-assemble   look at frames before encoding
+//   nice -n 15 node tools/film-intro.mjs --rough           a rough cut to review: 640×360, 10 fps, no
+//                                                          sound, every layer, into dist/intro-film/rough/
+//                                                          (touches nothing in assets/ or website/)
+//   nice -n 15 node tools/film-intro.mjs --contact=<video> a contact sheet for a cut already made
+//
+// Each cut gets a contact sheet, dist/intro-film/contact/<cut's name>.jpg (a frame each second in one
+// row; not in assets/, which ships with the game), for the review page,
+// http://localhost:8347/tools/film-review.html (?cut=<path to the video>).
 //
 // Writes (assets/intro/ is the game's, the 1080p is the website's and itch.io's):
 //   assets/intro/intro-film.mp4 (.webm when it fits)  1280×720, for the game (target 3–5 MB)
 //   assets/intro/intro-film-last.jpg          the exact last frame (1920×1080), what the game's first view must match
 //   assets/intro/intro-film.json              the last frame's camera, the beats, sizes, credits, how it was made
 //   website/review-media/video/intro-film-1080.mp4 (.webm when it is small enough)   1920×1080
+//   dist/intro-film/contact/intro-film.jpg    the game copy's contact sheet (for tools/film-review.html)
 //   dist/intro-film/samples/                  a frame each second of each output, to look at
 import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
@@ -25,9 +34,11 @@ import { LAYERS, FPS, SECONDS, SOUND, BEATS } from './intro-film-shots.mjs';
 const path = rel => fileURLToPath(new URL('../' + rel, import.meta.url));
 const arg = name => process.argv.find(a => a.startsWith(`--${name}=`))?.slice(name.length + 3);
 const flag = name => process.argv.includes('--' + name);
-const layers = flag('assemble') ? [] : arg('layers')?.split(',') || LAYERS.map(l => l.name);
+const ROUGH = flag('rough') ? { width: 640, height: 360, step: 3 } : null; // (10 fps: every third frame of the 30 fps clock)
+const layers = flag('assemble') || arg('contact') ? [] : arg('layers')?.split(',') || LAYERS.map(l => l.name);
 for (const l of layers) if (!LAYERS.some(x => x.name === l)) throw Error(`Unknown layer ${l}. Layers: ${LAYERS.map(x => x.name).join(', ')}`);
-const framesDir = path('dist/intro-film/frames/'), samplesDir = path('dist/intro-film/samples/');
+const framesDir = path(ROUGH ? 'dist/intro-film/rough/frames/' : 'dist/intro-film/frames/'), samplesDir = path('dist/intro-film/samples/');
+const roughDir = path('dist/intro-film/rough/'), contactDir = path('dist/intro-film/contact/');
 const gameOut = path('assets/intro/'), siteOut = path('website/review-media/video/');
 const hash = b => createHash('sha256').update(b).digest('hex');
 const git = (...a) => execFileSync('git', a, { cwd: projectRoot, encoding: 'utf8' }).trim();
@@ -42,9 +53,24 @@ const OUTPUTS = [
 const browser = await openBrowser({ label: 'intro-film', software: false, width: 1920, height: 1080 });
 const report = { layers: {} };
 try {
+  if (arg('contact')) {
+    // a contact sheet for a cut already made: a frame each whole second, 160 wide, in one row
+    const video = arg('contact').replace(/^\/+/, ''), out = 'dist/intro-film/contact/' + video.split('/').pop().replace(/\.[a-z0-9]+$/i, '') + '.jpg';
+    await mkdir(contactDir, { recursive: true });
+    await browser.navigate('/assets/logo.svg');
+    const b64 = await browser.evaluate(`(async()=>{
+      const v=document.createElementNS('http://www.w3.org/1999/xhtml','video');v.muted=true;v.src=URL.createObjectURL(await (await fetch(${JSON.stringify('/' + video)})).blob());
+      await new Promise((ok,fail)=>{v.onloadeddata=ok;v.onerror=()=>fail(Error('cannot play '+v.error?.message));});
+      const n=Math.round(v.duration),W=160,H=Math.round(W*v.videoHeight/v.videoWidth),c=new OffscreenCanvas(W*n,H),x=c.getContext('2d');
+      for(let s=0;s<n;s++){v.currentTime=Math.min(s,v.duration-.05);await new Promise(ok=>v.onseeked=ok);x.drawImage(v,s*W,0,W,H);}
+      const b=new Uint8Array(await (await c.convertToBlob({type:'image/jpeg',quality:.8})).arrayBuffer());let t='';for(let i=0;i<b.length;i+=32768)t+=String.fromCharCode(...b.subarray(i,i+32768));return btoa(t);
+    })()`, 300000);
+    await writeFile(path(out), Buffer.from(b64, 'base64'));
+    console.log(`Wrote ${out} (${(Buffer.from(b64, 'base64').length / 1e3).toFixed(0)} kB)`);
+  }
   const { gpu } = await browser.evaluate('(()=>{const c=new OffscreenCanvas(1,1).getContext("webgl2"),d=c.getExtension("WEBGL_debug_renderer_info");return {gpu:d?c.getParameter(d.UNMASKED_RENDERER_WEBGL):"unknown"};})()');
   console.log('Rendering on', gpu);
-  await browser.send('Emulation.setDeviceMetricsOverride', { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
+  await browser.send('Emulation.setDeviceMetricsOverride', { width: ROUGH?.width ?? 1920, height: ROUGH?.height ?? 1080, deviceScaleFactor: 1, mobile: false });
   for (const name of layers) {
     const started = Date.now();
     await browser.navigate('/tools/intro-film.html?layer=' + name);
@@ -53,7 +79,8 @@ try {
     const { first, last, paths, beats } = await browser.evaluate('(({first,last,paths,beats})=>({first,last,paths,beats}))(window.introFilm)');
     await rm(framesDir + name, { recursive: true, force: true }); await mkdir(framesDir + name, { recursive: true });
     console.log(`Filming ${name}: frames ${first}–${last}${paths ? ` (deer line ${paths.deer.toFixed(1)} tiles, fence at ${paths.fence?.toFixed(2)} s, cougar stops at ${paths.catStop?.toFixed(2)} s, forest camera ${JSON.stringify(paths.forestCamera)}, ${paths.trunks} trunks, path ${paths.hash})` : ''}`);
-    for (let f = first; f <= last; f++) {
+    const step = ROUGH?.step ?? 1; // (a rough cut films every step-th frame of the film's clock, so the layers' frames line up)
+    for (let f = Math.ceil(first / step) * step; f <= last; f += step) {
       const b64 = await browser.evaluate(`introFilm.frame(${f})`, 120000);
       await writeFile(`${framesDir}${name}/${String(f).padStart(4, '0')}.jpg`, Buffer.from(b64, 'base64'));
     }
@@ -61,15 +88,32 @@ try {
     const info = await browser.evaluate('introFilm.info()');
     report.layers[name] = { first, last, paths, beats, lastCamera: info, seconds: Math.round((Date.now() - started) / 1000) };
     await writeFile(`${framesDir}${name}.json`, JSON.stringify(report.layers[name], null, 2) + '\n'); // (for an --assemble run later)
-    console.log(`  ${last - first + 1} frames in ${report.layers[name].seconds} s`);
-    if (name === 'start') {
+    console.log(`  ${Math.floor(last / step) - Math.ceil(first / step) + 1} frames in ${report.layers[name].seconds} s`);
+    if (name === 'start' && !ROUGH) {
       // the exact last frame, and the camera that made it: the live first view must match this
       await mkdir(gameOut, { recursive: true });
       await writeFile(gameOut + 'intro-film-last.jpg', await readFile(`${framesDir}start/${String(last).padStart(4, '0')}.jpg`));
       await writeFile(framesDir + 'start-camera.json', JSON.stringify(info, null, 2) + '\n');
     }
   }
-  if (!flag('no-assemble')) {
+  if (ROUGH && !flag('no-assemble')) {
+    // the rough cut: MP4 only, no sound, and its contact sheet
+    await browser.send('Emulation.setDeviceMetricsOverride', { width: 960, height: 540, deviceScaleFactor: 1, mobile: false });
+    await browser.navigate('/tools/intro-film.html?assemble=1');
+    await browser.waitFor('window.introFilm?.ready', 'Intro film assembly', 60000);
+    const started = Date.now();
+    const result = await browser.evaluate(`introFilm.assemble(${JSON.stringify({ width: ROUGH.width, height: ROUGH.height, mp4Bitrate: 600e3, webmBitrate: 0, step: ROUGH.step, dir: '/dist/intro-film/rough/frames/', sound: false, webm: false })})`, 1800000);
+    await mkdir(roughDir, { recursive: true });
+    await mkdir(contactDir, { recursive: true });
+    for (const [kind, file] of [['mp4', roughDir + 'intro-film-rough.mp4'], ['contact', contactDir + 'intro-film-rough.jpg']]) {
+      const parts = [];
+      for (let at = 0; at < result.sizes[kind]; at += 1.5e6) parts.push(Buffer.from(await browser.evaluate(`introFilm.slice(${JSON.stringify(kind)},${at},1500000)`), 'base64'));
+      await writeFile(file, Buffer.concat(parts));
+    }
+    console.log(`Rough cut ${ROUGH.width}×${ROUGH.height} at ${result.fps} fps in ${Math.round((Date.now() - started) / 1000)} s: dist/intro-film/rough/intro-film-rough.mp4 (${(result.sizes.mp4 / 1e6).toFixed(2)} MB)`);
+    console.log('Review it: http://localhost:8347/tools/film-review.html?cut=dist/intro-film/rough/intro-film-rough.mp4');
+  }
+  if (!ROUGH && !arg('contact') && !flag('no-assemble')) {
     await browser.send('Emulation.setDeviceMetricsOverride', { width: 960, height: 540, deviceScaleFactor: 1, mobile: false });
     const outputs = [];
     for (const out of OUTPUTS) {
@@ -98,6 +142,11 @@ try {
         if (bytes.length !== result.sizes[kind]) throw Error(`${kind}: read back ${bytes.length} of ${result.sizes[kind]} bytes`);
         await writeFile(out.files[kind], bytes);
         files.push({ file: out.files[kind].slice(projectRoot.length), kind, bytes: bytes.length, sha256: hash(bytes) });
+      }
+      if (out.id === 'game') {
+        const parts = [];
+        for (let at = 0; at < result.sizes.contact; at += 1.5e6) parts.push(Buffer.from(await browser.evaluate(`introFilm.slice("contact",${at},1500000)`), 'base64'));
+        await mkdir(contactDir, { recursive: true }); await writeFile(contactDir + 'intro-film.jpg', Buffer.concat(parts));
       }
       await rm(samplesDir + out.id, { recursive: true, force: true }); await mkdir(samplesDir + out.id, { recursive: true });
       for (const [f, data] of Object.entries(result.samples)) await writeFile(`${samplesDir}${out.id}/frame-${String(f).padStart(4, '0')}.jpg`, Buffer.from(data, 'base64'));

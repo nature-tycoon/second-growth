@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Film review</title>
+<!--
+  Review a cut of the intro film and leave notes tied to times (first-minutes film rework, f1.md).
+    http://localhost:8347/tools/film-review.html                    the game's copy, assets/intro/intro-film.mp4
+    http://localhost:8347/tools/film-review.html?cut=dist/intro-film/rough/intro-film-rough.mp4
+  Served by tools/serve.py (it answers byte ranges, which seeking needs). The strip under the player is
+  the cut's contact sheet, dist/intro-film/contact/<cut's name>.jpg, made by tools/film-intro.mjs; when
+  there is none the page makes one itself from the video. Shot names come from the film's script,
+  tools/intro-film-shots.mjs. Notes stay in this browser (localStorage) and are copied out as plain
+  text with "Copy notes"; nothing is written to the server.
+-->
+<style>
+  :root { --bg: #15191a; --panel: #1f2526; --line: #343c3d; --text: #e7ece8; --dim: #9aa7a0; --accent: #8fc79a; --mark: #f0d27a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, -apple-system, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  header { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; margin-bottom: 10px; }
+  h1 { font-size: 18px; margin: 0; }
+  #cutForm { display: flex; gap: 6px; flex: 1; min-width: 260px; }
+  #cutForm input { flex: 1; }
+  input, textarea, button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); color: #102014; border-color: var(--accent); font-weight: 600; }
+  video { width: 100%; max-height: 62vh; background: #000; border-radius: 6px; display: block; }
+  .bar { position: relative; height: 22px; margin-top: 6px; background: var(--panel); border-radius: 4px; overflow: hidden; cursor: pointer; }
+  .bar .shot { position: absolute; top: 0; bottom: 0; border-right: 1px solid var(--bg); font-size: 11px; color: var(--dim); padding: 3px 5px; white-space: nowrap; overflow: hidden; }
+  .bar .shot.on { color: var(--text); background: #2b3a30; }
+  .bar .notch { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--mark); }
+  .bar .head { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; pointer-events: none; }
+  #strip { display: flex; overflow-x: auto; gap: 0; margin-top: 6px; padding-bottom: 4px; }
+  #strip .thumb { flex: 0 0 auto; position: relative; cursor: pointer; border: 2px solid transparent; border-radius: 3px; }
+  #strip .thumb.on { border-color: var(--accent); }
+  #strip .thumb span { position: absolute; left: 3px; bottom: 2px; font-size: 10px; color: #fff; text-shadow: 0 0 3px #000; }
+  #strip .thumb div { width: 112px; height: 63px; background-repeat: no-repeat; }
+  .status { color: var(--dim); font-size: 13px; min-height: 18px; margin-top: 4px; }
+  .notes { margin-top: 12px; background: var(--panel); border-radius: 8px; padding: 10px; }
+  .notes .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .notes ol { list-style: none; margin: 10px 0 0; padding: 0; }
+  .notes li { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 6px; }
+  .notes li .time { min-width: 92px; text-align: left; color: var(--mark); background: transparent; border-color: var(--line); }
+  .notes li textarea { flex: 1; min-height: 34px; resize: vertical; }
+  .notes li .drop { color: var(--dim); background: transparent; border: none; }
+  .hint { color: var(--dim); font-size: 13px; }
+  @media (max-width: 640px) { main { padding: 8px 16px; } .notes li .time { min-width: 70px; } }
+</style>
+<main>
+  <header>
+    <h1>Film review</h1>
+    <form id="cutForm"><input id="cut" aria-label="Cut to review (path from the project folder)"><button>Open</button></form>
+  </header>
+  <video id="video" controls playsinline preload="auto"></video>
+  <div class="bar" id="bar" title="Shots: click to jump"></div>
+  <div id="strip" aria-label="Contact sheet: a frame each second"></div>
+  <div class="status" id="status"></div>
+  <section class="notes">
+    <div class="row">
+      <button class="primary" id="add">Note at 0:00</button>
+      <button id="copy">Copy notes</button>
+      <span class="hint">N adds a note at the current time (pauses); Space plays and pauses; ← → step a second.</span>
+    </div>
+    <ol id="list"></ol>
+  </section>
+</main>
+<script type="module">
+import { LAYERS } from './intro-film-shots.mjs';
+
+const $ = id => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+const cut = (params.get('cut') || 'assets/intro/intro-film.mp4').replace(/^\/+/, '');
+const name = cut.split('/').pop().replace(/\.[a-z0-9]+$/i, '');
+const video = $('video'), status = $('status');
+$('cut').value = cut;
+$('cutForm').onsubmit = e => { e.preventDefault(); location.search = '?cut=' + encodeURIComponent($('cut').value.trim()); };
+video.src = '/' + cut;
+video.onerror = () => { status.textContent = `Can't play /${cut}: check the path (it's from the project folder) and that tools/serve.py is running.`; };
+
+const clock = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+const clockTenths = t => `${clock(t)}.${Math.floor(t * 10 % 10)}`;
+// Which shot is on screen at t: the latest layer that has started (a dissolve hands over at its start).
+const shots = LAYERS.map((L, i) => ({ name: L.name, from: L.from, to: LAYERS[i + 1] ? Math.min(L.to, LAYERS[i + 1].from) : L.to }));
+const shotAt = t => [...shots].reverse().find(s => t >= s.from)?.name ?? 'black';
+
+// ---- notes (kept in this browser per cut; copied out as text)
+const key = 'film-review-notes:' + cut;
+let notes = [];
+try { notes = JSON.parse(localStorage.getItem(key) || '[]'); } catch { notes = []; }
+const save = () => { try { localStorage.setItem(key, JSON.stringify(notes)); } catch { /* private window: notes live until the tab closes */ } drawBar(); };
+
+function drawList(focusId = null) {
+  const list = $('list'); list.textContent = '';
+  notes.sort((a, b) => a.t - b.t);
+  for (const n of notes) {
+    const li = document.createElement('li');
+    const time = document.createElement('button'); time.className = 'time'; time.textContent = `${clockTenths(n.t)} ${shotAt(n.t)}`; time.title = 'Jump here';
+    time.onclick = () => { video.currentTime = n.t; video.pause(); };
+    const text = document.createElement('textarea'); text.value = n.text; text.placeholder = 'What you see here…';
+    text.oninput = () => { n.text = text.value; save(); };
+    const drop = document.createElement('button'); drop.className = 'drop'; drop.textContent = '✕'; drop.title = 'Delete this note';
+    drop.onclick = () => { notes = notes.filter(x => x !== n); save(); drawList(); };
+    li.append(time, text, drop); list.append(li);
+    if (n.id === focusId) text.focus();
+  }
+}
+function addNote() {
+  video.pause();
+  const n = { id: Date.now(), t: Math.round(video.currentTime * 10) / 10, text: '' };
+  notes.push(n); save(); drawList(n.id);
+}
+$('add').onclick = addNote;
+$('copy').onclick = async () => {
+  const lines = notes.filter(n => n.text.trim()).map(n => `${clockTenths(n.t)} (${shotAt(n.t)}): ${n.text.trim().replace(/\s*\n\s*/g, ' / ')}`);
+  const text = `Notes on ${cut}\n${lines.join('\n') || '(no notes yet)'}`;
+  try { await navigator.clipboard.writeText(text); status.textContent = `Copied ${lines.length} note${lines.length === 1 ? '' : 's'}: paste them into the chat.`; }
+  catch {
+    // (no clipboard permission: show it to select and copy by hand)
+    const t = document.createElement('textarea'); t.value = text; t.style.cssText = 'width:100%;height:160px;margin-top:8px';
+    $('list').before(t); t.select(); status.textContent = 'Select-all is on the box above the notes: copy it with ⌘C.';
+  }
+};
+
+// ---- shots bar and the play head
+function drawBar() {
+  const bar = $('bar'), d = video.duration || LAYERS.at(-1).to;
+  bar.textContent = '';
+  for (const s of shots) {
+    const el = document.createElement('div'); el.className = 'shot'; el.dataset.name = s.name;
+    el.style.left = s.from / d * 100 + '%'; el.style.width = (s.to - s.from) / d * 100 + '%'; el.textContent = s.name;
+    bar.append(el);
+  }
+  for (const n of notes) { const m = document.createElement('div'); m.className = 'notch'; m.style.left = n.t / d * 100 + '%'; bar.append(m); }
+  const head = document.createElement('div'); head.className = 'head'; head.id = 'head'; bar.append(head);
+  tick();
+}
+$('bar').onclick = e => { const r = e.currentTarget.getBoundingClientRect(); video.currentTime = (e.clientX - r.left) / r.width * (video.duration || 0); };
+function tick() {
+  const t = video.currentTime, d = video.duration || 1;
+  $('add').textContent = `Note at ${clockTenths(t)}`;
+  const head = $('head'); if (head) head.style.left = t / d * 100 + '%';
+  const now = shotAt(t);
+  for (const el of document.querySelectorAll('.bar .shot')) el.classList.toggle('on', el.dataset.name === now);
+  const s = Math.floor(t);
+  for (const el of document.querySelectorAll('#strip .thumb')) el.classList.toggle('on', +el.dataset.s === s);
+}
+video.addEventListener('timeupdate', tick);
+video.addEventListener('seeked', tick);
+(function frame() { if (!video.paused) tick(); requestAnimationFrame(frame); })();
+
+// ---- contact sheet: the renderer's, else made here from the video
+const TW = 112;
+function strip(src, count, thumbW, thumbH) {
+  const el = $('strip'); el.textContent = '';
+  const h = Math.round(TW * thumbH / thumbW), sheetW = count * TW;
+  for (let s = 0; s < count; s++) {
+    const t = document.createElement('div'); t.className = 'thumb'; t.dataset.s = s; t.title = `${clock(s)} ${shotAt(s)}`;
+    const img = document.createElement('div');
+    img.style.cssText = `height:${h}px;background-image:url(${src});background-size:${sheetW}px ${h}px;background-position:-${s * TW}px 0`;
+    const label = document.createElement('span'); label.textContent = clock(s);
+    t.append(img, label); t.onclick = () => { video.currentTime = s; };
+    el.append(t);
+  }
+  tick();
+}
+async function makeSheet() {
+  status.textContent = 'No contact sheet for this cut yet: making one from the video…';
+  const v = document.createElement('video'); v.muted = true; v.preload = 'auto'; v.src = video.src;
+  await new Promise((ok, fail) => { v.onloadeddata = ok; v.onerror = fail; });
+  const n = Math.round(v.duration), W = 160, H = Math.round(W * v.videoHeight / v.videoWidth);
+  const c = document.createElement('canvas'); c.width = W * n; c.height = H; const x = c.getContext('2d');
+  for (let s = 0; s < n; s++) { v.currentTime = Math.min(s, v.duration - .05); await new Promise(ok => { v.onseeked = ok; }); x.drawImage(v, s * W, 0, W, H); }
+  strip(c.toDataURL('image/jpeg', .75), n, W, H);
+  status.textContent = `Contact sheet made here (tools/film-intro.mjs --contact=${cut} saves one).`;
+}
+video.addEventListener('loadedmetadata', () => {
+  drawBar(); drawList();
+  const n = Math.round(video.duration), img = new Image();
+  img.onload = () => { strip(img.src, n, img.width / n, img.height); status.textContent = `${cut}: ${n} s, ${video.videoWidth}×${video.videoHeight}.`; };
+  img.onerror = () => makeSheet().catch(() => { status.textContent = 'Could not make a contact sheet.'; });
+  img.src = `/dist/intro-film/contact/${name}.jpg`;
+}, { once: true });
+
+// ---- keys (not while typing a note)
+addEventListener('keydown', e => {
+  if (e.target.closest('textarea, input') || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === 'n' || e.key === 'N') { e.preventDefault(); addNote(); }
+  else if (e.key === ' ' && e.target !== video) { e.preventDefault(); video.paused ? video.play() : video.pause(); }
+  else if (e.key === 'ArrowLeft' && e.target !== video) { video.currentTime = Math.max(0, video.currentTime - 1); }
+  else if (e.key === 'ArrowRight' && e.target !== video) { video.currentTime = Math.min(video.duration, video.currentTime + 1); }
+});
+</script>

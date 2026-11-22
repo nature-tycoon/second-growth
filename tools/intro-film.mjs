@@ -21,6 +21,7 @@ import { releaseGame } from './release-fixtures.mjs';
 import { posing } from './website-moment-fixtures.mjs';
 import { muxMp4, muxWebm } from './video-mux.mjs';
 import { FPS, SECONDS, LAYERS, TIME_OF_DAY, BEATS, SOUND } from './intro-film-shots.mjs';
+import { makeProbe } from './intro-film-probe.mjs';
 
 const DAY_CYCLE = 360; // scene.js: seconds in the renderer's day (todClock)
 const RUN_SEED = 20261121; // the start game's run seed (weather, starting animals); the land is seed 1987
@@ -168,6 +169,9 @@ async function filmLayer(name) {
   if (!L) throw Error('Unknown layer ' + name);
   const placed = [];
   let g, r, stage = () => {}, camera, simulate = null;
+  // the animals the motion check follows (tools/intro-film-motion.mjs), and the ground it
+  // gathers trunks, logs and bushes from
+  let cast = {}, box = { x0: 38, x1: 90, z0: -16, z1: 30 };
   const ground = (x, y) => r.heightAtScene(x, y);
   const p3 = (x, y, up) => ({ x, y: ground(x, y) + up, z: y });
 
@@ -208,6 +212,7 @@ async function filmLayer(name) {
     const cougar = W.spawn(cat, 51, -11, { silent: true, age: 700 });
     const browseTile = (() => { const w = g.world; for (let i = 0; i < w.n; i++) if (w.shrub[i] && w.shrubG[i] > .4) return i; return 0; })();
     for (const a of [deer, cougar]) Object.assign(a, { wait: 1e9, hunger: 0, thirst: 0, path: null });
+    cast = { deer, cougar };
     const last = new Map();
     const place = (a, def, x, y, heading) => {
       const p = last.get(a.id), moved = p ? Math.hypot(x - p.x, y - p.y) : 0;
@@ -292,7 +297,7 @@ async function filmLayer(name) {
     if (name === 'start') {
       // The first visit's start view, exactly (Renderer.resetView), with the farm's own animals
       // living, and the posed pair gone
-      W.remove(deer, 'film'); W.remove(cougar, 'film');
+      W.remove(deer, 'film'); W.remove(cougar, 'film'); cast = {};
       stage = () => {};
       simulate = film => { let days = film * ANIMAL_SPEEDS[1]; while (days > 0) { const d = Math.min(days, .05); g.wildlife.update(d); g.visitors.update(d); days -= d; } };
       g.speed = 1; g.wildlife.lifePace = SPEEDS[1] / ANIMAL_SPEEDS[1];
@@ -320,6 +325,7 @@ async function filmLayer(name) {
     const herd = [pose('elk', 49, 31, 'land', -.4), pose('elk', 50, 33, 'land', .3), pose('elk', 47, 32, 'land', -1.2), pose('elk', 52, 31, 'land', .9), pose('elk', 48, 34, 'land', 2.2),
       pose('deer', 42, 36, 'land', .2)];
     herd.forEach((a, n) => { a.wait = .05 + n * .04; });
+    cast = Object.fromEntries(herd.map((a, n) => [n < 5 ? 'elk' + (n + 1) : 'deer', a])); box = { x0: 36, x1: 80, z0: -4, z1: 40 };
     g.wildlife.recount();
     r = renderer(g); r.setWorld(g);
     g.speed = 1; g.wildlife.lifePace = SPEEDS[1] / ANIMAL_SPEEDS[1];
@@ -354,20 +360,38 @@ async function filmLayer(name) {
   stage(first); camera(first);
   settle(r, g);
   let clock = 1e6;
+  // One frame staged and drawn. Frames must come in order (the cameras ease from the last frame).
+  // step: film frames this many apart (a rough cut at 10 fps films every third), the world's clock
+  // and the simulation still run through the frames skipped.
+  let at = first;
+  function advance(f) {
+    for (; at <= f; at++) {
+      const t = at / FPS;
+      if (at > first && simulate) simulate(1 / FPS);
+      stage(at); camera(at);
+      r.todClock = lerp(tod[0], tod[1], (t - L.from) / (L.to - L.from)) * DAY_CYCLE;
+      clock += 1000 / FPS; r.diagnosticTime = clock;
+      if (at < f) { const draw = r.gl.render; r.gl.render = () => {}; r.draw(g, ui, at > first ? 1 / FPS : 0); r.gl.render = draw; continue; } // (posed, not drawn)
+      r.draw(g, ui, at > first ? 1 / FPS : 0);
+    }
+  }
   async function frame(f) {
-    const t = f / FPS;
-    if (f > first && simulate) simulate(1 / FPS);
-    stage(f); camera(f);
-    r.todClock = lerp(tod[0], tod[1], (t - L.from) / (L.to - L.from)) * DAY_CYCLE;
-    clock += 1000 / FPS; r.diagnosticTime = clock;
-    r.draw(g, ui, f > first ? 1 / FPS : 0); r.gl.getContext().finish();
+    advance(f); r.gl.getContext().finish();
     return jpeg(compose(r), .93);
+  }
+  // The probe (intro-film-probe.mjs): the frame staged and posed by the game's drawing, nothing drawn
+  // on the GPU, and the camera, animals and sight lines read back
+  let reader = null;
+  function probe(f) {
+    if (!reader) { r.gl.render = () => {}; reader = makeProbe(r, g, cast, box); }
+    advance(f);
+    return reader(f / FPS);
   }
   const info = () => ({
     target: { x: r.target.x, y: r.target.y, z: r.target.z }, zoom: r.zoom, az: r.az, eye: r.eyeOn ? { pos: r.eye.pos.toArray(), look: r.eye.look.toArray() } : null,
     timeOfDay: r.todClock / DAY_CYCLE, width: r.gl.domElement.width, height: r.gl.domElement.height, ppu: r.ppu,
   });
-  return { first, last: lastFrame, frame, info, game: g, renderer: r };
+  return { first, last: lastFrame, frame, probe, info, game: g, renderer: r };
 }
 
 const ui = { clean: true, overlay: 'none' };
@@ -394,11 +418,16 @@ function base64(b) { let s = ''; for (let i = 0; i < b.length; i += 32768) s += 
 // ------------------------------------------------------------------ assembly
 // Every frame of the film from the layers' JPEGs (/dist/intro-film/frames/<layer>/<frame>.jpg),
 // scaled to width × height; the sound mixed from the recordings; both encoded and muxed.
-async function assemble({ width, height, mp4Bitrate, webmBitrate, audioBitrate = 96000, frames = SECONDS * FPS, samples = [] }) {
+// A rough cut (film-intro.mjs --rough): every `step`th frame from its own folder, MP4 only, no sound.
+// Either way a contact sheet: a frame each whole second in one row, thumbWidth wide each (the
+// review page, tools/film-review.html, shows it under the player).
+async function assemble({ width, height, mp4Bitrate, webmBitrate, audioBitrate = 96000, frames = SECONDS * FPS, samples = [], step = 1, dir = '/dist/intro-film/frames/', sound = true, webm: withWebm = true, thumbWidth = 160 }) {
+  const fps = FPS / step;
+  const sheet = new OffscreenCanvas(thumbWidth * SECONDS, Math.round(thumbWidth * height / width)), sheetCtx = sheet.getContext('2d');
   const canvas = new OffscreenCanvas(width, height), ctx = canvas.getContext('2d');
   ctx.imageSmoothingQuality = 'high';
   const load = async (layer, f) => {
-    const res = await fetch(`/dist/intro-film/frames/${layer}/${String(f).padStart(4, '0')}.jpg`);
+    const res = await fetch(`${dir}${layer}/${String(f).padStart(4, '0')}.jpg`);
     if (!res.ok) throw Error(`Missing frame ${layer} ${f}: film that layer first`);
     return createImageBitmap(await res.blob());
   };
@@ -409,15 +438,16 @@ async function assemble({ width, height, mp4Bitrate, webmBitrate, audioBitrate =
       chunks[key].push({ data, timestamp: chunk.timestamp, key: chunk.type === 'key' });
       if (key === 'mp4' && meta?.decoderConfig?.description) description = new Uint8Array(ArrayBuffer.isView(meta.decoderConfig.description) ? meta.decoderConfig.description.buffer : meta.decoderConfig.description);
     }, error: e => { failed = e; } });
-    e.configure({ width, height, framerate: FPS, bitrateMode: 'variable', latencyMode: 'quality', ...config }); return e;
+    e.configure({ width, height, framerate: fps, bitrateMode: 'variable', latencyMode: 'quality', ...config }); return e;
   };
   const big = width * height > 921600;
   const codecs = { mp4: big ? 'avc1.640028' : 'avc1.64001f', webm: big ? 'vp09.00.40.08' : 'vp09.00.31.08' };
   const mp4 = encoder('mp4', { codec: codecs.mp4, bitrate: mp4Bitrate, avc: { format: 'avc' } });
   // (VP9 in variable mode overshot a low target by half again and more: constant holds it)
-  const webm = encoder('webm', { codec: codecs.webm, bitrate: webmBitrate, bitrateMode: 'constant' });
+  const webm = withWebm ? encoder('webm', { codec: codecs.webm, bitrate: webmBitrate, bitrateMode: 'constant' }) : null;
+  const encoders = [mp4, webm].filter(Boolean);
   const sampled = {};
-  for (let f = 0; f < frames; f++) {
+  for (let f = 0; f < frames; f += step) {
     if (failed) throw failed;
     const t = f / FPS;
     ctx.globalAlpha = 1; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, width, height);
@@ -429,22 +459,29 @@ async function assemble({ width, height, mp4Bitrate, webmBitrate, audioBitrate =
       ctx.globalAlpha = a; ctx.drawImage(img, 0, 0, width, height); img.close();
     }
     ctx.globalAlpha = 1;
-    const frame = new VideoFrame(canvas, { timestamp: Math.round(f * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
-    for (const e of [mp4, webm]) e.encode(frame, { keyFrame: f % (2 * FPS) === 0 });
+    const frame = new VideoFrame(canvas, { timestamp: Math.round(f / step * 1e6 / fps), duration: Math.round(1e6 / fps) });
+    for (const e of encoders) e.encode(frame, { keyFrame: f % (2 * FPS) === 0 });
     frame.close();
     if (samples.includes(f)) sampled[f] = base64(await jpeg(canvas, .9));
-    while (mp4.encodeQueueSize > 3 || webm.encodeQueueSize > 3) await new Promise(done => setTimeout(done, 5));
+    if (f % FPS === 0) sheetCtx.drawImage(canvas, f / FPS * thumbWidth, 0, thumbWidth, sheet.height);
+    while (encoders.some(e => e.encodeQueueSize > 3)) await new Promise(done => setTimeout(done, 5));
   }
-  await mp4.flush(); await webm.flush(); mp4.close(); webm.close();
+  for (const e of encoders) { await e.flush(); e.close(); }
   if (failed) throw failed;
-  const sound = await mixSound();
-  const aac = await encodeAudio(sound, 'mp4a.40.2', audioBitrate), opus = await encodeAudio(sound, 'opus', audioBitrate);
-  const files = {
-    mp4: muxMp4({ width, height, fps: FPS, description, chunks: chunks.mp4, audio: { ...aac, frame: 1024, bitrate: audioBitrate } }),
-    webm: muxWebm({ width, height, fps: FPS, chunks: chunks.webm, audio: { ...opus, frame: 960 } }),
-  };
+  const files = { contact: await jpeg(sheet, .8) };
+  let audio = null;
+  if (sound) {
+    const mix = await mixSound();
+    const aac = await encodeAudio(mix, 'mp4a.40.2', audioBitrate), opus = await encodeAudio(mix, 'opus', audioBitrate);
+    files.mp4 = muxMp4({ width, height, fps, description, chunks: chunks.mp4, audio: { ...aac, frame: 1024, bitrate: audioBitrate } });
+    if (webm) files.webm = muxWebm({ width, height, fps, chunks: chunks.webm, audio: { ...opus, frame: 960 } });
+    audio = { aacPackets: aac.chunks.length, opusPackets: opus.chunks.length, peak: mix.peak };
+  } else {
+    files.mp4 = muxMp4({ width, height, fps, description, chunks: chunks.mp4 });
+    if (webm) files.webm = muxWebm({ width, height, fps, chunks: chunks.webm });
+  }
   window.introFilm.files = files;
-  return { width, height, codecs, sizes: { mp4: files.mp4.length, webm: files.webm.length }, audio: { aacPackets: aac.chunks.length, opusPackets: opus.chunks.length, peak: sound.peak }, samples: sampled };
+  return { width, height, fps, codecs, sizes: Object.fromEntries(Object.entries(files).map(([k, v]) => [k, v.length])), audio, samples: sampled };
 }
 
 // The mix: each recording decoded, placed and faded on the film's clock (SOUND), summed, and held
@@ -501,6 +538,7 @@ try {
   } else {
     const layer = await filmLayer(params.get('layer'));
     window.introFilm = { ready: true, layer: params.get('layer'), first: layer.first, last: layer.last, paths: window.introFilm.paths || null, beats: BEATS,
-      frame: async f => base64(await layer.frame(f)), info: layer.info, game: layer.game, renderer: layer.renderer };
+      frame: async f => base64(await layer.frame(f)), info: layer.info, game: layer.game, renderer: layer.renderer,
+      probe: (from, to) => { const out = []; for (let f = from; f <= to; f++) out.push(layer.probe(f)); return out; } };
   }
 } catch (error) { window.introFilm = { ready: true, error: error.stack || String(error) }; throw error; }
