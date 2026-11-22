@@ -58,7 +58,7 @@ import { BIOME_LIST } from '../js/biome.js';
 import { restoredGame } from './map-audit-fixtures.mjs';
 import { populate } from './animal-steering-check.mjs';
 import { mulberry32 } from '../js/rng.js';
-import { T, F, isWater, SPEEDS, ANIMAL_SPEEDS } from '../js/config.js';
+import { T, F, isWater, SPEEDS, ANIMAL_SPEEDS, LEVEL } from '../js/config.js';
 import { passable, canLand } from '../js/sim/animal-terrain.js';
 import { groundWalker, inWood } from '../js/sim/ground-obstacles.js';
 import { travelSpeed } from '../js/sim/climb-pace.js';
@@ -76,9 +76,12 @@ const SPEED = +(process.env.SPEED || 1), DAYS = +(process.env.DAYS || 6), SEEDS 
 const CRAWL = 0.35, CLUMP_N = 2, CLUMP_LEN = 1.5, CLUMP_HOLD = 4,  HOLD = 2, SNAP = 0.6, SIDEWAYS = 0.9, TAIL = 1.9, WOBBLE = 0.08, STALL_R = 0.15, STALL_DAYS = 0.5, SUSTAIN = 10, WET_R = 0.5;
 const MOVING = new Set(['walk', 'flee', 'approach', 'play']);
 const wrap = d => d - Math.round(d / (Math.PI * 2)) * Math.PI * 2;
-const COUNTS = ['simJump', 'drawJump', 'snap', 'wobble', 'spin', 'glide', 'treadmill', 'trunk', 'wet', 'wetHeld', 'sideways', 'tailFirst', 'surfaced', 'stall', 'crawl', 'clump'];
+const COUNTS = ['simJump', 'drawJump', 'snap', 'wobble', 'spin', 'glide', 'treadmill', 'trunk', 'sunk', 'wet', 'wetHeld', 'sideways', 'tailFirst', 'surfaced', 'stall', 'crawl', 'clump'];
 const PER_WALKER = new Set(['glide', 'treadmill', 'trunk', 'wetHeld', 'crawl']); // (per 1000 ground-walker frames)
-export const LIMITS = { simJump: 6, drawJump: 6, snap: 4, wobble: 4, spin: 2, glide: 2, treadmill: 2, trunk: 10, wet: 0, wetHeld: 2, sideways: 4, tailFirst: 0, surfaced: 0, stall: 160, crawl: 4, clump: 4 };
+// (sunk: hooves deeper than this in the ground, scene units: about 5% of a deer's drawn height, what grass hides)
+const SINK = .03;
+const tt0 = (w, a) => { const x = Math.floor(a.x), y = Math.floor(a.y); return w.inb(x, y) && !isWater(w.terrain[w.idx(x, y)]) ? 'land' : 'other'; };
+export const LIMITS = { simJump: 6, drawJump: 6, snap: 4, wobble: 4, spin: 2, glide: 2, treadmill: 2, trunk: 10, sunk: 20, wet: 0, wetHeld: 2, sideways: 4, tailFirst: 0, surfaced: 0, stall: 160, crawl: 4, clump: 4 };
 const MIN_EVENTS = 3;
 const deadwoodNear = (w, a) => {
   for (let y = Math.floor(a.y) - 1; y <= Math.floor(a.y) + 1; y++) for (let x = Math.floor(a.x) - 1; x <= Math.floor(a.x) + 1; x++)
@@ -184,6 +187,14 @@ export function sweep(map, { seed = SEEDS[0], days = DAYS, fps = FPS, onHit } = 
         if (now.glide > SUSTAIN) hit(r, 'glide', a, ` gait ${st.gait.toFixed(2)}`);
         if (now.tread > SUSTAIN) hit(r, 'treadmill', a);
         if (inWood(w, a, def, a.x, a.y, a.heading)) hit(r, 'trunk', a);
+        // (sunk: a hoof, a third of a body length ahead or behind along the drawn heading, more than
+        // SINK into the ground, with the body's drawn slope pitch: not in a leap, a crouch or water)
+        const L = (st.foot || .5) * .32, cy = Math.cos(st.yaw), sy = Math.sin(st.yaw), pt = st.slope || 0;
+        if (!a.hunt?.leap && !(st.crouch > .1) && !st.swimming && tt0(w, a) === 'land') {
+          const at = (f2) => w.heightAt(a.x + cy * f2 * Math.cos(pt), a.y - sy * f2 * Math.cos(pt)) * LEVEL - (st.y + Math.sin(pt) * f2);
+          const deep = Math.max(at(L), at(-L));
+          if (deep > SINK) hit(r, 'sunk', a, ` ${deep.toFixed(3)}`);
+        }
         // (its pace this frame as walkStep sets it: trotting to keep up, wading slowly, a river crossing)
         const tile = w.inb(Math.floor(a.x), Math.floor(a.y)) ? w.terrain[w.idx(Math.floor(a.x), Math.floor(a.y))] : null;
         const walkPace = travelSpeed(def) * stepDays * (a.follow ? 1.3 : a.wade ? 0.3 : 1) * (a.pace || 1) * (def.crossing && tile === T.RIVER ? 0.55 : 1);

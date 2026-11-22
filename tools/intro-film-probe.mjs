@@ -155,9 +155,9 @@ export function makeProbe(r, g, cast, box, render = null, { key = null, keep = 1
       const def = g.catalog.animals[a.sp] || a.def;
       const x = drawn ? st.x : a.x, z = drawn ? st.z : a.y, y = drawn ? st.y : r.heightAtScene(a.x, a.y);
       const yaw = drawn ? st.yaw : -(a.heading || 0), len = drawn ? st.foot : .5, tall = drawn ? st.tall : .5;
-      const c = Math.cos(yaw), s = Math.sin(yaw), pitch = drawn ? st.pitch || 0 : 0;
+      const c = Math.cos(yaw), s = Math.sin(yaw), pitch = drawn ? (st.pitch || 0) + (st.slope || 0) : 0; // (st.slope: the game's pitch to the ground's slope, slopePose)
       // the hooves: front and back pairs, a third of the body length either side of the middle (with
-      // the body's pitch, nose up positive: the film pitches its cast to the slope)
+      // the body's pitch, nose up positive: the drawing pitches walkers to the slope)
       const feet = [[.32, .08], [.32, -.08], [-.32, .08], [-.32, -.08]].map(([f, sd]) => {
         const fl = f * len * Math.cos(pitch), fx = x + c * fl + s * sd * len, fz = z - s * fl + c * sd * len;
         return +(ground(fx, fz) - y - Math.sin(pitch) * f * len).toFixed(4);

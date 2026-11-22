@@ -145,19 +145,8 @@ function castOf(g, farm) {
       last.set(name, { x: p.x, y: p.y, phase: a.phase });
     }
   };
-  // Staging (film only): the game draws a walker level, so one facing up or down a slope has its
-  // uphill hooves in the ground (f3.md). The film pitches its cast to the drawn ground along the way
-  // each faces (st.pitch, which the drawing adds to the pose; ground walkers never set it), front and
-  // back hooves a third of a body length either side, eased a little so tile edges don't flick it.
-  const tilt = (r, ground) => {
-    for (const a of Object.values(cast)) {
-      const st = r.actors.pose.get(a.id); if (!st) continue;
-      const L = (st.foot || .5) * .32, c = Math.cos(st.yaw), s = Math.sin(st.yaw);
-      const want = Math.atan2(ground(a.x + c * L, a.y - s * L) - ground(a.x - c * L, a.y + s * L), 2 * L);
-      st.pitch = st.pitch == null ? want : st.pitch + (want - st.pitch) * .5;
-    }
-  };
-  return { cast, stage, tilt };
+  // (on a slope the game's own drawing pitches walkers to the ground: slopePose, actors-ground.js)
+  return { cast, stage };
 }
 
 // ------------------------------------------------------------------ a gap in the near cover
@@ -208,7 +197,7 @@ async function filmLayer(name) {
   const L = LAYERS.find(l => l.name === name);
   if (!L) throw Error('Unknown layer ' + name);
   const shot = SHOTS.find(s => s.n === L.shot), camShot = L.cameraOf != null ? SHOTS.find(s => s.n === L.cameraOf) : shot;
-  let g, r, stage = () => {}, tilt = () => {}, camera, simulate = null, cast = {}, box;
+  let g, r, stage = () => {}, camera, simulate = null, cast = {}, box;
   let gap = null;
   if (L.game === 'start') {
     g = startGame();
@@ -229,7 +218,7 @@ async function filmLayer(name) {
     simulate = film => { let days = film * ANIMAL_SPEEDS[1]; while (days > 0) { const d = Math.min(days, .05); g.wildlife.update(d); g.visitors.update(d); days -= d; } };
     g.wildlife.lifePace = SPEEDS[1] / ANIMAL_SPEEDS[1];
   } else {
-    ({ cast, stage, tilt } = castOf(g, L.game));
+    ({ cast, stage } = castOf(g, L.game));
     if (L.game === 'restored') {
       // the rest of the restored farm's wildlife lives (the staged elk are placed again after each step)
       g.wildlife.lifePace = SPEEDS[1] / ANIMAL_SPEEDS[1];
@@ -294,7 +283,7 @@ async function filmLayer(name) {
     for (; at <= f; at++) {
       const t = at / FPS, rate = rateAt(t);
       if (at > begin && simulate) simulate(rate / FPS);
-      stage(at, realOf(at)); tilt(r, ground); camera(at);
+      stage(at, realOf(at)); camera(at);
       r.todClock = lerp(tod[0], tod[1], Math.max(0, (t - L.from) / (L.to - L.from))) * DAY_CYCLE;
       clock += 1000 / FPS * rate; r.diagnosticTime = clock;
       const dt = at > begin ? rate / FPS : 0;

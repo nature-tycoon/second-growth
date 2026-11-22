@@ -19,7 +19,7 @@ import { SlothBridges } from './sloth-bridge.js';
 import { ActorView, animalViewRadius, pixelsPerUnit, perspectiveScale } from './actor-view.js';
 import { carcassDecay, fitCarcass, Remains } from './carcass-decay.js';
 import { PX, TURN, turnToward, beginAnimal, crownTile, turnBody, bodyPhase, finishAnimal } from './actors-common.js';
-import { wadeOrSwim, gait, headPose, huntPose, stumblePose } from './actors-ground.js';
+import { wadeOrSwim, gait, headPose, huntPose, stumblePose, slopePose } from './actors-ground.js';
 import { crownHeight, canopyHeight, branchPose, climbSupport, grips } from './actors-climb.js';
 import { snagBank, trunkCling, seaFlightHeight, crownPerch, snagPerch, birdHeight, plungePose, anchorPose, dabblePose, perchLimb } from './actors-fly.js';
 import { riverFishHeight, tailBend, snapPose, tailBeat } from './actors-swim.js';
@@ -179,6 +179,7 @@ export class Actors {
       huntPose(c);
       snapPose(c);
       stumblePose(c);
+      slopePose(c);
       plungePose(c);
       anchorPose(c);
       dabblePose(c);

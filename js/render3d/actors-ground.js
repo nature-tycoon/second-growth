@@ -1,3 +1,4 @@
+import { LEVEL } from '../config.js';
 // Drawing walkers (part of Actors.update, actors.js): a land animal wading or swimming out of its
 // depth, its stride and gait (birds' wings blend here too), where its head is (grazing, drinking,
 // stalking, a bout, a bird's head), and a hunter's crouch, pounce, lunge and stumble.
@@ -92,4 +93,19 @@ export function huntPose(c) {
 export function stumblePose(c) {
   const { a, hunt } = c;
   if (hunt?.stumble > 0) { const f = hunt.stumble / 0.3; c.posePitch -= 0.25 * f; c.poseRoll = 0.14 * f * (a.id % 2 ? 1 : -1); }
+}
+
+// A walker stands along the ground's slope, nose up uphill and down downhill: the ground a third of
+// a body length ahead and behind along the way it's drawn facing, eased (a body drawn level on a
+// slope had its uphill hooves in the ground: Cole, the intro film's first cut). Not swimming, not a
+// slithering body (it lies along the ground already). Motion sweep: `sunk`.
+export function slopePose(c) {
+  const { w, a, st, mo, sc, k, walker, swimming } = c;
+  st.swimming = swimming;
+  if (!walker || swimming || mo.slither) { st.slope = 0; return; }
+  const L = (st.foot || mo.len * sc) * 0.32, fx = Math.cos(st.yaw) * L, fy = -Math.sin(st.yaw) * L;
+  const at = (x, y) => w.heightAt(Math.min(w.w + 9, Math.max(-9, x)), Math.min(w.h + 9, Math.max(-9, y))) * LEVEL;
+  const want = Math.max(-0.5, Math.min(0.5, Math.atan2(at(a.x + fx, a.y + fy) - at(a.x - fx, a.y - fy), 2 * L)));
+  st.slope = st.slope == null ? want : st.slope + (want - st.slope) * Math.min(1, k * 2);
+  c.posePitch += st.slope;
 }
