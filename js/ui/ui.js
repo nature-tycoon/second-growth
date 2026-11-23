@@ -1248,24 +1248,37 @@ export class UI {
 
   openMenu() {
     const places = otherPlacesReady(this);
-    const m = this.modal('Menu', `<div class="menu-list">
-      <button class="btn secondary" data-a="overlay">Map overlay</button>
-      <button class="btn secondary" data-a="settings">Settings</button>
-      <button class="btn secondary" data-a="journal">Field journal</button>
-      <button class="btn secondary" data-a="trees">${this.renderer.fadeTrees ? 'Show trees normally' : 'See through trees'}</button>
-      <button class="btn secondary" data-a="photo">Photo mode</button>
-      <button class="btn secondary" data-a="share">Share this farm</button>
-      <button class="btn secondary" data-a="watch">Watch (the camera finds the wildlife)</button>
-      <button class="btn secondary" data-a="lapse">Watch 10 years (a time-lapse)</button>
-      <button class="btn secondary" data-a="feedback">Send feedback</button>
-      ${newsletterAvailable() ? '<button class="btn secondary" data-a="news">Get updates by email</button>' : ''}
-      <button class="btn secondary" data-a="help">How to play</button>
-      <button class="btn secondary" data-a="intro">Watch intro</button>
-      <button class="btn secondary" data-a="save">Save game</button>
-      <button class="btn secondary" data-a="backups">Restore an earlier save</button>
-      ${this.game.mode !== 'campaign' && this.game.catalog.definition.campaign ? `<button class="btn ${this.storyPending ? '' : 'secondary'}" data-a="story">${this.storyPending ? 'Want a guided start? Story mode, on this farm' : 'Story mode (guided chapters)'}</button>` : ''}
-      ${places ? '<button class="btn secondary" data-a="places">Other places to restore</button>' : ''}
-      <button class="btn secondary" data-a="new">Start a new game (campaign or free play)</button></div>`, { narrow: true });
+    const item = (a, label, hint = '', primary = false) => `<button class="btn ${primary ? '' : 'secondary'}" data-a="${a}"><b>${label}</b>${hint ? `<small>${hint}</small>` : ''}</button>`;
+    const story = this.game.mode !== 'campaign' && this.game.catalog.definition.campaign
+      ? item('story', this.storyPending ? 'Story mode: a guided start' : 'Story mode', 'Guided chapters, on this farm', this.storyPending) : '';
+    const m = this.modal('Menu', `<div class="menu-groups">
+      <div class="menu-group"><div class="section-title">Look around</div><div class="menu-list">
+        ${item('watch', 'Watch wildlife', 'The camera follows the animals')}
+        ${item('lapse', 'Time-lapse', 'Watch 10 years go by')}
+        ${item('photo', 'Photo mode')}
+        ${item('trees', this.renderer.fadeTrees ? 'Show trees normally' : 'See through trees')}
+        ${item('overlay', 'Map overlay')}
+      </div></div>
+      <div class="menu-group"><div class="section-title">Your farm</div><div class="menu-list">
+        ${item('journal', 'Field journal')}
+        ${item('save', 'Save game')}
+        ${item('share', 'Share this farm')}
+        ${story}
+        ${item('new', 'New game', 'Campaign or free play')}
+        <details class="menu-more"><summary>More</summary><div class="menu-list">
+          ${item('backups', 'Restore an earlier save')}
+          ${places ? item('places', 'Other places to restore') : ''}
+        </div></details>
+      </div></div>
+      <div class="menu-group"><div class="section-title">Help</div><div class="menu-list">
+        ${item('help', 'How to play', 'Controls and a good first year')}
+        ${item('settings', 'Settings', 'Sound, graphics, gameplay')}
+        ${item('feedback', 'Send feedback', 'Or email info@secondgrowth.earth')}
+        <details class="menu-more"><summary>More</summary><div class="menu-list">
+          ${item('intro', 'Watch the intro film')}
+          ${newsletterAvailable() ? item('news', 'Get updates by email') : ''}
+        </div></details>
+      </div></div></div>`, {});
     if (places) otherPlacesShown(this, 'menu');
     m.querySelector('[data-a=places]')?.addEventListener('click', () => openOtherPlaces(this, 'menu'));
     // (the waiting Story offer is made here too: opening the menu is a pause)
@@ -1942,8 +1955,10 @@ export class UI {
         <li>Pick a tool on the left, then <b>drag one finger</b> to brush it across the land, or tap to place things or inspect a tile or animal. With Inspect, one finger moves the map too.</li>
         <li>Touching the map folds the tool panel away; tap its tool group again to open it. The ☰ menu has the journal and see-through trees.</li>
         <li>For the most room, use full screen (the corner button at the top) or add the game to your home screen.</li>` : ''}
-        <li${TOUCH ? ' hidden' : ''}>Pick a tool on the left, then <b>click and drag to brush</b> it across the land. <kbd>[</kbd> <kbd>]</kbd> change brush size.</li>
-        <li${TOUCH ? ' hidden' : ''}>Right-drag or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to pan, scroll to zoom, <kbd>Q</kbd> <kbd>E</kbd> to rotate by 15°. Hold <kbd>Shift</kbd> for a 90° turn. <kbd>Space</kbd> pauses, <kbd>1</kbd>–<kbd>3</kbd> set speed, <kbd>0</kbd> slows to watch pace, <kbd>T</kbd> sees through trees, <kbd>Tab</kbd> hides the panels, <kbd>P</kbd> is photo mode, <kbd>C</kbd> sits back and watches (<kbd>F</kbd> there for eye level).</li>
+        <li${TOUCH ? ' hidden' : ''}>Pick a tool on the left, then <b>click and drag</b> to brush it across the land. <kbd>[</kbd> <kbd>]</kbd> change brush size.</li>
+        <li${TOUCH ? ' hidden' : ''}><b>Move:</b> right-drag or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. <b>Zoom:</b> scroll. <b>Rotate:</b> <kbd>Q</kbd> <kbd>E</kbd> (hold <kbd>Shift</kbd> for a big turn).</li>
+        <li${TOUCH ? ' hidden' : ''}><b>Time:</b> <kbd>Space</kbd> pauses, <kbd>1</kbd>–<kbd>3</kbd> set speed, <kbd>0</kbd> slows to watch pace.</li>
+        <li${TOUCH ? ' hidden' : ''}><b>Views:</b> <kbd>T</kbd> see through trees, <kbd>Tab</kbd> hide the panels, <kbd>P</kbd> photo mode, <kbd>C</kbd> watch wildlife (<kbd>F</kbd> there for eye level).</li>
         <li>Use <b>Inspect</b> to click any tile or animal. The <b>Overlay</b> menu shows moisture, soil, sunlight, fish passage, or where a species could live.</li>
       </ul>
       <h3>A good first year</h3>
