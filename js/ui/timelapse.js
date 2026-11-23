@@ -17,6 +17,7 @@
 // timelapse_started { map, from: 'auto'|'menu', first_visit, year },
 // timelapse_watched { map, seconds, years, ended: 'done'|'input'|'money'|'fire'|'time', from, fps, days_per_s }.
 
+import { MOMENT_HOLD_MS } from '../sim/moments.js';
 import { DAYS_PER_YEAR, money } from '../config.js';
 import { track } from '../analytics.js';
 
@@ -99,6 +100,7 @@ export class Timelapse {
     track('timelapse_watched', { map: g.map, seconds: Math.round((performance.now() - this.t0) / 1000), years: Math.round(years * 10) / 10, ended, from: this.from,
       fps: this.frames ? Math.round(this.frames / Math.max(0.1, secs)) : null, days_per_s: Math.round((g.day - this.day0) / Math.max(0.1, secs)) });
     this.lapseEnd = 0;
+    ui.momentHoldUntil = performance.now() + MOMENT_HOLD_MS; // (keystone moments wait: the player gets their farm back first)
     if (!say) return;
     if (ended === 'fire' && this.fireAt != null) {
       const w = g.world; ui.renderer.flyTo(this.fireAt % w.w + 0.5, Math.floor(this.fireAt / w.w) + 0.5, 1.4, 1.6);

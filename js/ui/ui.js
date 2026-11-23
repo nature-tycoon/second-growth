@@ -155,7 +155,8 @@ export class UI {
     this.bindMinimap();
     game.on('notify', n => this.toast(n));
     game.on('moment', m => this.playMoment(m));
-    game.canPlayMoment = () => !this.moment && !this.modalOpen && !this.photo && performance.now() - (this.momentEnded ?? -1e9) >= 25000;
+    // (a time-lapse, and MOMENT_HOLD_MS after it, keep keystone moments waiting: they queue or retry, never drop, so the cinematic never lands on the lapse's hand-back)
+    game.canPlayMoment = () => !this.moment && !this.modalOpen && !this.photo && !this.timelapse?.on && performance.now() >= (this.momentHoldUntil ?? 0) && performance.now() - (this.momentEnded ?? -1e9) >= 25000;
     game.on('reset', () => { this.moment?.end(false); this.undo.clear(); this.journal = []; this.dismissedBanners = {}; this.bannerKey = null; this.closeInfo(); this.buildToolbar(); this.refreshTop(true); this.renderQuest(true); });
     game.on('chapter', e => this.onChapterDone(e));
     watchForOffer(this, game, () => !!currentChapter(game)); // (a guided chapter is on screen)
