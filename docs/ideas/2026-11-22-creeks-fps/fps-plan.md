@@ -242,3 +242,83 @@ In order; each leaves the game working.
 
 Re-measure in PostHog two weeks after each release: the section 1 queries, plus `auto_quality`
 `room` vs `undo` by `capped`.
+
+## 7. Session 8: built, measured, and what the numbers decided
+
+Apple M5, 1440×900 CSS at DPR 2 (Sharp draws 2880×1800, Fast 2160×1350), 3-year organic games, play
+and wide views, nice'd, Mac plugged in. JSON: `tools/release-output/s8-*.json` (local, not committed).
+
+**1. `perf_sample` telemetry: built.** `work_p75_ms` (the slower frames' processor work, the 16 ms
+test `autoQuality` makes for a frame rate held to 30) and `sample_s` (seconds of drawing it covers,
+so `shadow_redraws / sample_s` is redraws a second). Covered by `performance-diagnostics-check` and
+`perf-analytics-browser-check`. Nothing to measure in frame time.
+
+**2. GPU breakdown in `play-profile`: built** (`PLAY_GPU_SPLIT=1`; `=base` for the view as is only;
+`PLAY_NO_AA=1` makes the page's WebGL contexts without antialiasing). The first finding changes how
+to read every earlier GPU number from this Mac:
+
+- **The GPU timer query doesn't measure the chip's work on Apple + Chrome.** With nothing in the
+  scene drawn it still read 3–9 ms. The "flat 9–12 ms whatever is on screen" in section 2 was the
+  timer, not fixed GPU work. (`gpu_frame_ms` in PostHog from Apple chips under Chrome is the same.)
+- So the split also times **synced** draws: each draw waits for the chip to finish (a one-pixel
+  read-back), the variants take turns in short bursts 14 times over, each keeps its median.
+
+Synced ms, median change from the view as is across the 8 map/views (as is: Sharp 7.3–13.0 ms, Fast 5.0–15.6):
+
+| Variant | Sharp | Fast |
+| --- | ---: | ---: |
+| No shadows at all | −0.6 | −0.3 |
+| Shadow map never redrawn | −0.3 | −1.2 |
+| Shadow map redrawn every frame | −0.1 | −1.7 |
+| No cloud shadows | −0.3 | −1.8 |
+| Other ground (light on Sharp, full on Fast) | −0.5 | −1.6 |
+| 70% resolution (half the pixels) | −2.9 | −3.4 |
+| Nothing drawn (the floor: sync, clear, passes) | −7.1 | −7.6 |
+
+What it says: on the M5 the frame's chip work is about 5–8 ms, and **pixels are the only lever that
+reliably moves it** (half the pixels, about −3 ms). Shadows, their redraws, cloud shadows and the
+ground are each within the noise (the Fast column's −1.2 to −1.8 for every variant, including
+"redrawn every frame", is the as-is burst running slow in a few rows, not a saving).
+
+Shadow-map redraws by time of day (`tools/shadow-redraw-probe.mjs`, PNW, normal speed, camera
+still): dawn ~1/s, day 7/s, dusk 10/s, **night 20/s (up to every frame)**, because the night clock
+runs faster (`NIGHT_PACE`) and the moon-lit sun moves past the 0.003 rad step more often.
+
+**3. Shadow-map redraws cut: not built.** One redraw costs nothing measurable on the M5 (every frame
+vs never: within 0.5 ms, either sign). At 7–20 redraws a second there's no GPU time to win here, and
+a coarser sun step risks visible jumps at dusk. On a weak Intel chip a redraw costs more, but we
+can't measure that here; `perf_sample` now gives the redraw rate per player (`shadow_redraws /
+sample_s`) to look at first. If it's ever built, the cheap version is night only.
+
+**4. Antialiasing off at DPR ≥ 2: built, measured, reverted.** Runs with and without antialiasing
+(Sharp: before on, after off; Fast run twice with it on as a control, once off):
+
+| Synced ms, median of 8 map/views, change from the first run | Change |
+| --- | ---: |
+| Sharp, antialiasing off | 0.0 |
+| Fast, antialiasing on again (control: nothing changed) | +0.9 |
+| Fast, antialiasing off | −0.1 |
+
+Run-to-run noise (±2–3 ms a view) is bigger than any antialiasing effect, and the median shows none.
+The one-map try that first looked like −2.5 ms didn't hold up. That fits Apple's tile-based chips,
+which resolve antialiasing on the chip almost for free. A weak Intel chip, drawing straight to memory,
+might gain; that needs a test there (`PLAY_NO_AA=1` is ready). The edges check (visual-qa) wasn't
+needed once the change was reverted.
+
+**6. One notice for a player who chose Sharp (or Balanced) and runs slowly: built.** Under 20 FPS
+(75th-percentile frame gap in 3-second spells) for a minute in a row, once ever
+(`settings.fastHintAt`): "The game is running at about N frames a second on Sharp here. Detail: Fast
+in Settings would make it much smoother." Detail is never changed. Shown as a warning so the
+"important only" notifications setting can't swallow it. Phones included (the automatic steps still
+skip them). Event `quality_hint` (quality, fps, work_ms, gpu_ms). A Detail change starts the minute over. `auto-quality-check` has 4 new
+checks (13 in all). No frame cost.
+
+**Still open:**
+- **Item 5** (step down earlier, under 26, through Balanced on 2x screens; Detail before resolution):
+  waits for a week or two of `auto_quality` telemetry from session 7's step-up rules.
+- **Item 7** (processor time on battery): item 2 can't say anything about weak chips on battery (the M5's
+  processor drawing is 2–5 ms). Decide from `perf_sample.work_p75_ms` on weak chips with
+  `on_battery` once it has a week of data.
+- What does cost GPU is pixels. For weak chips the existing lever (the automatic resolution) already
+  pulls it. A lower Sharp cap on a 2x screen (1.75 instead of 2: about −23% pixels) is a possible
+  next cut. It's a sharpness trade, so it's for Cole.

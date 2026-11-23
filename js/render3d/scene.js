@@ -222,11 +222,12 @@ export class Renderer {
     const fast = s.quality === 'fast';
     this.quality = s.quality; this.qualityChosen = !!s.qualityChosen;
     this.qualityAt = s.autoQualityAt || 0; this.upFailedAt = s.autoUpFailedAt || 0; // (see autoQuality)
+    this.slowHinted = !!s.fastHintAt;
     // (every setting comes through here, the volume sliders included: only a change to the
     // detail or shadows starts the automatic resolution over)
     const gfx = `${s.quality}|${s.shadows}`, fresh = gfx !== this.gfx;
     this.gfx = gfx;
-    if (fresh) { this.sun.castShadow = !!s.shadows; this.shadowsDropped = false; }
+    if (fresh) { this.sun.castShadow = !!s.shadows; this.shadowsDropped = false; this.chosenSlow = 0; } // (a new level gets its own minute before the Fast hint)
     // Fast: a smaller shadow map (it's redrawn every frame)
     const shadowRes = fast ? 1024 : 2048;
     if (this.sun.shadow.mapSize.x !== shadowRes) {
@@ -371,10 +372,14 @@ export class Renderer {
   //   Without a GPU timer (Safari) that can't be judged, so it stays put.
   // - On a screen of 1.5 pixels a point or less Sharp and Balanced draw the same picture, so the
   //   step up from Fast goes straight to Sharp there.
+  // - A level the player chose is never changed. But if they chose Sharp or Balanced and it runs
+  //   under 20 frames a second for a minute in a row, it says once (ever: settings.fastHintAt)
+  //   that Fast would be smoother (onSlowChosen, ui.js). Phones too.
   // (Goal, Cole 2026-11-22: as many players as possible at a sharp 30 frames a second;
   // docs/ideas/2026-11-22-creeks-fps/fps-plan.md.)
   autoQuality(game) {
-    if (TOUCH || !this.onQuality || this.qualityChosen) return;
+    if (!this.onQuality) return;
+    if (this.qualityChosen ? this.quality === 'fast' || this.slowHinted || !this.onSlowChosen : TOUCH) return;
     const now = performance.now(), A = this.qWin;
     this.qStart ??= now;
     const timer = this.gpuTimer;
@@ -389,6 +394,11 @@ export class Renderer {
     const p75 = v => v.length ? [...v].sort((a, b) => a - b)[Math.floor(v.length * 0.75)] : null;
     const workMs = p75(work), gpuMs = p75(gpu);
     this.qLast = { work_ms: workMs == null ? null : +workMs.toFixed(1), gpu_ms: gpuMs == null ? null : +gpuMs.toFixed(1) };
+    if (this.qualityChosen) {
+      this.chosenSlow = fps < 20 ? (this.chosenSlow || 0) + 1 : 0;
+      if (this.chosenSlow >= 20) { this.chosenSlow = 0; this.slowHinted = true; this.onSlowChosen(Math.round(fps), this.qLast); }
+      return;
+    }
     const trial = this.qTrial;
     if (trial) {
       this.qBad = fps < 26 ? (this.qBad || 0) + 1 : 0;
@@ -975,6 +985,8 @@ export class Renderer {
     this.cpuPerf.record({ timings: { ...sample.timings, submit: this.submitMs ?? 0 } });
     // (each frame's processor work, for autoQuality's step-up test on a frame rate held to 30)
     if (this.qWork && this.qWork.length < 600 && sample.work >= 0) this.qWork.push(sample.work);
+    // (and for perfSample's work_p75_ms, the slower frames' work in tenths of a millisecond)
+    if (sample.work >= 0) { const W = this.workBins ||= new Map(), bin = Math.round(sample.work * 10); W.set(bin, (W.get(bin) || 0) + 1); }
   }
   // How smoothly the game has been drawing since the last sample, and with what: for the analytics,
   // so we can see how real phones cope. reset = false peeks without starting a new window.
@@ -984,6 +996,9 @@ export class Renderer {
       ...this.cpuPerf?.sample(reset),
       ...this.gpuTimer?.sample(reset),
       fps: P.time ? +(P.frames * 1000 / P.time).toFixed(1) : null,
+      // (seconds of drawing this sample covers, so shadow_redraws reads as a rate; the slower frames'
+      // processor work, the 16 ms test autoQuality makes for a frame rate held to 30)
+      sample_s: +(P.time / 1000).toFixed(1), work_p75_ms: this.workP75(),
       slow_frames_pct: P.frames ? Math.round(P.slow / P.frames * 100) : null,
       quality: this.quality ?? null, res_scale: +(this.resScale ?? 1).toFixed(2), pixel_ratio: +(this.dpr ?? 1).toFixed(2),
       shadows: !!this.sun.castShadow, shadows_dropped: !!this.shadowsDropped, far_models: this.flora?.view?.[0] === 3,
@@ -1004,8 +1019,15 @@ export class Renderer {
       plant_shadow_batches: this.flora.plantShadows.stats.batches,
       shadow_redraws: this.shadowRedraws || 0,
     };
-    if (reset) { P.frames = 0; P.time = 0; P.slow = 0; this.shadowRedraws = 0; }
+    if (reset) { P.frames = 0; P.time = 0; P.slow = 0; this.shadowRedraws = 0; this.workBins = null; }
     return out;
+  }
+  workP75() {
+    const W = this.workBins; if (!W) return null;
+    let n = 0; for (const c of W.values()) n += c;
+    let count = 0;
+    for (const [bin, c] of [...W].sort((a, b) => a[0] - b[0])) { count += c; if (count > Math.floor(n * .75)) return bin / 10; }
+    return null;
   }
   // the graphics chip, e.g. "Adreno (TM) 610" or "Apple GPU": a better guide to a phone's power than its model
   gpuName() {

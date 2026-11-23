@@ -92,5 +92,39 @@ check('a Detail level the player chose is never changed', () => {
   play(r, 120, { work: 8, gpu: 9 });
   assert.equal(r.moves.length, 0);
 });
+// (item 6: a player who chose Sharp or Balanced and runs under 20 for a minute is told once that Fast is smoother)
+function chosen(quality, opts) {
+  const r = renderer({ quality, cap: 60, ...opts });
+  r.qualityChosen = true; r.hints = [];
+  r.onSlowChosen = (fps, measured) => r.hints.push({ fps, ...measured });
+  return r;
+}
+const slow = { frameMs: 1000 / 15, work: 40, gpu: 40 };
+check('chose Sharp and runs under 20 for a minute: one hint, Detail unchanged, never again', () => {
+  const r = chosen('high');
+  play(r, 80, slow);
+  assert.equal(r.hints.length, 1); assert.equal(r.moves.length, 0); assert.equal(r.quality, 'high');
+  assert.ok(r.hints[0].fps < 20 && r.hints[0].work_ms >= 16);
+  play(r, 300, slow);
+  assert.equal(r.hints.length, 1, 'said once');
+});
+check('chose Sharp, under 20 for less than a minute, or broken by a smooth spell: no hint', () => {
+  const r = chosen('high');
+  play(r, 60, slow);
+  play(r, 6, { frameMs: 1000 / 40 });
+  play(r, 50, slow);
+  assert.equal(r.hints.length, 0);
+});
+check('chose Sharp, slow for 50 s, then switches to Balanced: Balanced gets its own minute', () => {
+  const r = chosen('high');
+  play(r, 58, slow);
+  r.chosenSlow = 0; r.quality = 'balanced'; // (as applySettings does for a new level)
+  play(r, 15, slow);
+  assert.equal(r.hints.length, 0);
+});
+check('chose Fast, or already told in an earlier session: no hint', () => {
+  const fast = chosen('fast'); play(fast, 120, slow); assert.equal(fast.hints.length, 0);
+  const told = chosen('high'); told.slowHinted = true; play(told, 120, slow); assert.equal(told.hints.length, 0);
+});
 
 console.log(`auto-quality-check: ${checks} checks passed`);

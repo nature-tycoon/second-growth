@@ -254,6 +254,15 @@ export class UI {
       else if (reason === 'room') this.game.notify(`The game has been running smoothly, so Detail is back up to ${name}.`, 'info');
       else this.game.notify(`That was too much for this computer, so Detail is back to ${name}.`, 'info');
     };
+    // a Detail level the player chose is never changed, but if it runs very slowly for a minute the
+    // game says once that Fast would be smoother (see Renderer.autoQuality)
+    this.renderer.onSlowChosen ??= (fps, measured = {}) => {
+      if (settings.fastHintAt) return;
+      settings.fastHintAt = Date.now(); saveSettings();
+      track('quality_hint', { quality: settings.quality, fps, ...measured });
+      const name = { high: 'Sharp', balanced: 'Balanced' }[settings.quality] || settings.quality;
+      this.game.notify(`The game is running at about ${fps} frames a second on ${name} here. Detail: Fast in Settings would make it much smoother.`, 'warn'); // ('warn': said once, so it must not be filtered out)
+    };
     this.renderer.applySettings(settings);
     this.game.autosave = settings.autosave;
     this.refreshSaveStatus();

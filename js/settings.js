@@ -10,6 +10,7 @@ export const DEFAULTS = {
   slowFps: null,       // the frame rate when the game last stepped Detail down for this computer
   autoQualityAt: 0,    // when the game last changed Detail itself (Date.now), down or back up
   autoUpFailedAt: 0,   // when a step back up proved too much (no more tries for a day)
+  fastHintAt: 0,       // when the game suggested Fast to a player whose chosen Detail ran slowly (said once)
   wind: true,          // plants sway in the breeze
   weather: true,       // rain and snow drawn over the view
   dayCycle: true,      // the light moves through golden hour, dusk and dawn
