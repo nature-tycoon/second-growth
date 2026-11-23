@@ -173,6 +173,12 @@ addStrings({
   'Plowed field': 'Campo arado', 'Forest floor': 'Suelo del bosque', 'Structures & roads': 'Construcciones y caminos', Home: 'Casa',
 
   // ---------------------------------------------------------------- overlays
+  Land: 'Tierra', 'Turn the overlay off': 'Quitar la capa', 'Where animals are': 'Dónde están los animales',
+  'What grows where': 'Qué crece dónde', 'Hollows hold water, rises stay dry': 'Los bajos juntan agua, los altos quedan secos',
+  'Wet and dry ground': 'Suelo húmedo y seco', 'Worn out to rich': 'De cansada a rica', 'Shade under the trees': 'La sombra bajo los árboles',
+  'Where floodwater reaches': 'Hasta dónde llega la llena', 'Water fish can reach, and how clean': 'El agua que alcanzan los peces, y qué tan limpia',
+  'Every animal, right now': 'Todos los animales, ahora', 'Where one species could live': 'Dónde podría vivir una especie',
+  'Busy trails scare shy animals': 'Los senderos con gente asustan a los animales tímidos',
   'worn out': 'cansada', rich: 'rica', 'low (wetter)': 'bajo (más húmedo)', 'high (drier)': 'alto (más seco)', 'Sunlight at ground level': 'Luz del sol en el suelo',
   'deep shade': 'sombra fuerte', 'a little': 'poca', 'a lot': 'mucha', saturated: 'empapado',
   'Shy species avoid busy trails. Screening shrubs and viewing blinds help.': 'Las especies tímidas evitan los senderos con gente. Los arbustos y los escondites ayudan.',

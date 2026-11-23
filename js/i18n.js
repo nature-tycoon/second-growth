@@ -56,7 +56,7 @@ export function tr(s, l = active || lang) {
 }
 
 // ------------------------------------------------------------------ translating the page
-const ATTRS = ['title', 'placeholder', 'aria-label', 'alt'];
+const ATTRS = ['title', 'placeholder', 'aria-label', 'alt', 'label']; // (label: the overlay dropdown's groups)
 const SKIP = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'CODE']);
 // the language for a node: its own part of the page's, or the page's
 const langOf = n => { const e = n.nodeType === 1 ? n : n.parentNode; return e?.closest?.('[data-lang]')?.dataset.lang || lang; };

@@ -31,6 +31,9 @@ try {
     }
     // every drawn frame: is the overlay there, and did the ground change since the last one?
     const probe=window.overlayProbe={};
+    // (and how long the overlay's per-frame upkeep takes on frames the ground changed: Elevation recolours then)
+    const upd=r.updateOverlay;probe.ms=[];
+    r.updateOverlay=function(...a){const t=performance.now(),hv=this.overlayHv,out=upd.apply(this,a);if(this.overlayHv!==hv)probe.ms.push(performance.now()-t);return out;};
     const draw=r.draw;
     r.draw=function(...a){const out=draw.apply(this,a);const o=this.terrain.overlay,on=!!(o&&o.visible);
       probe.frames++;const ed=g.world.hv!==probe.hv;probe.hv=g.world.hv;if(ed)probe.edited++;
@@ -58,12 +61,13 @@ try {
   // the kept mesh holds it steady between)
   for (const mode of ['elevation', 'moisture']) {
     await browser.evaluate(`(()=>{const {game:g,ui}=window.secondGrowth;ui.setOverlay('${mode}');
-      Object.assign(window.overlayProbe,{frames:0,edited:0,off:0,offAfterEdit:0,hv:g.world.hv});window.colourBefore=window.overlayColour();})()`);
+      Object.assign(window.overlayProbe,{ms:[],frames:0,edited:0,off:0,offAfterEdit:0,hv:g.world.hv});window.colourBefore=window.overlayColour();})()`);
     await wait(300);
     await drag('raise');
     await drag('lower');
     await drag('raise');
     const r = await browser.evaluate(`({...window.overlayProbe,overlay:window.secondGrowth.ui.state.overlay,changed:window.overlayColour()!==window.colourBefore})`);
+    if (mode === 'elevation') { const ms = [...r.ms].sort((a, b) => a - b); console.log(`elevation recolour on reshaped frames: median ${ms[ms.length >> 1]?.toFixed(2)} ms, max ${ms.at(-1)?.toFixed(2)} ms over ${ms.length}`); }
     console.log(`${mode}: frames ${r.frames}, frames with reshaped ground ${r.edited}, overlay missing ${r.off} (${r.offAfterEdit} right after an edit)`);
     assert.ok(r.edited >= 10, `the drags reshaped the ground on enough frames (${r.edited})`);
     assert.equal(r.overlay, mode, 'the overlay stays chosen');
