@@ -108,6 +108,9 @@ export function reportLoadingLeft() {
 //   intro_replay { from: 'start'|'menu', map }   "Watch intro" from the start menu or the menu
 //   goal_tracker_opened { map, next }   free play's goal tracker opened (ui.js renderGoalTracker; on PNW the chain toward the cougar)
 //   species_lost now skips migrants away for their season and carries cause: 'natural'|'habitat'|'prey' (session 10)
+//   goal_spotlight { map, next }   after the time-lapse the next goal stands out for 10 s (ui.js spotlightGoal)
+//   other_places_shown { map, where: 'menu'|'note' }, other_places_opened { map, from: 'menu'|'note' },
+//   other_place_started { map, from, resume }   "Other places to restore" (ui/other-places.js; map is the place chosen, from the farm left)
 // (Names reserved for later sessions go here, so they stay consistent.)
 // trackOnce sends an event the first time per page load only.
 const sentOnce = new Set();

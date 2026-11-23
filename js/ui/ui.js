@@ -45,6 +45,7 @@ import { CHALLENGE_TOOL_ADVICE, pressureTileNotes } from '../sim/ecological-pres
 import { openShare } from './share.js';
 import { track, setAnalyticsEnabled, sendFeedback, feedbackPossible, loadState } from '../analytics.js';
 import { watchForOffer, openNewsletter, newsletterAvailable } from './newsletter.js';
+import { otherPlacesReady, otherPlacesShown, openOtherPlaces, watchOtherPlacesNote } from './other-places.js';
 
 export { animalThumb, plantThumb } from './thumbnails.js';
 
@@ -60,6 +61,9 @@ const PORTRAIT_WARM_DELAY_MS = 30e3; // (see warmPortraits)
 // The one line over the farm when the first visit's intro film gives way to it (ui/intro.js)
 const INTRO_LINE = 'The forest stops at the fence. Bring it back.', INTRO_LINE_MS = 3200;
 const QUIET_MS = 5 * 60e3, QUIET_GAP_MS = 45e3, STORY_IDLE_MS = 25e3;
+// After the time-lapse the next goal stands out this long (renderGoalTracker), and the simulation's
+// routine news waits in the journal meanwhile; the Story offer keeps this far from the Other places note.
+const GOAL_SPOT_MS = 10e3, STORY_GAP_MS = 60e3;
 const ALARMS = new Set(['warn', 'fire', 'flood', 'bad']);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 const pct = v => Math.round(v * 100) + '%';
@@ -155,6 +159,7 @@ export class UI {
     game.on('reset', () => { this.moment?.end(false); this.undo.clear(); this.journal = []; this.dismissedBanners = {}; this.bannerKey = null; this.closeInfo(); this.buildToolbar(); this.refreshTop(true); this.renderQuest(true); });
     game.on('chapter', e => this.onChapterDone(e));
     watchForOffer(this, game, () => !!currentChapter(game)); // (a guided chapter is on screen)
+    watchOtherPlacesNote(this); // (once per device, at the first new year played through: ui/other-places.js)
     // the first goal's follow-up ("watch it grow"), once its grant has had a moment on screen
     game.on('goal', goal => { if (goal.done) setTimeout(() => this.firstGoalNote(goal), 6000); });
     // a chapter objective ticked: say so where the eye is, not only in the folded tracker
@@ -911,6 +916,7 @@ export class UI {
   // (n.sim: floods, fires, invasives, warnings) stays in the journal, and its good news pops up one
   // at a time. Replies to the player (a refused stroke, an undo), goals, tips and offers still show.
   holdInFirstMinutes(n) {
+    if (n.sim && !ALARMS.has(n.kind) && n.kind !== 'goal' && !n.action && this.goalSpotOn()) return true; // (the next goal has the screen for a moment after the time-lapse; it's in the journal)
     if (!n.sim || n.kind === 'goal' || n.action || !this.quietNow()) return false;
     const now = performance.now(), q = this.quiet;
     if (!ALARMS.has(n.kind) && now - q.lastSoft >= QUIET_GAP_MS) { q.lastSoft = now; return false; }
@@ -1240,6 +1246,7 @@ export class UI {
   }
 
   openMenu() {
+    const places = otherPlacesReady(this);
     const m = this.modal('Menu', `<div class="menu-list">
       <button class="btn secondary" data-a="overlay">Map overlay</button>
       <button class="btn secondary" data-a="settings">Settings</button>
@@ -1256,7 +1263,10 @@ export class UI {
       <button class="btn secondary" data-a="save">Save game</button>
       <button class="btn secondary" data-a="backups">Restore an earlier save</button>
       ${this.game.mode !== 'campaign' && this.game.catalog.definition.campaign ? `<button class="btn ${this.storyPending ? '' : 'secondary'}" data-a="story">${this.storyPending ? 'Want a guided start? Story mode, on this farm' : 'Story mode (guided chapters)'}</button>` : ''}
+      ${places ? '<button class="btn secondary" data-a="places">Other places to restore</button>' : ''}
       <button class="btn secondary" data-a="new">Start a new game (campaign or free play)</button></div>`, { narrow: true });
+    if (places) otherPlacesShown(this, 'menu');
+    m.querySelector('[data-a=places]')?.addEventListener('click', () => openOtherPlaces(this, 'menu'));
     // (the waiting Story offer is made here too: opening the menu is a pause)
     const offered = this.storyPending && this.markStoryOffered('menu');
     m.querySelector('[data-a=story]')?.addEventListener('click', () => {
@@ -1292,7 +1302,7 @@ export class UI {
     this.toast({ text: goal.done, kind: 'tip', date: g.dateString(), life: 9000 });
   }
   markStoryOffered(from) {
-    this.storyPending = false;
+    this.storyPending = false; this.storyOfferedAt = performance.now();
     try { localStorage.setItem(STORY_OFFERED, '1'); } catch { /* storage unavailable */ }
     track('story_offered', { map: this.game.map, from });
     return true;
@@ -1300,6 +1310,7 @@ export class UI {
   maybeOfferStory() {
     const g = this.game, now = performance.now();
     if (g.mode !== 'free' || this.modalOpen || this.moment || this.photo || this.watch?.on || this.opening.running || this.timelapse.busy) return; // (not over the opening's prompts or the time-lapse)
+    if (this.goalSpotOn() || now - (this.otherPlacesNoteAt ?? -1e9) < STORY_GAP_MS) return; // (not over the next goal after the time-lapse, nor next to the Other places note)
     const paused = g.speed === 0, idle = now - this.lastInput >= STORY_IDLE_MS;
     if (!paused && !idle) return;
     this.markStoryOffered(paused ? 'pause' : 'idle');
@@ -1760,16 +1771,20 @@ export class UI {
     if (!head) return false;
     if (!force && now - (this.questAt || 0) < 1000) return !q.classList.contains('hidden');
     this.questAt = now;
+    const spot = this.goalSpotOn();
     const row = (x, label = '') => { const ok = done(x.key); return `<div class="q-goal ${ok ? 'ok' : ''}"><span class="q-box">${ok ? '✓' : ''}</span><span>${label}<b>${x.name}</b>${ok ? '' : ` · ${money(g.goalReward(x.reward))}`}${ok ? '' : `<span class="q-desc">${x.desc}</span><small>${x.prog(g)}</small>`}</span></div>`; };
     const body = next
       ? steps.map(x => row(x)).join('') + (near ? `<p class="q-tip">Nearer goal: <b>${near.name}</b> (${near.prog(g)}), ${money(g.goalReward(near.reward))}</p>` : '')
       : row(head);
     q.classList.remove('hidden');
     q.classList.toggle('open', !!this.questOpen);
+    q.classList.toggle('spot', spot);
+    if (spot) this.goalSpotKey = head.key;
     const label = next ? chain.title : 'Next goal';
     const count = next ? `${steps.filter(x => done(x.key)).length}/${steps.length}` : `${goals.filter(x => done(x.key)).length}/${goals.length}`;
     const html = `<button class="q-head" title="${this.questOpen ? 'Hide goal' : 'Show goal'}"><span class="q-ch">${label}</span><b>${head.name}</b><span class="q-n">${count}</span><span class="q-caret">${this.questOpen ? '▴' : '▾'}</span></button>` +
-      (this.questOpen ? `<div class="q-body">${body}<button class="q-more">All goals</button></div>` : '');
+      (this.questOpen ? `<div class="q-body">${body}<button class="q-more">All goals</button></div>`
+        : spot ? `<div class="q-body q-spot"><span class="q-desc">${head.desc}</span><small>${head.prog(g)}</small></div>` : '');
     if (!setHTML(q, html)) return true;
     q.querySelector('.q-head').addEventListener('click', () => {
       this.questOpen = !this.questOpen;
@@ -1779,6 +1794,17 @@ export class UI {
     q.querySelector('.q-more')?.addEventListener('click', () => this.openGoals());
     return true;
   }
+
+  // After the time-lapse hands back control: the next goal stands out (a glow and its one line of
+  // what helps under the head) for GOAL_SPOT_MS, with nothing to press. Folds back on its own.
+  spotlightGoal() {
+    this.goalSpot = performance.now() + GOAL_SPOT_MS;
+    this.renderQuest(true);
+    const q = $('#quest');
+    if (q.classList.contains('hidden') || !q.classList.contains('spot')) { this.goalSpot = 0; return; } // (no tracker to show: no hold either)
+    track('goal_spotlight', { map: this.game.map, next: this.goalSpotKey || null });
+  }
+  goalSpotOn() { return !!this.goalSpot && performance.now() < this.goalSpot; }
 
   // Photo mode: everything but the land goes away, the edges of the view soften into a vignette,
   // and a small bar offers to save the picture (with the vignette) to the device.

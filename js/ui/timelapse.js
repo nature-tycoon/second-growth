@@ -107,6 +107,7 @@ export class Timelapse {
       ui.toast({ text: `Money is down to ${money(g.money)}. The time-lapse stopped here so you can look at the books.`, kind: 'warn', date: g.dateString(), life: 14000 });
     }
     ui.toast({ text: this.summary(years), kind: 'goal', date: g.dateString(), life: 20000 }); // ('goal': the payoff isn't routine news, so notices arriving just after don't push it off a phone's two-toast stack)
+    if (ended !== 'fire' && ended !== 'money') ui.spotlightGoal(); // (what's next stands out for a few seconds: ui.js renderGoalTracker)
   }
 
   // Each frame (ui.frame): the start on its own, then while it runs the clock and the reasons to stop.

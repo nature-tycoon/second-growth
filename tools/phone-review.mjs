@@ -5,7 +5,7 @@
 // 844x390 is an iPhone 14/15/16 on its side, 667x375 an iPhone SE, 750x340 a 6.1" iPhone with
 // Safari's address bar showing; a taller-than-wide size (390x844) is the phone upright: the turn
 // prompt, then the cramped fallback after "Play upright anyway". Each run starts as a first visit
-// with the intro film (0-intro, tapped away: 0-after-intro) and ends on a returning player's start
+// with the intro film (0-intro, tapped away: 0-after-intro), shows Other places to restore (6b, 6c) and ends on a returning player's start
 // menu (8-start-menu). Writes tools/release-output/phone/<size>-<step>.png.
 // For Safari itself (its bars, safe areas), open http://localhost:8347/ in the iOS Simulator
 // (Xcode) and turn it sideways: see docs/phone-review-2026-11-14.md.
@@ -50,6 +50,10 @@ for (const [width, height] of sizes) {
     for (const [btn, name] of [['#btn-goals', '5-goals'], ['#btn-menu', '6-menu'], ['#btn-settings', '7-settings']]) {
       await click(btn); await shot(name); await b.evaluate('window.secondGrowth.ui.closeModal()');
     }
+    // Other places to restore (the Menu lists it after the farm's first year; opened directly here), top and scrolled to the end
+    await b.evaluate(`import('/js/ui/other-places.js').then(m => m.openOtherPlaces(window.secondGrowth.ui, 'review'))`); await shot('6b-other-places');
+    await b.evaluate(`(() => { const body = document.querySelector('.other-places .modal-body'); if (body) body.scrollTop = body.scrollHeight; })()`); await shot('6c-other-places-end');
+    await b.evaluate('window.secondGrowth.ui.closeModal()');
     // a returning player: the short start menu
     await b.evaluate('window.secondGrowth.game.save()');
     await b.navigate('/');

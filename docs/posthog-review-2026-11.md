@@ -103,6 +103,11 @@ Reserved for later first-minutes sessions (names fixed in `js/analytics.js`): `i
 `intro_skipped` (`second`), `intro_finished`, `farm_opened` (`how`: fence or culvert, `seconds`),
 `timelapse_started`, `timelapse_watched` (`seconds`).
 
+Other places to restore (2026-11-22, `docs/ideas/2026-11-21-first-minutes/other-places.md`):
+`other_places_shown` (`map`, `where`: `menu` | `note`, once per page load each), `other_places_opened`
+(`map`, `from`: `menu` | `note`), `other_place_started` (`map`: the place chosen, `from`: the farm
+left, `resume`). And `goal_spotlight` (`map`, `next`): the next goal standing out after the time-lapse.
+
 Fixed: `species_discovered.species` is now the species' key (the old value was the count, now in
 `species_present`). Check: `node tools/play-analytics-browser-check.mjs` (in the browser suite).
 

@@ -822,6 +822,14 @@ html.upright-ok #rotate-hint { display: none; }
 .q-tip { padding: 8px 10px; background: var(--paper-2); border-left: 3px solid var(--moss); border-radius: 4px; }
 .q-help { display: block; border: 0; background: transparent; color: var(--moss-2); font: 800 12px var(--ui); cursor: pointer; padding: 6px 0; text-align: left; }
 body.quest-on #banner { top: 154px; }
+/* After the time-lapse: the next goal stands out for a few seconds, its one line of what helps under the head (ui.js spotlightGoal) */
+#quest.spot { box-shadow: 0 0 0 2px var(--moss), 0 6px 24px rgba(40, 70, 30, 0.35); animation: q-spot 1.6s ease-in-out 3; }
+#quest .q-spot { font-size: 12.5px; line-height: 1.4; padding-top: 8px; padding-bottom: 10px; }
+#quest .q-spot .q-desc { display: block; }
+#quest .q-spot small { display: block; color: var(--muted); font-weight: 700; margin-top: 3px; }
+@keyframes q-spot { 50% { box-shadow: 0 0 0 4px var(--moss), 0 6px 28px rgba(40, 70, 30, 0.45); } }
+@media (prefers-reduced-motion: reduce) { #quest.spot { animation: none; } }
+@media (max-height: 520px) { #quest .q-spot { font-size: 11.5px; padding-top: 5px; padding-bottom: 6px; } }
 
 .tool-card { position: relative; }
 .tool-card.locked { opacity: .5; filter: grayscale(.85); cursor: help; }
@@ -900,6 +908,15 @@ body.quest-on #banner { top: 154px; }
 .intro-map em { font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
 .intro-map:hover { border-color: var(--moss); }
 .map-card.on { border-color: var(--moss); box-shadow: inset 0 0 0 1.5px var(--moss); }
+/* Other places to restore (ui/other-places.js): the other maps as cards, picture beside the words */
+.other-places .op-keep { margin: 0 2px 12px; font-size: 13px; line-height: 1.45; color: var(--ink-2); }
+.other-places .op-list { display: flex; flex-direction: column; gap: 10px; }
+.other-places .op-card { cursor: default; flex-direction: row; gap: 12px; align-items: flex-start; }
+.other-places .op-card img { width: 38%; flex: none; margin: 0; }
+.other-places .op-card div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.other-places .op-card .btn { align-self: flex-start; margin-top: 6px; }
+@media (max-height: 520px) { .other-places .op-card img { width: 30%; aspect-ratio: 3 / 2; } .other-places .op-card span.bl { font-size: 12px; line-height: 1.35; } .other-places .op-keep { font-size: 12px; margin-bottom: 8px; } }
+@media (max-width: 520px) { .other-places .op-card { flex-direction: column; } .other-places .op-card img { width: 100%; } }
 .map-resume { margin: 12px 0 20px; width: 100%; padding: 11px 16px; font-size: 14.5px; letter-spacing: 0.01em; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 8px rgba(17, 43, 24, 0.28); }
 .map-resume[hidden] { display: none; }
 @media (max-height: 520px) { .map-resume { margin: 8px 0 14px; padding: 8px 14px; } }

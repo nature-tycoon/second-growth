@@ -221,6 +221,7 @@ addStrings({
   'Field journal': 'Diario de campo', 'See through trees': 'Ver a través de los árboles', 'Show trees normally': 'Ver los árboles normal', 'Photo mode': 'Modo foto',
   'Send feedback': 'Enviar opinión', 'How to play': 'Cómo jugar', 'Save game': 'Guardar partida', 'Start a new game (campaign or free play)': 'Empezar una partida nueva (campaña o juego libre)',
   'Story mode (guided chapters)': 'Modo historia (capítulos guiados)', 'Story mode': 'Modo historia',
+  'Other places to restore': 'Otros lugares para restaurar', 'Start here →': 'Empezar aquí →', 'Continue there ': 'Seguir allá ', 'See them': 'Verlos', 'Your farm at ': 'Tu finca, ',
   'Your seeds are in. Watch the new shoots fill in over the coming weeks; animals come to the food and cover they make.': 'Tus semillas ya están en la tierra. Mirá cómo crecen los brotes en las próximas semanas; los animales vienen por la comida y el refugio que dan.',
   'Your seeds are in. Watch the new shoots fill in over the coming weeks; animals come to the food and cover they make. Want a guided start? Story mode teaches restoration one chapter at a time.': 'Tus semillas ya están en la tierra. Mirá cómo crecen los brotes en las próximas semanas; los animales vienen por la comida y el refugio que dan. ¿Querés empezar con guía? El modo historia enseña la restauración capítulo por capítulo.',
   'Try it: open Plant, pick a seed mix and drag across a field. The brush turns green where seeds will grow.': 'Probá: abrí Sembrar, elegí una mezcla de semillas y arrastrá sobre un potrero. El pincel se pone verde donde las semillas van a crecer.',
@@ -520,6 +521,10 @@ addPatterns([
   [/^Saved farm, year (\d+)$/, 'Finca guardada, año $1'],
   [/^Saved on this device(?: at (.+))?\.$/, (_, time) => `Guardado en este dispositivo${time ? ' a las ' + time : ''}.`],
   [/^Continue at (.+)$/, 'Seguir en $1'],
+  // Other places to restore (ui/other-places.js)
+  [/^\(year (\d+)\)$/, '(año $1)'],
+  [/^ stays saved, year (\d+) and all\. Come back to it any time from this list on another farm, or from the start menu\.$/, ' queda guardada, en el año $1 y con todo. Volvé cuando quieras desde esta lista en otra finca, o desde el menú de inicio.'],
+  [/^(\w+) other places need restoring too: Menu → Other places\.$/, (_, n) => `${{ Six: 'Otros seis', Five: 'Otros cinco', Four: 'Otros cuatro', Three: 'Otros tres', Two: 'Otros dos', One: 'Otro' }[n] || n} lugares también necesitan restauración: Menú → Otros lugares.`],
   [/^Eight chapters on (.+)\. Each one teaches a new part of restoration and unlocks new tools as you go\. Best for your first time\.$/, 'Ocho capítulos en la $1. Cada uno te enseña una parte nueva de la restauración y abre herramientas nuevas. Lo mejor para la primera vez.'],
   [/^No campaign on (.+) yet\. Free Play has its own milestone goals for this map\.$/, 'Todavía no hay campaña en $1. El juego libre tiene sus propias metas para este mapa.'],
   [/^Chapter (\d+): (.+)$/, 'Capítulo $1: $2'],

@@ -204,6 +204,26 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
     assert.ok(Number.isFinite(lapsed.ev?.seconds) && Number.isFinite(lapsed.ev?.days_per_s), 'timelapse_watched carries seconds and days_per_s');
     assert.ok(lapsed.line, 'one line on what changed');
     console.log(`  time-lapse: ${beat.agent ? `newcomer ${beat.agent}; ` : ''}${lapsed.line}`);
+
+    // control back: the next goal stands out a few seconds with what helps, no modal, nothing to press;
+    // the simulation's routine news waits in the journal meanwhile (other-places.md)
+    const spot = await b.evaluate(`(()=>{ const {game:g,ui}=window.secondGrowth, q=document.getElementById('quest'), r=q.getBoundingClientRect();
+      const res={ on:ui.goalSpotOn(), cls:q.classList.contains('spot'), shown:!q.classList.contains('hidden') && r.width>0,
+        inView:r.left>=-1 && r.right<=innerWidth+1 && r.top>=-1 && r.bottom<=innerHeight+1, step:q.querySelector('.q-head b')?.textContent,
+        helps:q.querySelector('.q-spot .q-desc')?.textContent||'', prog:q.querySelector('.q-spot small')?.textContent||'',
+        modal:!!document.querySelector('#modal-root .modal-back'), ev:window.events.find(e=>e.event==='goal_spotlight')?.props };
+      g.inSim=true; g.notify('QSpot news','discover'); g.inSim=false;
+      res.held=![...document.querySelectorAll('#toasts .toast-text')].some(t=>t.textContent==='QSpot news') && ui.journal.some(n=>n.text==='QSpot news');
+      ui.goalSpot=performance.now()-1; ui.renderQuest(true); res.after=q.classList.contains('spot') || !!q.querySelector('.q-spot');
+      ui.journal=ui.journal.filter(n=>n.text!=='QSpot news');
+      return res; })()`);
+    assert.ok(spot.on && spot.cls && spot.shown && spot.inView, `after the time-lapse the next goal stands out, on screen (${JSON.stringify(spot)})`);
+    assert.ok(spot.helps.length > 10 && spot.prog, 'with its one line of what helps and where it stands');
+    assert.equal(spot.modal, false, 'no modal after the time-lapse');
+    assert.equal(spot.ev?.next && spot.ev.map, 'pnw', 'goal_spotlight { map, next } sent');
+    assert.ok(spot.held, 'routine news waits in the journal while it stands out');
+    assert.equal(spot.after, false, 'it folds back on its own');
+    console.log(`  next goal after the lapse: ${spot.step} (${spot.helps.slice(0, 60)}…)`);
     await b.evaluate(`document.querySelectorAll('#toasts .toast').forEach(t=>t.remove())`);
 
     // quiet opening minutes: what the simulation says on its own stays in the journal
@@ -296,6 +316,55 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
     assert.ok(offer.kept && !offer.restarted, 'the same farm carries on: no new farm, no reload');
     assert.equal(offer.stored, '1', 'the story is offered once per device');
     await b.evaluate(`window.secondGrowth.ui.closeModal()`);
+
+    // Other places to restore: in the Menu once the farm has had a year (after the lapse, ten), a card
+    // per other map with its picture, name, line and Start; the list fits and scrolls; Start goes
+    // through the usual map switch (stubbed here: it reloads). Then the once-per-device note at a new year.
+    const places = await b.evaluate(`(async()=>{ const {game:g,ui}=window.secondGrowth, wait=ms=>new Promise(r=>setTimeout(r,ms));
+      ui.openMenu(); const entry=document.querySelector('#modal-root [data-a=places]');
+      const res={ entry:!!entry, shown:window.events.find(e=>e.event==='other_places_shown')?.props };
+      entry?.click(); await wait(50);
+      const m=document.querySelector('#modal-root .other-places'), body=m?.querySelector('.modal-body'), box=m?.getBoundingClientRect();
+      const cards=[...(m?.querySelectorAll('.op-card')||[])];
+      res.title=m?.querySelector('.modal-head h2')?.textContent; res.keep=m?.querySelector('.op-keep')?.textContent||'';
+      res.cards=cards.map(c=>({ img:!!c.querySelector('img')?.getAttribute('src'), name:c.querySelector('b')?.textContent, line:c.querySelector('.bl')?.textContent||'', go:c.querySelector('[data-go]')?.textContent }));
+      res.fits=!!box && box.top>=-1 && box.bottom<=innerHeight+1 && box.left>=-1 && box.right<=innerWidth+1;
+      res.scrolls=!!body && (body.scrollHeight<=body.clientHeight+1 || getComputedStyle(body).overflowY==='auto');
+      if (body) { body.scrollTop=body.scrollHeight; await wait(30); const last=cards.at(-1).querySelector('[data-go]').getBoundingClientRect(); res.lastReach=last.bottom<=innerHeight+1 && last.top>=0; }
+      res.opened=window.events.find(e=>e.event==='other_places_opened')?.props;
+      const sw=ui.switchMap; let asked=null; ui.switchMap=p=>{ asked=p; };
+      m.querySelector('[data-go]').click(); await wait(30); ui.switchMap=sw;
+      res.asked=asked; res.started=window.events.find(e=>e.event==='other_place_started')?.props; res.closed=!document.querySelector('#modal-root .modal-back');
+      // the note: due at a new year's turn played through, calm (no quiet minutes, Story offer a while ago)
+      ui.quiet=null; ui.storyPending=false; ui.storyOfferedAt=performance.now()-61000; ui.goalSpot=0;
+      Object.defineProperty(g,'month',{value:0,configurable:true}); g.emit('month',{grant:0}); delete g.month;
+      const note=[...document.querySelectorAll('#toasts .toast')].find(t=>/other places need restoring too/.test(t.textContent));
+      res.note=note?.querySelector('.toast-text')?.textContent; res.noteAct=note?.querySelector('.toast-act')?.textContent; res.noteSeen=localStorage.getItem('sg-other-places-note');
+      res.noteShown=window.events.some(e=>e.event==='other_places_shown'&&e.props.where==='note');
+      Object.defineProperty(g,'month',{value:0,configurable:true}); g.emit('month',{grant:0}); delete g.month;
+      res.notes=[...document.querySelectorAll('#toasts .toast')].filter(t=>/other places need restoring too/.test(t.textContent)).length;
+      ui.storyPending=true; ui.maybeOfferStory(); res.storyNext=[...document.querySelectorAll('#toasts .toast-act')].some(x=>x.textContent==='Story mode'); ui.storyPending=false;
+      return res; })()`);
+    assert.ok(places.entry && places.shown?.where === 'menu', 'the Menu lists Other places to restore after the lapse; other_places_shown { where: menu }');
+    assert.equal(places.title, 'Other places to restore');
+    assert.match(places.keep, /stays saved/, 'it says the farm on screen stays saved');
+    assert.equal(places.cards.length, 6, 'the six other maps');
+    assert.ok(places.cards.every(c => c.img && c.name && c.line.length > 30 && /Start here|Continue there/.test(c.go)), 'each has a picture, its name, its line and a Start button');
+    assert.ok(places.fits && places.scrolls && places.lastReach, `the list fits the screen and scrolls to the last card (${JSON.stringify({ fits: places.fits, scrolls: places.scrolls, last: places.lastReach })})`);
+    assert.equal(places.opened?.from, 'menu', 'other_places_opened { from: menu }');
+    assert.ok(places.asked && places.asked.map && places.asked.map !== 'pnw' && (places.asked.resume || places.asked.mode === 'free'), `Start goes through the map switch (${JSON.stringify(places.asked)})`);
+    assert.equal(places.started?.map, places.asked?.map, 'other_place_started { map }');
+    assert.ok(places.closed, 'the panel closes on Start');
+    assert.match(places.note || '', /^Six other places need restoring too: Menu → Other places\.$/, 'the note at the new year');
+    assert.ok(places.noteAct && places.noteSeen === '1' && places.noteShown, 'a See them button, once per device, other_places_shown { where: note }');
+    assert.equal(places.notes, 1, 'only once');
+    assert.equal(places.storyNext, false, 'the Story offer never comes next to it');
+    if (shots) {
+      await b.evaluate(`(()=>{ window.secondGrowth.ui.openMenu(); document.querySelector('#modal-root [data-a=places]').click(); })()`);
+      await writeFile(`${shots}/other-places-${width}x${height}.png`, Buffer.from((await b.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+    }
+    await b.evaluate(`(()=>{ window.secondGrowth.ui.closeModal(); document.querySelectorAll('#toasts .toast').forEach(t=>t.remove()); })()`);
+    console.log(`  other places: ${places.cards.map(c => c.name).join(', ')}`);
 
     // the time-lapse from the menu (no offer): any key ends it; money running low ends it and pauses
     const ends = await b.evaluate(`(async()=>{
