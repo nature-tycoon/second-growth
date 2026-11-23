@@ -23,7 +23,7 @@ Branch: `claude/ideas-creeks-fps` (cut from origin/main 2f26961). Sessions run o
 | 1 | Keystone moments wait after the time-lapse | i | sonnet | S | done b3aa328 |
 | 2 | Hamburger menu readability | c | sonnet | S–M | done 340dc41 |
 | 3 | Elevation view steady + map overlays modernized | a, b | opus | M | done b86d8a9, 52dd9d2 |
-| 4 | Meal visible through leaves while following | g | opus | S–M | |
+| 4 | Meal visible through leaves while following | g | opus | S–M | done 681eba4 |
 | 5 | Creeks never bend sharply (terrain cause) | d | opus | L | |
 | 6 | Floods trim tight creek bends | e | opus | M | |
 | 7 | Frame rate: measure, Fable design, first wins | f | opus | L | |
