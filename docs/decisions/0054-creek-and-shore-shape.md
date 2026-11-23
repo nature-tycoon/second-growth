@@ -46,6 +46,20 @@ cause, not only the creek.
 - Generated maps change (heights by the water on every map, PNW's ditch course): 0048's "generated
   maps byte-for-byte unchanged" is about the edit path, not this; baselines that read the map (perf
   guard, calibrate, the intro film's staging) are re-measured with the change.
+- **Big floods trim tight bends** (session 6, `js/sim/creek-cutoff.js`, `bendCutoff` here): a flood
+  of strength ≥ `BIG_FLOOD` 1.3 may cut one `sharpBends` bend across its inside (a chute cut-off,
+  at most `CUT_ADD` 8 new tiles, `CUT_LOOP` 10 left), chance `CUT_CHANCE` 0.5. Fresh maps have no
+  sharp bend, so it reaches old saves and creeks a player's edits left sharp. Refused: land higher
+  over the nearest creek tile than the flood rises (`RISE` × strength × (1 − sponge), as `reachFrom`; not `w.flood`,
+  which spreads only from fish-connected creeks), a road, trail, gravel, mud, a building, any feature,
+  a level pad, a locked tile; a dam, culvert, boardwalk, building, road, pond, Hollis-managed water
+  or a fall within 3 tiles. Every test, and a **trial cut** (made, tested by `swimsBetween` down the
+  whole reach, put back), comes before `g.rng` is drawn, so a farm with nothing to cut keeps its run's
+  random stream. New tiles go through `digWater`, graded alone (a dug creek it joins keeps its bed);
+  the old loop is marsh on its old bed (`dugBed` NaN). Undo is cleared on `'creek-cut'` (undo puts
+  the whole height grid back). Loading marks dug creek only where the fresh map has none, so a cut
+  through an old save's ground the fresh map has as creek loads as the map's own (not graded again,
+  never lowered): accepted. Check: `node tools/creek-cutoff-check.mjs`.
 - Check: `node tools/water-shape-check.mjs [maps]` (no sharp bend on any map as generated; the drawn
   waterline's share of points turning over 60° within a tile under each map's ceiling; a right-angle
   creek stroke, a zigzag, a filled tile, a pond dug in steps and Lower beside a creek, through
@@ -82,6 +96,14 @@ the water back by a few centimetres of depth, not round a step a tile wide.
 - Fixtures that named the PNW ditch's old corner tile (54, 46) for a beaver dam now use (54, 48) on the
   new curve. A dam on a diagonal reach can have its crest under its basin's lowest corner; an empty
   basin's level is now never above its crest (`level`, hollis-water.js).
+- Session 6 (flood cut-offs): Cole chose floods trimming tight bends over yearly meandering (decades
+  slow, and it would move fish, beavers, dams and dug creeks). First gated on the flood's own marks
+  (`w.flood`), but those spread only from creeks open to the river's fish, so the PNW ditch above its
+  culvert never floods; the gate is the same height rule instead. A bend turning up Hollis's slope is
+  refused by the trial: the shorter cut puts the corner's 0.5-level drop into a step fish can't swim
+  (grading never cuts more than `CHANNEL_CUT`); one turning down the slope is cut in 3 tiles. The
+  old loop is marsh, not a pond: a pond needs `levelPond` (it digs deeper), a marsh holds water on the
+  old bed as it is. Fish left in it use the stranded-fish path (wildlife-intent: swim to deep water).
 - Considered and not done: a separate smooth creek mesh (a ribbon along a spline) in the drawing. It
   would leave the land, the fish and the shore plants on the old staircase, and Cole asked for the
   terrain cause. Smoothing below the tile size (sub-tile shore detail) would need a finer ground mesh.

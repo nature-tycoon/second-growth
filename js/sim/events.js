@@ -5,6 +5,7 @@ import { removeTree, trySeed, clearUnderstory, fellSnag, snagLife, rottenLog } f
 import { disturbanceOn } from './campaign.js';
 import { disturbanceDaily } from './disturbance.js';
 import { forestDamp } from './environment.js';
+import { floodCutoff } from './creek-cutoff.js';
 
 const GRAZED_FUEL = 0.8, GRAZED_LAWN = 0.5; // a grazing lawn has 80% less grass fuel
 const GRASSY = { grass: 1, tallgrass: 1, sedge: 0.5, forb: 0.6, tallforb: 0.7 };
@@ -536,15 +537,19 @@ export class Events {
       if (w.featureAge[i] > 30 || !g.water) { g.wildlife.breakDam(i); broke++; }
       else g.water.breachDam(i); // (its pond drops, and it stands lower until they raise it again)
     }
+    // a big flood may cut across a tight bend of a creek, leaving the old loop as marsh (0054)
+    const cut = floodCutoff(g, intensity, sponge);
     const soak = Math.round(sponge * 100);
     // point the notice at the middle of the flooded ground
     let sx = 0, sy = 0, n = 0;
     for (let i = 0; i < w.n; i++) if (w.flood[i]) { sx += i % w.w; sy += (i / w.w) | 0; n++; }
     g.notify(`${this.mapDefinition.text.flood} After days of rain the river spilled over ${flooded} tiles of low ground.` +
       (soak >= 10 ? ` Your wetlands soaked up about ${soak}% of it.` : ' More marshes and ponds would soak some of it up.') +
-      (broke ? ` The high water broke ${broke} beaver dam${broke > 1 ? 's' : ''}.` : ''), 'flood',
+      (broke ? ` The high water broke ${broke} beaver dam${broke > 1 ? 's' : ''}.` : '') +
+      (cut ? ' It also cut a new channel across a tight bend of the creek, leaving the old loop as marsh.' : ''), 'flood',
       n ? { x: sx / n + 0.5, y: sy / n + 0.5 } : null);
     g.emit('event', 'flood');
+    if (cut) g.emit('event', 'creek-cut');
   }
 
   updateFlood() {

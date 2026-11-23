@@ -179,6 +179,9 @@ export class UI {
       this.refreshWildlifeGuide?.();
     });
     game.on('event', kind => {
+      // (a flood cut a creek's bend: undo puts the whole height grid back, which would take the new
+      // channel's heights back from under it, so the strokes before it can't be undone: 0054)
+      if (kind === 'creek-cut') this.undo.clear();
       if (kind === 'fire' || kind === 'flood') {
         if (this.quietNow() || this.timelapse.on) { this.dismissedBanners[kind] = true; this.bannerKey = null; return; } // (no banner or pause in a first visit's opening minutes, or in the time-lapse: it plays out)
         delete this.dismissedBanners[kind]; this.bannerKey = null;

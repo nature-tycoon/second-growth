@@ -318,3 +318,11 @@ export function levelBuilding(w, s) {
   for (let y = s.y; y < s.y + s.h; y++) for (let x = s.x; x < s.x + s.w; x++) tiles.push(w.idx(x, y));
   return terrainEdit(w, tiles, () => sum / n);
 }
+
+// A change tried and taken back (a flood's cut, sim/creek-cutoff.js): run `fn`, read its answer, and
+// put the heights, terrain and dug-creek marks back as they were. Returns what `fn` returned.
+export function trialEdit(w, fn) {
+  const vh = w.vh.slice(), terrain = w.terrain.slice(), dug = w.dugBed.slice(), hv = w.hv, dirty = w.heightDirty;
+  try { return fn(); }
+  finally { w.vh.set(vh); w.terrain.set(terrain); w.dugBed.set(dug); w.hv = hv; w.heightDirty = dirty; forgetSwimRoutes(w); }
+}

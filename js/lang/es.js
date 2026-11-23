@@ -593,6 +593,7 @@ addPatterns([
     let out = `${head} Después de días de lluvia el agua cubrió ${n} cuadros de tierra baja.`;
     const soak = / Your wetlands soaked up about (\d+)% of it\./.exec(rest);
     out += soak ? ` Tus esteros y manglares absorbieron cerca del ${soak[1]}%.` : / More marshes and ponds would soak some of it up\./.test(rest) ? ' Más esteros y manglares absorberían parte del agua.' : '';
+    if (/ It also cut a new channel across a tight bend of the creek/.test(rest)) out += ' La llena también abrió un cauce nuevo a través de una curva cerrada de la quebrada, y el meandro viejo quedó como estero.';
     return out;
   }],
   [/^The floodwaters have gone down, leaving fresh silt\. (.+)$/, 'El agua de la llena bajó y dejó tierra nueva. $1'],

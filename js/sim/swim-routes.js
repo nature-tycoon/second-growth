@@ -98,3 +98,10 @@ export function blockSwim(wl, a, def, i, j) {
   const e = cacheFor(wl.game, limFor(w, a, def));
   e.edge[i * 8 + dir(w.w, i, j)] = e.edge[j * 8 + dir(w.w, j, i)] = 2;
 }
+
+// Whether a river fish needing water `lim` deep can swim from tile i to the next tile j, worked out
+// afresh with no day's cache (for a change being tried before it's made: a flood's cut, 0054).
+export function swimsBetween(w, i, j, lim) {
+  const e = { has: {}, pt: {} }, P = wetPoint(w, e, lim, i), Q = wetPoint(w, e, lim, j);
+  return !!P && !!Q && swims(w, lim, P, Q, i, j);
+}

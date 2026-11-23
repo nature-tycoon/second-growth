@@ -176,6 +176,43 @@ export function sharpBends(w, limit = COURSE_TURN, isCreek = i => w.terrain[i] =
   return out;
 }
 
+// A flood cutting across a tight bend (a chute cut-off): where the creek turns sharper than the limit
+// at `bend` ({ x, y } from sharpBends), the course from `reach` tiles above it to `reach` tiles below is
+// laid again as a rounded line (smoothCourse, rasterCourse), the shortest reach that comes out within
+// the limit and small (CUT_ADD new tiles at most, CUT_LOOP left behind). Returns { add, loop, course }
+// (tile indices: the land the new channel takes, in order down the creek; the old loop's creek tiles
+// it leaves; the whole reach's tiles in order) or null. Changes nothing: the flood (sim/creek-cutoff.js)
+// decides whether the land there may be cut and writes it through the one edit path (0048).
+export const CUT_ADD = 8, CUT_LOOP = 10;
+export function bendCutoff(w, bend, isCreek = i => w.terrain[i] === T.CREEK) {
+  const at = w.idx(bend.x, bend.y), N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  // (the chain that holds the bend furthest from its ends)
+  let chain = null, k = -1, room = -1;
+  for (const c of creekCourses(w, isCreek)) {
+    const j = c.findIndex(([x, y]) => x === bend.x && y === bend.y);
+    if (j >= 0 && Math.min(j, c.length - 1 - j) > room) { chain = c; k = j; room = Math.min(j, c.length - 1 - j); }
+  }
+  if (!chain) return null;
+  for (let reach = Math.min(7, room); reach >= 4; reach--) {
+    const seg = chain.slice(k - reach, k + reach + 1).map(([x, y]) => w.idx(x, y)), inSeg = new Set(seg);
+    const pts = [chain[k - reach], chain[k], chain[k + reach]].map(([x, y]) => [x + 0.5, y + 0.5]);
+    const course = rasterCourse(smoothCourse(pts, COURSE_RADIUS));
+    if (course.some(([x, y]) => !w.inb(x, y))) continue;
+    const line = course.map(([x, y]) => w.idx(x, y)), onLine = new Set(line);
+    const add = line.filter(i => !isCreek(i)), loop = seg.filter(i => !onLine.has(i));
+    if (!add.length || add.length > CUT_ADD || !loop.length || loop.length > CUT_LOOP) continue;
+    // (it keeps to its own reach: the new channel touches no other creek, and no tributary joins the
+    // old loop, which would be left with its water going nowhere)
+    const other = i => { const x = i % w.w, y = (i / w.w) | 0; return N4.some(([dx, dy]) => w.inb(x + dx, y + dy) && isCreek(w.idx(x + dx, y + dy)) && !inSeg.has(w.idx(x + dx, y + dy))); };
+    if (line.some(i => !inSeg.has(i) && isCreek(i)) || add.some(other) || loop.some(other)) continue;
+    // (and the reach it leaves is within the limit, with the old loop gone)
+    const cut = new Set(loop), next = i => (isCreek(i) && !cut.has(i)) || onLine.has(i);
+    if (sharpBends(w, COURSE_TURN, next).some(b => Math.abs(b.x - bend.x) <= reach + 2 && Math.abs(b.y - bend.y) <= reach + 2)) continue;
+    return { add, loop, course: line };
+  }
+  return null;
+}
+
 // A creek the player digs follows the stroke the way water would cut it. A head runs half a tile at a
 // time toward the point on the stroke LOOK tiles ahead of it (so a corner in the stroke is cut round,
 // starting before it), turning no tighter than COURSE_RADIUS. It lags that far behind the cursor;
