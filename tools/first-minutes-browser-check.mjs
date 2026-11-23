@@ -6,8 +6,11 @@
 // refused building says where it fits. The opening (session 3): the view starts at the boundary fence
 // with deer waiting beyond it, one click tears the fence out and they walk onto the field within
 // ~10 s, one button follows one at eye level (session 4), then one click pulls the road culvert,
-// and only then the planting tip. A hawk and a party of crows are in that first picture (session 5). After the first planting, "Watch 10 years" runs the farm at top
-// speed over what was planted and stops on its own, on any key, or when money runs low (session 4). A player with a saved farm gets the short start menu (session 9). FIRST_MINUTES_SHOTS=<dir> also saves screenshots of the sown strip.
+// then three guided planting steps, one button each (blackberry out, trees along the creek, a meadow
+// sown; timelapse-2), and a few seconds later the time-lapse plays on its own: past the top speed on
+// its own clock, no animals drawn, the camera over the planting, then a newcomer at normal speed and
+// one line (from the menu it ends on any key, or when money runs low: session 4). A hawk and a party
+// of crows are in that first picture (session 5). A player with a saved farm gets the short start menu (session 9). FIRST_MINUTES_SHOTS=<dir> also saves screenshots of the sown strip.
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { openBrowser } from './browser-session.mjs';
@@ -94,11 +97,75 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
     await b.waitFor(`[...document.querySelectorAll('#toasts .toast-act')].some(x=>/^Pull it out/.test(x.textContent))`, 'culvert prompt', 20000);
     await b.evaluate(`[...document.querySelectorAll('#toasts .toast-act')].find(x=>/^Pull it out/.test(x.textContent)).click()`);
     await b.waitFor(`window.events.some(e=>e.event==='farm_opened'&&e.props.how==='culvert')`, 'culvert pulled', 8000);
-    await b.waitFor(`[...document.querySelectorAll('#toasts .toast-text')].some(t=>/^Try it: open Plant/.test(t.textContent))`, 'the planting tip after the opening', 8000);
-    const after = await b.evaluate(`(()=>{ const g=window.secondGrowth.game; let c=0; for(let i=0;i<g.world.n;i++) if(g.world.feature[i]===7) c++; return { money:g.money, culverts:c, stage:g.flags.opening?.stage }; })()`);
+    // then the guided planting (timelapse-2): three short prompts, each one button with a result at once
+    const act = re => `(()=>{ const b=[...document.querySelectorAll('#toasts .toast-act')].find(x=>${re}.test(x.textContent)); b.click(); return true; })()`;
+    await b.waitFor(`[...document.querySelectorAll('#toasts .toast-act')].some(x=>/^Pull out the blackberry/.test(x.textContent))`, 'the blackberry prompt after the culvert', 15000);
+    const inv = `(()=>{ const g=window.secondGrowth.game, w=g.world, P=g.catalog.plants; let n=0; for(let i=0;i<w.n;i++) if(w.shrub[i]&&P[w.shrub[i]].invasive) n++; return n; })()`;
+    const inv0 = await b.evaluate(inv);
+    await b.evaluate(act('/^Pull out the blackberry/'));
+    const inv1 = await b.evaluate(inv);
+    assert.ok(inv0 > 50 && inv1 === 0, `one click pulls every invasive shrub on the farm (${inv0} → ${inv1})`);
+    await b.waitFor(`[...document.querySelectorAll('#toasts .toast-act')].some(x=>/^Plant trees along the creek/.test(x.textContent))`, 'the trees prompt', 8000);
+    const bankTrees = `(()=>{ const g=window.secondGrowth.game, w=g.world; let n=0; for(let i=w.w;i<w.n;i++){ if(!w.tree[i]) continue; const x=i%w.w,y=(i/w.w)|0; let c=false; for(let dy=-2;dy<=2;dy++) for(let dx=-2;dx<=2;dx++) if(w.inb(x+dx,y+dy)&&w.terrain[w.idx(x+dx,y+dy)]===7) c=true; if(c) n++; } return n; })()`;
+    const trees0 = await b.evaluate(bankTrees);
+    await b.evaluate(act('/^Plant trees along the creek/'));
+    const trees1 = await b.evaluate(bankTrees);
+    assert.ok(trees1 - trees0 >= 50, `one click plants trees along the creek (${trees0} → ${trees1})`);
+    await b.waitFor(`[...document.querySelectorAll('#toasts .toast-act')].some(x=>/^Sow it here/.test(x.textContent))`, 'the meadow prompt', 8000);
+    const meadow = await b.evaluate(`(()=>{ const {game:g,ui}=window.secondGrowth, tool=ui.state.tool, panel=!document.getElementById('toolpanel').classList.contains('hidden');
+      const p0=g.stats.planted, d0=g.day; ${act('/^Sow it here/')};
+      window.sprout=null; const t=setInterval(()=>{ if(g.goalsDone.sprout){ window.sprout=g.day-d0; clearInterval(t); } },20);
+      return { tool, panel, planted:g.stats.planted-p0 }; })()`);
+    assert.equal(meadow.tool, 'mix_meadow', 'the meadow step has the meadow mix chosen, to drag');
+    assert.ok(meadow.panel, 'with the Plant panel open');
+    assert.ok(meadow.planted >= 20, `one click sows a meadow patch (${meadow.planted})`);
+    const steps = await b.evaluate(`window.events.filter(e=>e.event==='opening_step').map(e=>e.props.step+':'+e.props.how).join(' ')`);
+    assert.equal(steps, 'pull:button trees:button meadow:button', 'opening_step for each step');
+    const after = await b.evaluate(`(()=>{ const g=window.secondGrowth.game; let c=0; for(let i=0;i<g.world.n;i++) if(g.world.feature[i]===7) c++; return { money:g.money, culverts:c, stage:g.flags.opening?.stage, tip:[...document.querySelectorAll('#toasts .toast-text')].some(t=>/^Try it: open Plant/.test(t.textContent)) }; })()`);
     assert.equal(after.culverts, 0, 'the culvert is out');
     assert.equal(after.stage, 'done');
-    assert.ok(after.money >= 20000, `plenty left for planting ($${Math.round(after.money)} of $${Math.round(start.money)})`);
+    assert.equal(after.tip, false, 'no planting tip: the guided steps were the planting');
+    assert.ok(after.money >= 15000, `plenty left after the opening and its planting ($${Math.round(after.money)} of $${Math.round(start.money)})`);
+
+    // the time-lapse plays on its own a few seconds later: past the top speed, panels and animals away, over the planting
+    await b.waitFor(`window.secondGrowth.ui.timelapse.on`, 'the time-lapse starts on its own', 15000);
+    const sown = { days: await b.evaluate(`window.sprout`) };
+    assert.ok(sown.days != null && sown.days <= 2, `the first goal lands within two game days of sowing (${sown.days})`);
+    const lapseDay0 = await b.evaluate(`window.secondGrowth.game.day`);
+    await new Promise(r => setTimeout(r, 4000));
+    const lapse = await b.evaluate(`(()=>{ const {game:g,ui,renderer:R}=window.secondGrowth;
+      return { on:ui.timelapse.on, watch:ui.watch.on, cls:ui.watch.el.classList.contains('lapse'), clock:!!g.lapse, hidden:R.actors.hidden, day:g.day,
+        bar:getComputedStyle(ui.watch.el.querySelector('.w-bar')).display, hint:ui.watch.el.querySelector('.w-lapse').textContent,
+        x:R.target.x, z:R.target.z, site:ui.opening.site, follow:!!ui.follow, ev:window.events.find(e=>e.event==='timelapse_started')?.props,
+        story:[...document.querySelectorAll('#toasts .toast-act')].some(x=>x.textContent==='Story mode') }; })()`);
+    assert.ok(lapse.on && lapse.watch && lapse.cls && lapse.clock, 'the time-lapse runs in watch mode on its own clock');
+    assert.ok(lapse.hidden, 'no animals drawn while it runs');
+    assert.equal(lapse.follow, false, 'the camera follows no animal');
+    assert.ok(lapse.day > lapseDay0, 'the days go by');
+    assert.equal(lapse.bar, 'none', 'no controls: it ends on a click');
+    assert.match(lapse.hint, /^Year \d+ of 10/, 'the years so far show');
+    assert.ok(Math.abs(lapse.x - lapse.site.x) < 16 && Math.abs(lapse.z - lapse.site.y) < 16, `the camera is over the planting (${lapse.x.toFixed(1)}, ${lapse.z.toFixed(1)})`);
+    assert.equal(lapse.ev?.from, 'auto', 'timelapse_started { from: auto }');
+    assert.equal(lapse.story, false, 'no Story offer during the time-lapse');
+    console.log(`  time-lapse pace: ${((lapse.day - lapseDay0) / 4).toFixed(0)} game days a second`);
+    if (shots) await writeFile(`${shots}/lapse-${width}x${height}.png`, Buffer.from((await b.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+    await b.evaluate(`(()=>{ const t=window.secondGrowth.ui.timelapse; t.day0=window.secondGrowth.game.day-1200; })()`); // (ten years, without the wait)
+    await b.waitFor(`window.secondGrowth.ui.timelapse.ending || !window.secondGrowth.ui.timelapse.on`, 'the ten years are up', 10000);
+    const beat = await b.evaluate(`(()=>{ const {game:g,ui,renderer:R}=window.secondGrowth;
+      return { ending:!!ui.timelapse.ending, hidden:R.actors.hidden, speed:g.speed, clock:!!g.lapse, agent:ui.watch.shot?.agent?.key || null }; })()`);
+    assert.equal(beat.clock, false, 'the lapse clock stops at the end');
+    assert.equal(beat.hidden, false, 'the animals are drawn again');
+    if (beat.ending) { assert.equal(beat.speed, 1, 'a newcomer is shown at normal speed'); assert.ok(beat.agent, 'on one animal'); }
+    await b.waitFor(`!window.secondGrowth.ui.timelapse.on`, 'the time-lapse hands back control', 12000);
+    const lapsed = await b.evaluate(`(()=>{ const {game:g,ui}=window.secondGrowth;
+      return { watch:ui.watch.on, speed:g.speed, ev:window.events.find(e=>e.event==='timelapse_watched')?.props,
+        line:[...document.querySelectorAll('#toasts .toast-text')].map(t=>t.textContent).find(t=>/ on: /.test(t)) }; })()`);
+    assert.equal(lapsed.watch, false, 'back to the usual view');
+    assert.equal(lapsed.speed, 1, 'back to normal speed');
+    assert.equal(lapsed.ev?.ended, 'done', 'timelapse_watched { ended: done }');
+    assert.ok(Number.isFinite(lapsed.ev?.seconds) && Number.isFinite(lapsed.ev?.days_per_s), 'timelapse_watched carries seconds and days_per_s');
+    assert.ok(lapsed.line, 'one line on what changed');
+    console.log(`  time-lapse: ${beat.agent ? `newcomer ${beat.agent}; ` : ''}${lapsed.line}`);
     await b.evaluate(`document.querySelectorAll('#toasts .toast').forEach(t=>t.remove())`);
 
     // quiet opening minutes: what the simulation says on its own stays in the journal
@@ -137,57 +204,6 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
     if (/It fits/.test(refused.text)) assert.ok(refused.clickable, 'the refusal note looks there when clicked');
     await b.evaluate(`document.querySelectorAll('#toasts .toast').forEach(t=>t.remove())`);
 
-    // one stroke of meadow mix across a field, then a few game days
-    const sown = await b.evaluate(`(async()=>{
-      const {game:g,ui,renderer}=window.secondGrowth;
-      ui.lastInput=performance.now(); // (the player just painted: the opening's minutes left the idle clock wound on)
-      const s=ui.actions.begin('mix_meadow'); for(let x=10;x<=30;x++) ui.actions.paint(s,x,50,s.tool.size); ui.actions.end(s);
-      renderer.centerOn(20,50); renderer.zoom=2.2;
-      const d0=g.day; g.speed=1;
-      while(!g.goalsDone.sprout && g.day<d0+5) await new Promise(r=>setTimeout(r,200));
-      return { planted:g.stats.planted, days:g.day-d0, done:!!g.goalsDone.sprout,
-        toast:[...document.querySelectorAll('#toasts .toast-text')].some(t=>/First sprouts/.test(t.textContent)) };
-    })()`, 60000);
-    assert.ok(sown.planted >= 10, `one stroke plants 10 (planted ${sown.planted})`);
-    assert.ok(sown.done && sown.days <= 2, `the first goal lands within two game days (${sown.days})`);
-    assert.ok(sown.toast, 'the goal shows as a toast');
-    if (shots) {
-      await mkdir(shots, { recursive: true });
-      await new Promise(r => setTimeout(r, 1500));
-      const shot = await b.send('Page.captureScreenshot', { format: 'png' });
-      await writeFile(`${shots}/sown-${width}x${height}.png`, Buffer.from(shot.data, 'base64'));
-    }
-    // "Watch 10 years": offered once after the first planting; top speed, panels away, over the planting
-    await b.waitFor(`[...document.querySelectorAll('#toasts .toast-act')].some(x=>/^Watch 10 years/.test(x.textContent))`, 'time-lapse offer', 30000);
-    assert.ok(await b.evaluate(`window.events.some(e=>e.event==='timelapse_offered')`), 'timelapse_offered is sent');
-    await b.evaluate(`[...document.querySelectorAll('#toasts .toast-act')].find(x=>/^Watch 10 years/.test(x.textContent)).click()`);
-    const lapseDay0 = await b.evaluate(`window.secondGrowth.game.day`);
-    await new Promise(r => setTimeout(r, 4000));
-    const lapse = await b.evaluate(`(()=>{ const {game:g,ui,renderer:R}=window.secondGrowth;
-      return { on:ui.timelapse.on, watch:ui.watch.on, cls:ui.watch.el.classList.contains('lapse'), speed:g.speed, day:g.day,
-        bar:getComputedStyle(ui.watch.el.querySelector('.w-bar')).display, hint:ui.watch.el.querySelector('.w-lapse').textContent,
-        x:R.target.x, z:R.target.z, ev:window.events.find(e=>e.event==='timelapse_started')?.props,
-        story:[...document.querySelectorAll('#toasts .toast-act')].some(x=>x.textContent==='Story mode') }; })()`);
-    assert.ok(lapse.on && lapse.watch && lapse.cls, 'the time-lapse runs in watch mode');
-    assert.equal(lapse.speed, 3, 'at the top speed');
-    assert.ok(lapse.day > lapseDay0, 'the days go by');
-    assert.equal(lapse.bar, 'none', 'no controls: it ends on a click');
-    assert.match(lapse.hint, /^Year \d+ of 10/, 'the years so far show');
-    assert.ok(Math.abs(lapse.x - 20) < 16 && Math.abs(lapse.z - 50.5) < 16, `the camera is over the planting (${lapse.x.toFixed(1)}, ${lapse.z.toFixed(1)})`);
-    assert.equal(lapse.ev?.from, 'offer', 'timelapse_started { from: offer }');
-    assert.equal(lapse.story, false, 'no Story offer during the time-lapse');
-    if (shots) await writeFile(`${shots}/lapse-${width}x${height}.png`, Buffer.from((await b.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
-    await b.evaluate(`(()=>{ const t=window.secondGrowth.ui.timelapse; t.day0=window.secondGrowth.game.day-1200; })()`); // (ten years, without the wait)
-    await b.waitFor(`!window.secondGrowth.ui.timelapse.on`, 'the time-lapse ends on its own', 10000);
-    const lapsed = await b.evaluate(`(()=>{ const {game:g,ui}=window.secondGrowth;
-      return { watch:ui.watch.on, speed:g.speed, ev:window.events.find(e=>e.event==='timelapse_watched')?.props,
-        line:[...document.querySelectorAll('#toasts .toast-text')].map(t=>t.textContent).find(t=>/ on: /.test(t)) }; })()`);
-    assert.equal(lapsed.watch, false, 'back to the usual view');
-    assert.equal(lapsed.speed, 1, 'back to normal speed');
-    assert.equal(lapsed.ev?.ended, 'done', 'timelapse_watched { ended: done }');
-    assert.ok(Number.isFinite(lapsed.ev?.seconds), 'timelapse_watched carries seconds');
-    assert.ok(lapsed.line, 'one line on what changed');
-    console.log(`  time-lapse: ${lapsed.line}`);
 
     // the next goal is on screen once the first is done: on PNW the chain toward the cougar the intro
     // film shows, its next step named, and opened, every step with what it still needs
@@ -269,6 +285,6 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
     assert.equal(await b.evaluate(`!!document.getElementById('intro')`), false, 'and no intro film');
     assert.equal(back.start, false, 'nothing starts before a returning player chooses');
     b.assertHealthy();
-    console.log(`PASS ${width}x${height}: first visit in Free Play with a tip, first goal in ${sown.days} day(s) after one stroke, alarms held (${quiet.held}), refusal says where, followed a deer at eye level, watched the time-lapse (ends on its own, on a key, on low money), story offered on ${offer.offered.from} and taken in place, returning player gets the start menu`);
+    console.log(`PASS ${width}x${height}: first visit in Free Play with a tip, guided planting (blackberry out, creek trees, meadow), first goal in ${sown.days} day(s), alarms held (${quiet.held}), refusal says where, followed a deer at eye level, time-lapse on its own (newcomer, line; from the menu ends on a key, on low money), story offered on ${offer.offered.from} and taken in place, returning player gets the start menu`);
   } finally { await b.close(); }
 }

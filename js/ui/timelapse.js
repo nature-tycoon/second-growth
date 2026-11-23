@@ -1,74 +1,80 @@
-// "Watch 10 years": a time-lapse of the player's own planting (docs/ideas/2026-11-21-first-minutes/plan.md, step 5).
+// "Watch 10 years": a time-lapse of the player's own planting (docs/ideas/2026-11-21-first-minutes/
+// s4.md, timelapse-2.md).
 //
-// Offered once, after a first visit's first planting (a short note with one button). Also in the
-// menu for anyone, any time, with no prompt. It runs the farm at the top speed with the panels
-// tucked away (watch mode, `Watch.start({ lapse })`), the camera drifting slowly over what was
-// planted and now and then an animal near it. It ends on its own after ten game years (or a few
-// real minutes on a slow machine), on any click or key, or early on anything that needs the
-// player: money running out, or a fire reaching what they planted. Fires and floods elsewhere play
-// out as part of the story: no banner, no pause. Then one line on what changed.
+// It plays on its own once per first visit, a few seconds after the opening's guided planting
+// (ui/opening.js: blackberry out, trees along the creek, a meadow sown; or after the first planting
+// on a map without those steps), and from the menu for anyone, any time. Ten game years go by in
+// about 20 real seconds: the game's own time-lapse clock (Game.startLapse) steps whole days between
+// drawn frames, as many as the frame rate allows (about 30 fps; 20 on a slow machine), up to 60 game
+// days a second. The panels are tucked away (watch mode, `Watch.start({ lapse })`), the camera makes
+// one slow drift round what was planted, and the animals aren't drawn (at that pace they'd streak).
+// At the end the clock goes back to normal speed, the animals come back, and one newcomer that
+// arrived meanwhile is shown for a few seconds before control comes back with one line on what changed.
+// Any click, tap, key or wheel ends it at once (and does nothing else). Money running out or a fire
+// reaching the planting stops it early and pauses.
 //
-// Nothing about the simulation changes: it is the same game at its usual top speed.
-// timelapse_offered { map }, timelapse_started { map, from, first_visit, year },
-// timelapse_watched { map, seconds, years, ended: 'done'|'input'|'money'|'fire'|'time' }.
+// The ecology is unchanged: each day is the same day a headless run steps (Game.lapseDay).
+// timelapse_started { map, from: 'auto'|'menu', first_visit, year },
+// timelapse_watched { map, seconds, years, ended: 'done'|'input'|'money'|'fire'|'time', from, fps, days_per_s }.
 
 import { DAYS_PER_YEAR, money } from '../config.js';
 import { track } from '../analytics.js';
 
 export const LAPSE_YEARS = 10;
-const LAPSE_SPEED = 3;          // the top speed: 8 game days a second, so ten years in about 2.5 minutes
-const MAX_MS = 210e3;           // a slow machine (under ~25 fps the clock runs behind) still stops by then
-const OFFER_AFTER_MS = 5e3;     // after the first planting, so the seeds are seen going in first
-const OFFER_LIFE_MS = 40e3;
+const LAPSE_SPEED = 3;          // the speed shown meanwhile (the drawing paces its redraws by it); the days come from the lapse clock
+const RATE = 60;                // game days a real second at most: ten years in about 20 s
+const MAX_MS = 45e3;            // a slow machine that can't keep up stops by then, and the line says how many years it was
+                                // (this Mac: ten years in ~21 s; at CPU x4, ~12 days a second, so about four years)
+export const AUTO_AFTER_MS = 3e3; // after the last planting, so the seeds are seen going in first
+const NEWCOMER_MS = 6e3;        // the newcomer shown at normal speed at the end
 const LOW_MONEY = 1000;
 const NUMBER = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
 
 export class Timelapse {
   constructor(ui) {
     this.ui = ui; this.game = ui.game;
-    this.on = false; this.planted = new Set(); this.offerAt = 0; this.offer = null;
+    this.on = false; this.planted = new Set(); this.autoAt = 0;
     this.game.on('tool', stroke => this.onTool(stroke));
-    this.game.on('reset', () => { if (this.on) this.stop('input', false); this.planted.clear(); this.offerAt = 0; this.offer?.remove(); this.offer = null; });
+    this.game.on('reset', () => { if (this.on) this.stop('input', false); this.planted.clear(); this.autoAt = 0; });
+    // (a button or finger down: a stroke may be under way, and the time-lapse waits for it to end)
+    for (const t of ['pointerdown', 'pointerup', 'pointercancel']) window.addEventListener(t, e => { this.held = t === 'pointerdown' && !this.on; }, { capture: true, passive: true });
     this.input = e => {
       if (!this.on || performance.now() < this.armedAt) return;
       if (e.type === 'keydown' && ['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
       e.preventDefault(); e.stopImmediatePropagation(); // (the click that ends it does only that: no paint, no pause)
-      this.stop('input');
+      this.stop(this.ending ? this.ending.ended : 'input');
     };
   }
 
-  // An offer on screen or the time-lapse running: the Story offer waits (ui.maybeOfferStory).
-  get busy() { return this.on || !!this.offer?.isConnected; }
+  // Running, or about to start on its own: the Story offer waits (ui.maybeOfferStory).
+  get busy() { return this.on || !!this.autoAt; }
 
+  // A first visit's planting: the time-lapse follows on its own (the opening sets autoAt itself after
+  // its last step; on a map without those steps, after the first planting). Once per farm.
   onTool(stroke) {
     if (stroke.tool.cat !== 'plants' || !stroke.count || this.game.visiting) return;
     for (const i of stroke.changed) this.planted.add(i);
-    if (this.ui.firstVisit && !this.game.flags.lapseOffered && !this.offerAt) this.offerAt = performance.now() + OFFER_AFTER_MS;
-  }
-
-  showOffer() {
-    const g = this.game;
-    g.flags.lapseOffered = true; this.offerAt = 0;
-    track('timelapse_offered', { map: g.map });
-    this.offer = this.ui.toast({
-      text: 'Your seeds are in. See what ten years make of them?', kind: 'tip', date: g.dateString(),
-      life: OFFER_LIFE_MS, sticky: true, action: { label: `Watch ${LAPSE_YEARS} years`, run: () => this.start('offer') },
-    });
+    if (this.ui.firstVisit && !this.game.flags.lapseOffered && !this.autoAt) this.autoAt = performance.now() + AUTO_AFTER_MS;
   }
 
   start(from = 'menu') {
     if (this.on) return;
     const g = this.game, ui = this.ui;
-    this.offer?.remove(); this.offer = null; this.offerAt = 0;
+    this.autoAt = 0;
     if (ui.modalOpen) ui.closeModal();
     if (ui.moment) return;
-    this.on = true; this.from = from;
+    if (from === 'auto') g.flags.lapseOffered = true; // (once per farm)
+    this.on = true; this.from = from; this.ending = null;
     this.t0 = performance.now(); this.armedAt = this.t0 + 600; this.day0 = g.day; this.money0 = g.money;
+    this.frames = 0; this.slow = 0; this.lastFrame = this.t0;
     this.speedBefore = g.speed || 1;
     this.before = this.snapshot();
     this.fireCheckAt = 0;
-    ui.watch.start({ lapse: { tiles: [...this.planted] }, from: 'timelapse' });
+    // (after the guided planting, where its steps were shown: the cleared banks, the young trees, the meadow beside them)
+    ui.watch.start({ lapse: { tiles: [...this.planted], at: from === 'auto' ? ui.opening.site : null }, from: 'timelapse' });
     ui.setSpeed(LAPSE_SPEED);
+    g.startLapse(RATE);
+    ui.renderer.actors.hidden = true;
     this.showYears();
     window.addEventListener('pointerdown', this.input, true);
     window.addEventListener('keydown', this.input, true);
@@ -79,14 +85,20 @@ export class Timelapse {
   stop(ended, say = true) {
     if (!this.on) return;
     const g = this.game, ui = this.ui;
-    this.on = false;
+    this.on = false; this.ending = null;
+    ui.lastInput = performance.now(); // (watching isn't idle: the Story offer doesn't drop in over the summary line)
+    g.stopLapse();
+    ui.renderer.actors.hidden = false;
     window.removeEventListener('pointerdown', this.input, true);
     window.removeEventListener('keydown', this.input, true);
     window.removeEventListener('wheel', this.input, true);
     if (ui.watch.on) ui.watch.stop();
     ui.setSpeed(ended === 'money' || ended === 'fire' ? 0 : this.speedBefore === LAPSE_SPEED ? 1 : this.speedBefore);
     const years = (g.day - this.day0) / DAYS_PER_YEAR;
-    track('timelapse_watched', { map: g.map, seconds: Math.round((performance.now() - this.t0) / 1000), years: Math.round(years * 10) / 10, ended, from: this.from });
+    const secs = ((this.lapseEnd || performance.now()) - this.t0) / 1000;
+    track('timelapse_watched', { map: g.map, seconds: Math.round((performance.now() - this.t0) / 1000), years: Math.round(years * 10) / 10, ended, from: this.from,
+      fps: this.frames ? Math.round(this.frames / Math.max(0.1, secs)) : null, days_per_s: Math.round((g.day - this.day0) / Math.max(0.1, secs)) });
+    this.lapseEnd = 0;
     if (!say) return;
     if (ended === 'fire' && this.fireAt != null) {
       const w = g.world; ui.renderer.flyTo(this.fireAt % w.w + 0.5, Math.floor(this.fireAt / w.w) + 0.5, 1.4, 1.6);
@@ -94,27 +106,56 @@ export class Timelapse {
     } else if (ended === 'money') {
       ui.toast({ text: `Money is down to ${money(g.money)}. The time-lapse stopped here so you can look at the books.`, kind: 'warn', date: g.dateString(), life: 14000 });
     }
-    ui.toast({ text: this.summary(years), kind: 'good', date: g.dateString(), life: 20000 });
+    ui.toast({ text: this.summary(years), kind: 'goal', date: g.dateString(), life: 20000 }); // ('goal': the payoff isn't routine news, so notices arriving just after don't push it off a phone's two-toast stack)
   }
 
-  // Each frame while it runs (ui.frame): the clock, and the reasons to stop.
+  // Each frame (ui.frame): the start on its own, then while it runs the clock and the reasons to stop.
   frame() {
     const g = this.game, ui = this.ui, now = performance.now();
     if (!this.on) {
-      if (this.offerAt && now >= this.offerAt && !ui.modalOpen && !ui.moment && !ui.watch.on && !ui.photo && !ui.opening.running) this.showOffer();
+      if (this.autoAt && now >= this.autoAt && !ui.modalOpen && !ui.moment && !ui.watch.on && !ui.photo && !ui.opening.running && !this.held) this.start('auto'); // (not in the middle of a stroke)
       return;
     }
     if (!ui.watch.on) { this.stop('input'); return; } // (left some other way)
+    if (this.ending) { if (now >= this.ending.until) this.stop(this.ending.ended); return; }
+    if (!g.lapse) { this.stop('input'); return; }
+    this.frames++; if (now - this.lastFrame > 50) this.slow++; this.lastFrame = now;
     if (g.speed !== LAPSE_SPEED && !ui.moment) ui.setSpeed(LAPSE_SPEED);
     this.showYears();
-    if (g.day - this.day0 >= LAPSE_YEARS * DAYS_PER_YEAR) { this.stop('done'); return; }
-    if (now - this.t0 > MAX_MS) { this.stop('time'); return; }
+    if (g.day - this.day0 >= LAPSE_YEARS * DAYS_PER_YEAR) { this.newcomer('done'); return; }
+    if (now - this.t0 > MAX_MS) { this.newcomer('time'); return; }
     if (!g.sandbox && g.money < LOW_MONEY && g.money < this.money0) { this.stop('money'); return; }
     if (g.events.fireTiles && now >= this.fireCheckAt) {
       this.fireCheckAt = now + 400;
       const w = g.world;
       for (const i of this.planted) if (w.fire[i]) { this.fireAt = i; this.stop('fire'); return; }
     }
+  }
+
+  // The years are up (or the time, on a slow machine): the clock back to normal speed and the animals drawn again, and one that has
+  // moved in meanwhile shown for a few seconds (the one most worth watching, nearest the planting),
+  // before control comes back. With none new, it ends at once.
+  newcomer(ended) {
+    const g = this.game, ui = this.ui, w = g.world;
+    this.lapseEnd = performance.now();
+    g.stopLapse();
+    ui.renderer.actors.hidden = false;
+    ui.setSpeed(1);
+    const fresh = new Set([...this.snapshot().species].filter(k => !this.before.species.has(k)));
+    let cx = w.w / 2, cy = w.h / 2;
+    if (this.planted.size) { cx = 0; cy = 0; for (const i of this.planted) { cx += i % w.w; cy += Math.floor(i / w.w); } cx /= this.planted.size; cy /= this.planted.size; }
+    let best = null, bs = 0;
+    for (const a of g.wildlife.agents) {
+      if (!fresh.has(a.sp) || a.leaving || a.gate || !w.inb(Math.floor(a.x), Math.floor(a.y))) continue;
+      const def = g.catalog.animals[a.sp], s = (def.move === 'ground' ? 2 : 1) * (def.intro ? 1.5 : 1) / (8 + Math.hypot(a.x - cx, a.y - cy));
+      if (s > bs) { bs = s; best = a; }
+    }
+    if (!best) { this.stop(ended); return; }
+    this.ending = { until: performance.now() + NEWCOMER_MS, ended };
+    ui.watch.lapse = null; // (an ordinary shot of one animal from here)
+    ui.watch.frameAnimal(best);
+    const el = ui.watch.el?.querySelector('.w-lapse');
+    if (el) el.textContent = `New since you planted · ${matchMedia?.('(pointer: coarse)').matches ? 'tap' : 'click'} to carry on`;
   }
 
   showYears() {
@@ -143,7 +184,7 @@ export class Timelapse {
   // One line on what changed: "Ten years on: 140 trees and 60 shrubs stand where you planted, and
   // Roosevelt elk and black bear have moved in. Health 18 → 34."
   summary(years) {
-    const g = this.game, a = this.before, b = this.snapshot(), n = Math.round(years);
+    const g = this.game, a = this.before, b = this.snapshot(), n = Math.floor(years + 0.05); // (down: 5.5 years on a slow machine is "Five years on")
     const when = years < 0.75 ? 'A few months on' : n <= 1 ? 'A year on' : `${NUMBER[n] || n} years on`;
     const parts = [];
     const count = (k, one, many) => `${k} ${k === 1 ? one : many}`;

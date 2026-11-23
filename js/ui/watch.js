@@ -29,8 +29,8 @@
 // for the usual view, off at eye level, where a cut away loses the animal you were watching.
 //
 // Two ways in for a first visit (docs/ideas/2026-11-21-first-minutes): `start({ lapse })` is the
-// time-lapse (ui/timelapse.js runs the clock and ends it): no bar, and the shots drift slowly over
-// the ground the player planted, now and then an animal near it. `follow(a)` starts at eye level
+// time-lapse (ui/timelapse.js runs the clock and ends it): no bar, one slow drift over the ground the
+// player planted, no animals. `follow(a)` starts at eye level
 // locked onto one animal (the opening's "Follow a deer"), and puts the eye setting back after.
 
 import { animalDef, drawDef } from '../data/animals.js';
@@ -40,12 +40,16 @@ import { SEASONS, MONTH_NAMES, clamp } from '../config.js';
 import { adultAnimalScale } from '../render3d/animal-scale.js';
 import { track } from '../analytics.js';
 import { animalThumb } from './thumbnails.js';
+import { densest } from './opening-plan.js';
 
 const SHOT = { follow: 16, eye: 18, wide: 11 }; // seconds a shot lasts
 const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches; // (as the thumbstick shows)
 const FILL = 3.3, CLOSEST = 8;                   // a followed animal's longest side × zoom (about 150 pixels), and the nearest zoom
 const LONGEST = 40;                              // a hunt or a chase keeps the camera, up to this long
-const LAPSE = { len: 12, zoom: [1.05, 1.6], near: 10 }; // time-lapse shots: seconds, zoom, an animal this close to the planting
+// the time-lapse's one shot: its zoom (close enough to see the planting grow), the glide there (s), the
+// turn round it (radians a second, about 3°: the ground at the screen's edge moves well under a tenth of
+// its width a second) and the seconds that turn takes to ease in
+const LAPSE = { zoom: 1.25, glide: 3, turn: 0.05, ease: 4 };
 
 // How worth watching an animal is right now: what it's doing, weighted.
 // (a night animal in its roost by day isn't drawn: roostingNow)
@@ -386,8 +390,8 @@ export class Watch {
       else { this.next(); return; }
     }
     if (a && !s.eye) { ui.follow = a; g.selectedAgent = a; }
-    // the slow drift round the subject (the usual view only)
-    if (!s.eye && s.t > 1.2) r.azTarget += s.drift * dt;
+    // the slow drift round the subject (the usual view only), eased in when the shot asks (the time-lapse)
+    if (!s.eye && s.t > 1.2) { const e = s.ease ? clamp((s.t - 1.2) / s.ease, 0, 1) : 1; r.azTarget += s.drift * e * e * (3 - 2 * e) * dt; }
     if ((s.capAt = (s.capAt || 0) - dt) <= 0) { s.capAt = 0.5; this.caption(s); }
   }
 
@@ -450,26 +454,16 @@ export class Watch {
     this.caption(this.shot, true);
   }
 
-  // The time-lapse: mostly a slow drift over a patch of what was planted, close enough to see it
-  // grow; every third shot an animal on or near it, if one is out (else the land again).
+  // The time-lapse: one long, slow drift round the thickest part of what was planted, never an
+  // animal (none are drawn while it runs: ui/timelapse.js). The turn eases in after the glide there.
   lapseShot() {
-    const g = this.game, r = this.renderer, w = g.world, tiles = this.lapse.tiles;
-    const n = this.n++;
-    if (!tiles.length) { this.wideShot(LAPSE.zoom); this.shot.len = LAPSE.len; return; }
-    const i = tiles[Math.floor(Math.random() * tiles.length)], x = i % w.w + 0.5, y = Math.floor(i / w.w) + 0.5;
-    if (n % 3 === 2) {
-      let best = null, bs = 0;
-      for (const a of g.wildlife.agents) {
-        if (Math.hypot(a.x - x, a.y - y) > LAPSE.near) continue;
-        const s = interest(a, animalDef(a, g.catalog), r.nightOut);
-        if (s > bs) { bs = s; best = a; }
-      }
-      if (best) { this.frameAnimal(best); return; }
-    }
+    const g = this.game, r = this.renderer, w = g.world;
+    this.n++;
     r.setEyeLevel(null);
     this.ui.follow = null; g.selectedAgent = null;
-    r.flyTo(x, y, LAPSE.zoom[0] + Math.random() * (LAPSE.zoom[1] - LAPSE.zoom[0]), 3);
-    this.shot = { agent: null, t: 0, len: LAPSE.len, eye: false, drift: (Math.random() < 0.5 ? -1 : 1) * 0.07 };
+    const at = this.lapse.at || densest(w, this.lapse.tiles) || { x: w.w / 2, y: w.h / 2 };
+    r.flyTo(at.x, at.y, LAPSE.zoom, LAPSE.glide);
+    this.shot = { agent: null, t: 0, len: Infinity, eye: false, drift: (Math.random() < 0.5 ? -1 : 1) * LAPSE.turn, ease: LAPSE.ease };
     this.caption(this.shot, true);
   }
 

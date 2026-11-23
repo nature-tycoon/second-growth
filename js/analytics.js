@@ -100,8 +100,9 @@ export function reportLoadingLeft() {
 //   farm_opened { how: 'fence'|'culvert', seconds, prompted }   boundary fence or culvert out (ui/opening.js)
 //   (a shared farm opened as a visit is shared_farm_opened { map, game_year, from: 'link'|'file' }, ui/share.js: renamed from farm_opened, g1)
 //   first_tool { seconds_since_load, ... }   (session-analytics.js)
-//   timelapse_offered { map }   the "Watch 10 years" offer after a first visit's first planting (ui/timelapse.js)
-//   timelapse_started { map, from: 'offer'|'menu', first_visit, year }, timelapse_watched { map, seconds, years, ended, from }
+//   opening_step { step: 'pull'|'trees'|'meadow', how: 'button'|'hand'|'skipped', seconds }   the opening's guided planting (ui/opening.js, timelapse-2)
+//   timelapse_started { map, from: 'auto'|'menu', first_visit, year }, timelapse_watched { map, seconds, years, ended, from, fps, days_per_s }
+//   (ui/timelapse.js: plays on its own after a first visit's guided planting; timelapse_offered and from: 'offer' were retired then)
 //   watch_mode { map, from: 'follow_deer'|'timelapse' }   "Follow a deer" in the opening (ui/opening.js), or the time-lapse
 //   intro_started { first, muted, size, played, downsized }, intro_skipped { second, first }, intro_finished { first }   the intro film (ui/intro.js; first: a first visit's, else a replay)
 //   intro_replay { from: 'start'|'menu', map }   "Watch intro" from the start menu or the menu

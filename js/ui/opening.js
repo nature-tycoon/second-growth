@@ -5,16 +5,24 @@
 // of deer stands at the forest edge beyond it (the real wander-in rule, its first try made at once:
 // sim/fence-gate.js), and the one prompt is to tear the fence out. The deer walk in within seconds.
 // Once a deer is on the field, one button to follow it at eye level (watch mode, locked on: Done or
-// Esc comes back); then one short prompt for the culvert, then the usual planting tip. Both buttons run Demolish
+// Esc comes back); then one short prompt for the culvert. Then a first planting, guided in three
+// short prompts, each one button with a result seen at once (timelapse-2.md): the invasive shrubs
+// out (PNW: Himalayan blackberry, every stand on the farm), trees along the creek, and a meadow
+// beside them (Plant opens with the meadow mix chosen, to drag; or the button sows a patch). Each
+// can be done by hand instead, or skipped with its ×. A few seconds after the last, the time-lapse
+// plays on its own (ui/timelapse.js). Both buttons run Demolish
 // through the same path as a stroke (cost, undo, goals, tool_used). Nothing here is scripted
 // wildlife: the deer come because the fence is gone, through the rules every arrival follows.
 //
-// game.flags.opening = { stage: 'fence' | 'culvert' | 'done' } (saved with the farm, so a reload in
-// the middle carries on; fence-gate.js holds the waiting deer while the stage is 'fence').
+// game.flags.opening = { stage: 'fence' | 'culvert' | 'pull' | 'trees' | 'meadow' | 'done' } (saved
+// with the farm, so a reload in the middle carries on; fence-gate.js holds the waiting deer while the
+// stage is 'fence'). opening_step { step: 'pull'|'trees'|'meadow', how: 'button'|'hand'|'skipped', seconds }.
 // farm_opened { how: 'fence'|'culvert', seconds, prompted } goes once per farm and kind, for a hand
 // Demolish of the boundary fence or the culvert too (onTool).
 
 import { F, money } from '../config.js';
+import { STEPS, stepPlan } from './opening-plan.js';
+import { AUTO_AFTER_MS } from './timelapse.js';
 import { track } from '../analytics.js';
 import { perimeterFence } from '../sim/goals.js';
 import { toolCost } from '../tools.js';
@@ -67,16 +75,16 @@ export class Opening {
   constructor(ui) {
     this.ui = ui; this.game = ui.game;
     this.t0 = performance.now(); // (farm_opened's seconds: since this farm was started or loaded)
-    this.game.on('tool', stroke => this.onTool(stroke));
+    this.game.on('tool', stroke => { this.onTool(stroke); this.onStepTool(stroke); });
     // (a farm loaded in the middle of its opening carries on: the stage is saved with it)
     this.game.on('reset', () => { this.t0 = performance.now(); this.prompt?.remove(); this.prompt = null; this.followToast?.remove(); this.followToast = null; this.openedDay = null; this.opened = null; this.culvertShown = false; this.pullAt = null; setTimeout(() => this.resume(), 1200); });
   }
 
   get stage() { return this.game.flags.opening?.stage; }
-  get running() { const s = this.stage; return s === 'fence' || s === 'culvert'; }
+  get running() { const s = this.stage; return s === 'fence' || s === 'culvert' || STEPS.includes(s); }
   set stage(s) { this.game.flags.opening = { ...this.game.flags.opening, stage: s }; }
 
-  // A first visit's start (ui.startMode). Returns false when nothing applies, so the planting tip shows at once.
+  // A first visit's start (ui.startMode): the fence, the culvert, or straight to the guided planting.
   start() {
     const g = this.game;
     this.t0 = performance.now();
@@ -91,7 +99,10 @@ export class Opening {
       return true;
     }
     if (culvertTile(g.world) >= 0) { g.flags.opening = { stage: 'culvert' }; this.culvertPrompt(); return true; }
-    return false;
+    // (nothing to open: straight to the guided planting, which shows the planting tip itself if none of it applies)
+    g.flags.opening = { stage: 'culvert' };
+    this.step(STEPS[0]);
+    return true;
   }
 
   fencePrompt() {
@@ -149,10 +160,74 @@ export class Opening {
     this.pullAt = performance.now() + 1500; // (once the view is there, so the creek is seen running free)
   }
 
+  // The farm is open: on to the guided planting (or, with nothing to guide, the usual planting tip).
   finish() {
-    if (this.stage === 'done') return;
-    this.stage = 'done'; this.prompt = null; this.pullAt = null;
-    this.ui.plantingTip();
+    if (this.stage === 'done' || STEPS.includes(this.stage)) return;
+    this.prompt = null; this.pullAt = null;
+    this.step(STEPS[0]);
+  }
+
+  // ---------------------------------------------------------------- the guided planting
+  // One step's prompt; a step with nothing to do here (no invasives, no creek, no tree mix) or that
+  // would leave too little money goes on to the next. After the meadow, the time-lapse.
+  step(k) {
+    const g = this.game;
+    for (let n = STEPS.indexOf(k); n >= 0 && n < STEPS.length; n++) {
+      const plan = this.plan(STEPS[n]);
+      if (!plan) continue;
+      this.stage = STEPS[n]; this.stepAt = performance.now();
+      if (this.site) this.ui.renderer.flyTo(this.site.x, this.site.y, ZOOM, 1.6);
+      if (plan.select) this.choose(plan.tool);
+      this.prompt = this.ui.toast({
+        text: plan.text, kind: 'tip', date: g.dateString(), life: 10 * 60e3, sticky: true,
+        action: { label: `${plan.label} (${plan.about ? 'about ' : ''}${money(plan.cost)})`, run: () => this.doStep(STEPS[n], 'button') },
+        onClose: () => this.stepDone(STEPS[n], 'skipped'),
+      });
+      return;
+    }
+    this.stage = 'done';
+    if (!g.flags.lapseOffered && !this.ui.timelapse.planted.size) this.ui.plantingTip(); // (nothing planted: the lapse comes after their first planting)
+  }
+
+  plan(k) {
+    const p = stepPlan(this.game, k, key => this.ui.isOpen(key), this.site, TOUCH);
+    if (p?.site) this.site = p.site;
+    return p;
+  }
+
+  choose(key) {
+    const ui = this.ui;
+    if (ui.state.cat !== 'plants' || document.getElementById('toolpanel')?.classList.contains('hidden')) ui.openCategory('plants');
+    ui.state.plantTab = 'mixes';
+    ui.selectTool(key);
+  }
+
+  doStep(k, how) {
+    const g = this.game, plan = this.plan(k);
+    if (plan) {
+      this.applying = true;
+      let stroke;
+      try { stroke = this.ui.actions.apply(plan.tool, plan.tiles); } finally { this.applying = false; }
+      for (const i of stroke?.changed || []) this.ui.renderer.markTileDirty?.(i % g.world.w, Math.floor(i / g.world.w));
+      this.ui.refreshUndo?.();
+    }
+    this.stepDone(k, how);
+  }
+
+  stepDone(k, how) {
+    if (this.stage !== k) return;
+    this.prompt?.remove(); this.prompt = null;
+    track('opening_step', { step: k, how, seconds: Math.round((performance.now() - (this.stepAt || this.t0)) / 1000) });
+    const n = STEPS.indexOf(k);
+    if (n === STEPS.length - 1) {
+      this.stage = 'done';
+      // (the time-lapse a few seconds after the last planting, so it's seen going in)
+      const lapse = this.ui.timelapse;
+      if (how !== 'skipped' && !this.game.flags.lapseOffered) lapse.autoAt = performance.now() + AUTO_AFTER_MS;
+      else if (!lapse.planted.size) this.ui.plantingTip();
+      return;
+    }
+    this.step(STEPS[n + 1]);
   }
 
   // Each frame while the opening runs: the culvert prompt once a deer is in, and the delayed pull.
@@ -183,6 +258,7 @@ export class Opening {
     const s = this.stage, g = this.game;
     if (!s || s === 'done' || g.visiting) return; // (never on someone else's shared farm)
     this.def = g.catalog.animal[g.flags.opening.species] || null;
+    if (STEPS.includes(s)) { this.step(s); return; }
     if (s === 'fence' && this.def && perimeterFence(g.world)) this.fencePrompt();
     else if (culvertTile(g.world) >= 0) { this.culvertShown = true; this.stage = 'culvert'; this.culvertPrompt(); }
     else this.finish();
@@ -204,6 +280,15 @@ export class Opening {
     if (this.stage === 'fence' && opened && !this.opened) { this.stage = 'culvert'; this.opened = performance.now(); this.prompt?.remove(); }
     if (this.stage === 'culvert' && stroke.culvert && !this.pullAt) { this.prompt?.remove(); setTimeout(() => this.finish(), 2500); }
   }
+
+  // A guided step done by hand: Pull invasives in the pull step, a tree in the trees step, a
+  // groundcover in the meadow step. (The step's own button comes through here too, and is already done.)
+  onStepTool(stroke) {
+    const k = this.stage, t = stroke.tool;
+    if (!STEPS.includes(k) || !stroke.count || this.game.visiting || this.applying) return;
+    if ((k === 'pull' && t.key === 'pull') || (k === 'trees' && t.cat === 'plants' && t.layer === 2) || (k === 'meadow' && t.cat === 'plants' && t.layer === 0)) this.stepDone(k, 'hand');
+  }
 }
 
+const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 const costOf = (g, tiles) => tiles.reduce((s, i) => s + Math.max(0, toolCost(g, g.catalog.tools.demolish, i)), 0);

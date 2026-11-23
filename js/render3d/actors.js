@@ -23,6 +23,8 @@ import { wadeOrSwim, gait, headPose, huntPose, stumblePose, slopePose } from './
 import { crownHeight, canopyHeight, branchPose, climbSupport, grips } from './actors-climb.js';
 import { snagBank, trunkCling, seaFlightHeight, crownPerch, snagPerch, birdHeight, plungePose, anchorPose, dabblePose, perchLimb } from './actors-fly.js';
 import { riverFishHeight, tailBend, snapPose, tailBeat } from './actors-swim.js';
+
+const NONE = [];
 import { reefHeight, munchTarget, munchPose } from './actors-reef.js';
 
 export { salmonLeap } from './actors-common.js';
@@ -165,7 +167,9 @@ export class Actors {
     const fr = { game, w, F, k, frameDt, time, seen, chased, hunters, canopySites, bridges, shadow };
     // Each animal through the same steps in the same order; a step is a mode's (actors-ground.js,
     // -climb, -fly, -swim, -reef) or everyone's (actors-common.js), and does nothing for the others.
-    for (const a of game.wildlife.viewAgents) {
+    // (none drawn while the time-lapse runs, `hidden`: at sixty game days a second they'd streak; ui/timelapse.js)
+    const hide = !!this.hidden;
+    for (const a of hide ? NONE : game.wildlife.viewAgents) {
       const c = beginAnimal(this, fr, a);
       if (!c) continue;
       drawnHeight(this, c);
@@ -202,7 +206,7 @@ export class Actors {
     // and rots (see carcass-decay.js): its flesh drawing back onto the bones until it's a skeleton,
     // which slumps into a pile of bones that go one by one, over a spreading stain.
     this.remains.begin();
-    for (const c of game.wildlife.carcasses || []) {
+    for (const c of hide ? NONE : game.wildlife.carcasses || []) {
       const cdef = game.catalog.animals[c.sp];
       if (!cdef) continue;
       const def = drawDef(cdef, c, game.month);
@@ -235,7 +239,7 @@ export class Actors {
 
     // ---- visitors: same instanced 3D style as the wildlife
     const pseen = new Set();
-    for (const v of game.residents ? game.visitors.agents.concat(game.residents) : game.visitors.agents) {
+    for (const v of hide ? NONE : game.residents ? game.visitors.agents.concat(game.residents) : game.visitors.agents) {
       pseen.add(v.id);
       let st = this.people.get(v.id);
       if (!st) { st = { yaw: 0, gait: 0, px: v.x, py: v.y }; this.people.set(v.id, st); }
