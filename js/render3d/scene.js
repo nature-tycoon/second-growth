@@ -438,6 +438,18 @@ export class Renderer {
         }
       }
       if (!body) body = reach = Math.max(pose.h, pose.foot || 0, .12) * .6;
+      // the meal it holds or eats (a hawk's fish on a branch, a snake's catch: drawCatch in
+      // actors-common.js) is part of it for the lens: without this the bird showed through the
+      // leaves eating nothing (Cole, 2026-11-22)
+      const meal = pose.meal;
+      if (meal?.r > 0) {
+        const point = this.focusCorner ||= new THREE.Vector3(), r = meal.r;
+        point.set(meal.x, meal.y, meal.z).sub(focus.uFocus.value);
+        const along = point.dot(V), height = point.dot(U), across = Math.sqrt(Math.max(0, point.lengthSq() - along * along));
+        bottom = Math.min(bottom, height - r - .025); back = Math.min(back, along - r - .025); front = Math.max(front, along + r + .025);
+        body = Math.max(body, (across + r) / Math.max(.05, 1 - along * invD));
+        reach = Math.max(reach, point.length() + r);
+      }
       // the gap's core: the body's outline across the screen (its box's corners, a little inside them,
       // which a body rarely fills); and how far in front of it cover is seen through rather than
       // opened (look-through.js): its own size and a little more
