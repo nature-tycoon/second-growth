@@ -3,6 +3,7 @@ import { T,DAYS_PER_YEAR } from '../js/config.js';
 export function createTrailFixture(Game,map='pnw',key='elk',seed=1987){
  Math.random=mulberry32(seed);const g=new Game();g.newGame(seed,'free','standard',map);g.day=20;
  const wl=g.wildlife,w=g.world,d=g.catalog.animal[key];wl.agents=[];wl.flyovers=[];wl.recount();wl.passageWait=1e6;
+ wl.nextId=18; // (ids seed each animal's own spot: fixed, so the map's starting animals don't move the scene the review's seed was picked for)
  w.terrain.fill(T.PASTURE);w.feature.fill(0);w.struct.fill(-1);w.fire.fill(0);w.flood.fill(0);w.tree.fill(0);w.shrub.fill(0);w.ground.fill(0);w.vh.fill(1);w.distWater.fill(99);
  wl.suit.forEach(s=>s.fill(.01));
  const grass=g.catalog.plants.find(p=>p&&p.layer===0&&!p.invasive&&['grass','tallgrass','sedge'].includes(p.look.type));

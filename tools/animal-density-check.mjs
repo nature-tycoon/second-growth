@@ -30,11 +30,13 @@ check('Density peaks where the animals are and fades a few tiles away', () => {
 check('A lone animal still shows beside a big herd, and one species can be picked out', () => {
   const { g, wl, w } = scene(), deer = g.catalog.animal.deer, rabbit = g.catalog.animal.rabbit;
   for (let k = 0; k < 16; k++) wl.spawn(deer, 20.5, 30.5, { silent: true });
-  wl.spawn(rabbit, 60.5, 40.5, { silent: true });
+  // (read at the tile the rabbit is on: spawn sets each animal off its tile's centre by its id,
+  // so the id, and so the tile, moves with how many animals the map started with)
+  const r = wl.spawn(rabbit, 60.5, 40.5, { silent: true }), at = w.idx(Math.floor(r.x), Math.floor(r.y));
   const all = animalDensity(w, wl.agents);
-  assert.ok(all[w.idx(60, 40)] > 0.2, `lone rabbit visible (${all[w.idx(60, 40)].toFixed(2)})`);
+  assert.ok(all[at] > 0.2, `lone rabbit visible (${all[at].toFixed(2)})`);
   const only = animalDensity(w, wl.agents, rabbit.index);
-  assert.equal(only[w.idx(60, 40)], 1, 'rabbit-only map peaks at the rabbit');
+  assert.equal(only[at], 1, 'rabbit-only map peaks at the rabbit');
   assert.equal(only[w.idx(20, 30)], 0, 'deer left out');
 });
 

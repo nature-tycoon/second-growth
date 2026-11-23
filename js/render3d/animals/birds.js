@@ -4,7 +4,8 @@ import { P, col, eyes, flat, grad, pixelCoat, place, sculpt, shade, smooth, soli
 
 // ---------------------------------------------------------------- birds
 const BIRDS = {
-  songbird: s => ({ legH: 0.2, tilt: 0.35, span: 0.62, chord: 0.24, beak: 0.16, beakColor: s.bill || '#3a3028', legColor: '#6a5a4a', tail: s.cocked ? -1.1 : 0.25 }),
+  // (beak, legs: a species' own bill length and leg colour, a crow's heavy bill and black legs)
+  songbird: s => ({ legH: 0.2, tilt: 0.35, span: 0.62, chord: 0.24, beak: s.beak ?? 0.16, beakColor: s.bill || '#3a3028', legColor: s.legs || '#6a5a4a', tail: s.cocked ? -1.1 : 0.25 }),
   hummer: s => ({ flap: 7, legH: 0.1, tilt: 0.2, span: 0.7, chord: 0.2, beak: 0.44, beakColor: '#1e1a18', legColor: '#1e1a18', tail: 0.2, beakR: 0.03 }),
   woodpecker: s => ({ legH: 0.14, tilt: 0.75, span: 0.62, chord: 0.26, beak: 0.26, beakColor: '#2a2622', legColor: '#4a4440', tail: 0.5 }),
   heron: s => ({ flap: 0.9, wades: true, legH: 1.05, tilt: 0.3, span: 0.9, chord: 0.3, beak: s.stork ? 0.38 : 0.42, beakR: s.stork ? 0.05 : null, beakColor: s.bill || '#e0b030', legColor: s.stork ? '#c0543e' : '#b8a060', tail: 0.2, neck: true, head: 0.13 }), // (stork: a stouter, straight bill)

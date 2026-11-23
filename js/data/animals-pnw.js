@@ -96,6 +96,7 @@ export default function buildPnwAnimals(def) {
     def({ key: 'coyote', name: 'Coyote', sci: 'Canis latrans', group: 'Mammals', move: 'ground',
       speed: 2, hr: 130, max: 5, sources: ['E', 'W'], mig: 0.3, breed: [2], litter: [2, 4], life: 8,
       prey: ['vole', 'rabbit'], preyPer: 6,
+      ranges: true, // (its range runs over the neighbours' farms too: one passes through now and then while none live here)
       suit: (W, i) => w[W.habitat[i]],
       sprite: { kind: 'canine', len: 30, h: 12, leg: 13, color: '#9c8466', belly: '#cdbfa6', dark: '#4a3b2c' },
       desc: 'An adaptable hunter of voles and rabbits. Keeps rodent numbers in check.',
@@ -365,6 +366,18 @@ export default function buildPnwAnimals(def) {
       desc: 'Returns each fall from the Pacific to spawn in the creek of its birth, then dies, feeding the whole forest.',
       hint: 'A shaded creek with open fish passage to the river. Watch for them in October.' });
   }
+  // (last in the list, after the fish, so the species saved before it keep their numbers)
+  {
+    const w = habW({ FARM: 1, MEADOW: 0.9, DEVELOPED: 0.7, RIPARIAN: 0.5, SHRUB: 0.4, INVASIVE: 0.3, YOUNG_FOREST: 0.3, MATURE_FOREST: 0.15 });
+    def({ key: 'crow', name: 'American crow', sci: 'Corvus brachyrhynchos', group: 'Birds', move: 'fly',
+      speed: 2.8, hr: 40, max: 10, groupSize: [3, 6], sources: ['N', 'E', 'S', 'W'], mig: 0.5, breed: [1, 2], litter: [2, 4], life: 7,
+      // (a crow walks rather than hops, and mobs a hawk rather than fleeing it)
+      hops: false, restless: false, fearsHunters: false,
+      suit: (W, i) => w[W.habitat[i]] * near(W.distPerch[i], 8, 0.35),
+      sprite: { kind: 'songbird', size: 17, color: '#1c1c20', breast: '#1c1c20', head: '#18181c', bill: '#202024', beak: 0.24, legs: '#1c1c1e', tailLength: 0.45 },
+      desc: 'Walks the fields in noisy family parties, eating grubs, grain, eggs and carrion. Old farmland\'s most familiar bird.',
+      hint: 'Open fields and pasture with trees nearby to roost in.' });
+  }
 
   return {
     groups: ['Mammals', 'Birds', 'Amphibians & reptiles', 'Fish'],
@@ -378,7 +391,7 @@ export default function buildPnwAnimals(def) {
       meadowlark: ['western meadowlark', 'western meadowlarks'], jay: ["Steller's jay", "Steller's jays"],
       woodpecker: ['pileated woodpecker', 'pileated woodpeckers'], heron: ['great blue heron', 'great blue herons'],
       kingfisher: ['belted kingfisher', 'belted kingfishers'], dipper: ['American dipper', 'American dippers'], woodduck: ['wood duck', 'wood ducks'],
-      mallard: ['mallard', 'mallards'], hawk: ['red-tailed hawk', 'red-tailed hawks'],
+      mallard: ['mallard', 'mallards'], hawk: ['red-tailed hawk', 'red-tailed hawks'], crow: ['American crow', 'American crows'],
       owl: ['great horned owl', 'great horned owls'], eagle: ['bald eagle', 'bald eagles'],
       thrush: ["Swainson's thrush", "Swainson's thrushes"], wren: ['Pacific wren', 'Pacific wrens'],
       treefrog: ['Pacific chorus frog', 'Pacific chorus frogs'], redlegged: ['red-legged frog', 'red-legged frogs'],
@@ -391,7 +404,7 @@ export default function buildPnwAnimals(def) {
       heron: 0.6, eagle: 0.6, owl: 0.5, woodpecker: 0.35, hawk: 0.3, turtle: 0.6, woodduck: 0.4,
       kingfisher: 0.3, dipper: 0.2, meadowlark: 0.4, squirrel: 0.1, rabbit: 0.25, vole: 0.1, jay: 0.1, wren: 0.2,
       thrush: 0.25, redlegged: 0.3, newt: 0.2, gartersnake: 0.3, treefrog: 0.1, mallard: 0.05,
-      robin: 0, raccoon: 0, bat: 0.1, hummingbird: 0.05, cutthroat: 0.2, coho: 0.2,
+      robin: 0, crow: 0.15, raccoon: 0, bat: 0.1, hummingbird: 0.05, cutthroat: 0.2, coho: 0.2,
     },
     // behaviour flags: fruit eaters that spread seed, big animals stopped by fences,
     // dam builders, and browsers that nibble shrubs down

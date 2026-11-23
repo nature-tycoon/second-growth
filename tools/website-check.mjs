@@ -68,6 +68,17 @@ for (const clip of videoProvenance.clips) {
     freshFiles.add('video/' + file.file);
   }
 }
+// The first-visit intro film's 1080p (tools/film-intro.mjs) lives beside the loops, its provenance
+// in assets/intro/intro-film.json with the game's 720p
+{
+  const film = JSON.parse(await readFile(join(root, 'assets/intro/intro-film.json'), 'utf8'));
+  for (const file of film.outputs.filter(out => out.id === 'site').flatMap(out => out.files).filter(f => !f.game)) { // (game: the game's copy in assets/intro/, held by intro-film-check)
+    const bytes = await readFile(join(root, file.file));
+    assert.equal(createHash('sha256').update(bytes).digest('hex'), file.sha256, `${file.file} must match the intro film's provenance`);
+    assert.ok(bytes.length <= 30_000_000 && file.checked?.duration, `${file.file}: 30 MB or less, played back when filmed`); // (constant quality: docs/ideas/2026-11-21-first-minutes/film-playback.md)
+    freshFiles.add(file.file.replace(/^website\/review-media\//, ''));
+  }
+}
 // Nothing but recorded captures in review-media: generated art can't slip in beside them.
 for (const dir of ['', 'video/']) for (const name of await readdir(join(root, 'website/review-media', dir))) {
   if (/\.(?:jpe?g|png|webp|avif|gif|mp4|webm)$/i.test(name)) assert.ok(freshFiles.has(dir + name), `review-media/${dir}${name}: game captures only, each with recorded provenance`);

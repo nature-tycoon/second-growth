@@ -2,7 +2,7 @@
 
 import buildPnwPlants from '../data/plants-pnw.js';
 import buildPnwAnimals from '../data/animals-pnw.js';
-import { PNW_GOALS } from '../sim/goals.js';
+import { PNW_GOALS, PNW_CHAIN } from '../sim/goals.js';
 import { generateFarm, pnwBorderCell } from '../world.js';
 
 export default {
@@ -19,11 +19,30 @@ export default {
   plants: buildPnwPlants,
   animals: buildPnwAnimals,
   goals: PNW_GOALS,
+  goalChain: PNW_CHAIN, // (the long goal shown on screen in free play: the cougar, nearer steps first)
+  // keystone moments for the chain's steps (fired by moments.js when the animal really does it)
+  moments: {
+    owlHunt: {
+      title: 'An owl over the meadow',
+      text: 'A great horned owl has left its roost in your young trees to hunt the meadow. Voles live in the grass you planted, and the trees beside it give the owl a perch to watch from. Meadow next to forest is where hunters find their food.',
+    },
+    elkCreek: {
+      title: 'Elk at the creek',
+      text: 'Roosevelt elk have come down to the creek. With the fence gone they can move between the forest and the meadows, and the water ties their range together. Elk were hunted out of these valleys a century ago; this herd chose to come back.',
+    },
+    cougarHunt: {
+      title: 'The cougar returns',
+      text: 'A cougar is stalking through the forest you grew. It hunts from cover, so it needs trees that join up, and deer and elk enough to feed it. Its presence keeps the deer moving, so streamside plants can recover. The valley has its top predator again.',
+    },
+  },
   generate: generateFarm,
   stones: 0.05, // the odds loosening the soil turns up stones on a tile (0035): glacial outwash and till: the valley floor is full of cobbles
   borderCell: pnwBorderCell,
-  startWildlife: [['vole', 6, 90, 14, 8], ['robin', 3, 25, 24, 6], ['raccoon', 1, 33, 22, 4], ['mallard', 2, 93, 37, 2], ['treefrog', 5, 93, 37, 4]],
-  startText: 'Spring, Year 1. The farm is quiet: a few voles, robins and a pair of mallards on the stock pond. Let\'s change that.',
+  // (old pasture is Townsend's vole country, and a red-tailed hawk hunts it; American crows work
+  // the open fields from the trees round them: the common animals of worn-out farmland)
+  startWildlife: [['vole', 14, 90, 14, 10], ['robin', 3, 25, 24, 6], ['raccoon', 1, 33, 22, 4], ['mallard', 2, 93, 37, 2], ['treefrog', 5, 93, 37, 4],
+    ['hawk', 1, 40, 9, 4], ['crow', 5, 37, 6, 3]],
+  startText: 'Spring, Year 1. The farm is quiet: voles in the old pasture, a hawk hunting them, crows on the fields and a pair of mallards on the stock pond. Let\'s change that.',
   story: `<p><b>Your great-aunt left you the old Hollis farm</b>: 180 acres of tired pasture and plowed fields in a Cascade foothill valley, bordered by second-growth forest to the north and east and a salmon river to the south. The land trust will fund your work. Your job is to give it back to the wild.</p>`,
   rules: [
     'You don\'t buy animals or upgrades. <b>You build habitat</b>, and wildlife follows its own rules: it wanders in from the surrounding forest, river and farms when there\'s room, raises young, hunts, and moves on when there isn\'t enough.',
@@ -102,6 +121,7 @@ export default {
     grade: { gain: [0.985, 1.0, 1.02], lift: [0.003, 0.005, 0.008], sat: 1.03, contrast: 1.05 },
     pasture: ['#a2b56a', '#abb26c', '#a9a46c', '#8c976a'],
     soil: [0.8, 0.66, 0.5], mud: [0.62, 0.54, 0.42],
+    borderMoss: [0.5, 0.56, 0.36], // the old forest's floor round the farm: moss and needles under the conifers (terrain.js)
     water: { pond: [0.3, 0.56, 0.66, 0.82], creek: [0.38, 0.63, 0.7, 0.78], river: [0.28, 0.52, 0.63, 0.86], marsh: [0.46, 0.62, 0.52, 0.55] },
     light: [
       { sun: 0xfff3dc, sunI: 2.5, sky: 0xe4eeff, ground: 0x5f6e3c, hemiI: 1.25 },

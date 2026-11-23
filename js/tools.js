@@ -300,7 +300,7 @@ export function createTools(catalog) {
       if (f) return 20;
       return 0;
     },
-    apply: (game, i) => {
+    apply: (game, i, random, stroke) => {
       const w = game.world;
       if (w.struct[i] >= 0) {
         const s = w.structures[w.struct[i]];
@@ -348,7 +348,12 @@ export function createTools(catalog) {
       if (f === F.CULVERT) {
         w.feature[i] = 0; w.hydroDirty = true;
         game.notify('The culvert is out! The creek now flows freely into the river, and fish can reach the upper creek.', 'good');
-      } else { w.feature[i] = 0; w.marks[i] &= ~PLACED; }
+        if (stroke) stroke.culvert = true; // (farm_opened: ui/opening.js)
+      } else {
+        // (the boundary fence, on the map's edge: farm_opened, ui/opening.js)
+        if (f === F.FENCE && stroke) { const x = i % w.w, y = (i / w.w) | 0; if (x === 0 || y === 0 || x === w.w - 1) stroke.boundaryFence = (stroke.boundaryFence || 0) + 1; }
+        w.feature[i] = 0; w.marks[i] &= ~PLACED;
+      }
       return true;
     } });
 
@@ -408,18 +413,15 @@ export function createTools(catalog) {
       desc, footprint: [d.w, d.h],
       apply: (game, i) => {
         const w = game.world, x = i % w.w, y = (i / w.w) | 0;
-        let road = false;
-        for (let yy = y; yy < y + d.h; yy++) for (let xx = x; xx < x + d.w; xx++) {
-          if (!w.inb(xx, yy)) return 'blocked';
-          const j = w.idx(xx, yy);
-          if (!openLand(w, j) || w.terrain[j] === T.TRAIL || w.feature[j] === F.CULVERT) { game.notify(`Not enough clear, dry ground for the ${d.name.toLowerCase()} here.`, 'warn'); return 'blocked'; }
+        const why = buildSpot(game, d, x, y, needsRoad, type);
+        if (why === 'edge') return 'blocked';
+        if (why) {
+          // (a refusal says where it can go instead: a new player left 4 s after two bare refusals)
+          const near = nearestBuildSpot(game, d, x, y, needsRoad, type);
+          const there = near ? ` It fits about ${near.dist} tiles ${near.dir}: click this note to look there.` : needsRoad ? ' Lay a Gravel road (Visitors tab) to open up a spot for it.' : '';
+          game.notify((why === 'ground' ? `Not enough clear, dry ground for the ${d.name.toLowerCase()} here.` : `The ${d.name.toLowerCase()} has to sit right beside a road${type === 'center' ? ' or parking lot' : ''} so people can drive in.`) + there, 'warn', near?.loc);
+          return 'blocked';
         }
-        for (let yy = y - 1; yy <= y + d.h; yy++) for (let xx = x - 1; xx <= x + d.w; xx++) {
-          if (!w.inb(xx, yy)) continue;
-          const j = w.idx(xx, yy), t = w.terrain[j];
-          if (t === T.ROAD || (w.struct[j] >= 0 && w.structures[w.struct[j]]?.type === 'parking')) road = true;
-        }
-        if (needsRoad && !road) { game.notify(`The ${d.name.toLowerCase()} has to sit right beside a road${type === 'center' ? ' or parking lot' : ''} so people can drive in.`, 'warn'); return 'blocked'; }
         for (let yy = y; yy < y + d.h; yy++) for (let xx = x; xx < x + d.w; xx++) {
           const j = w.idx(xx, yy);
           w.terrain[j] = T.GRAVEL;
@@ -430,6 +432,38 @@ export function createTools(catalog) {
         game.notify(type === 'parking' ? 'Trailhead parking built. Now lay a trail out from it into the best habitat.' : 'The visitor center is open. Visitors give more, and the gift shop and exhibits raise your rating.', 'good');
         return true;
       } });
+  }
+  // Why a building can't go with its corner at (x, y): 'edge', 'ground', 'road', or null when it fits
+  // (`inside`: every footprint tile inside the property too; the stroke itself checks only the corner).
+  function buildSpot(game, d, x, y, needsRoad, type, inside = false) {
+    const w = game.world, map = game.mapDefinition;
+    let road = false;
+    for (let yy = y; yy < y + d.h; yy++) for (let xx = x; xx < x + d.w; xx++) {
+      if (!w.inb(xx, yy)) return 'edge';
+      const j = w.idx(xx, yy);
+      if (!openLand(w, j) || w.terrain[j] === T.TRAIL || w.feature[j] === F.CULVERT || (inside && map.canEdit && !map.canEdit(game, j))) return 'ground';
+    }
+    if (!needsRoad) return null;
+    for (let yy = y - 1; yy <= y + d.h; yy++) for (let xx = x - 1; xx <= x + d.w; xx++) {
+      if (!w.inb(xx, yy)) continue;
+      const j = w.idx(xx, yy), t = w.terrain[j];
+      if (t === T.ROAD || (w.struct[j] >= 0 && w.structures[w.struct[j]]?.type === 'parking')) road = true;
+    }
+    return road ? null : 'road';
+  }
+  // The closest corner where it fits, with a rough distance and compass word, or null.
+  function nearestBuildSpot(game, d, x, y, needsRoad, type) {
+    const w = game.world;
+    let best = null, bestD = Infinity;
+    for (let yy = 0; yy < w.h; yy++) for (let xx = 0; xx < w.w; xx++) {
+      const dd = (xx - x) ** 2 + (yy - y) ** 2;
+      if (dd >= bestD || buildSpot(game, d, xx, yy, needsRoad, type, true)) continue; // (a spot inside the property)
+      best = { x: xx, y: yy }; bestD = dd;
+    }
+    if (!best) return null;
+    const dx = best.x - x, dy = best.y - y, ns = dy < 0 ? 'north' : 'south', ew = dx < 0 ? 'west' : 'east';
+    const dir = Math.abs(dy) > 2 * Math.abs(dx) ? ns : Math.abs(dx) > 2 * Math.abs(dy) ? ew : ns + '-' + ew;
+    return { dist: Math.max(1, Math.round(Math.sqrt(bestD))), dir: 'to the ' + dir, loc: { x: best.x + d.w / 2, y: best.y + d.h / 2 } };
   }
   buildTool('parking', 'Where visitors park and start their walk. Must be next to a road. Holds about 220 visitors a month.');
   buildTool('center', 'Exhibits, a gift shop and restrooms. Visitors give more and rate the preserve higher. Must be next to a road or parking lot.');

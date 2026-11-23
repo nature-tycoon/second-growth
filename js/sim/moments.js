@@ -60,6 +60,8 @@ const BEHAVIOR_MOMENTS = {
   jaguar: ['jaguar', 'hunt'], howler: ['howler', 'canopy'], elephant: ['elephant', 'family'],
   orangutans: ['orangutan', 'canopy'], gajah: ['gajah', 'family'], harimau: ['tiger', 'hunt'],
   congos: ['congo', 'canopy'], manta: ['manta', 'cleaning'], humphead: ['humphead', 'starfish'],
+  // (the steps toward PNW's cougar: PNW_CHAIN in goals.js, texts in maps/pnw.js)
+  owlHunt: ['owl', 'hunt'], elkCreek: ['elk', 'drink'], cougarHunt: ['cougar', 'hunt'],
 };
 const living = a => a && !a.leaving && !a.fromFire;
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -74,6 +76,10 @@ function interesting(game, key, a) {
   if (type === 'canopy') return a.state === 'primate' && !!a.fruitMeal || a.state === 'forage' && ['leaves', 'fruit'].includes(a.forage?.food);
   if (type === 'family') return a.state === 'forage' && a.forage?.food === 'browse' && agents.some(b => b !== a && b.sp === a.sp && living(b) && distance(a, b) < 6);
   if (type === 'starfish') return a.state === 'forage' && a.forage?.food === 'starfish';
+  if (type === 'drink') { // (head down at the creek, not a pond or the river)
+    const w = game.world, at = a.drinkAt, i = at && w.inb(Math.floor(at[0]), Math.floor(at[1])) ? w.idx(Math.floor(at[0]), Math.floor(at[1])) : -1;
+    return a.drinkT > 0 && i >= 0 && w.terrain[i] === T.CREEK;
+  }
   if (type === 'cleaning') {
     const partner = byId(game, a.forage?.partner);
     return a.state === 'forage' && a.forage?.food === 'cleaned' && living(partner) && game.catalog.animals[partner.sp]?.key === 'cleaner' &&
@@ -273,6 +279,10 @@ export function momentScene(game, m) {
     return finish(gone
       ? shot('after', 'One fewer starfish', 'That starfish is gone, and the coral it was eating can grow back. The wrasse cruises on, looking for the next one.', living(a) ? a : null, 2.5)
       : shot('after', 'Back for more', 'The wrasse has swum off for now, but it will be back: it keeps returning to this stretch of reef while there are starfish to eat.', living(a) ? a : null, 2.5));
+  }
+  if (type === 'drink') {
+    if (living(a) && interesting(game, m.key, a)) return shot('drink', 'Down to the water', 'The herd has come out of the trees to drink. Elk graze open ground but keep forest close, and they need clean water they can reach without crossing a fence.', a, 2.4);
+    return finish(shot('after', 'Back to the meadow', 'The elk have drunk and move off to graze. Meadow, forest and water now lie close enough together for a herd to live on.', living(a) ? a : null, 2.2));
   }
   if (type === 'canopy') {
     if (living(a) && interesting(game, m.key, a)) return shot('meal', 'A meal in the treetops', 'Watch the hands and mouth as the animal feeds. A connected canopy now offers both food and a route through the restored forest.', a, 3.1);

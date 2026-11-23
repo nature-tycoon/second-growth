@@ -10,6 +10,7 @@
 - Body shape lives in `quadruped()` (`loftBody` `tuck`/`keel`, smooth thigh legs, `headLoft`, `roundHead: true` to opt out, `muscles: false`) and `bird()` in `birds.js`; fix shared faults there, not per species.
 - Ears: every mammal ear is `pinna`/`pinnaAt` (`model-core.js`); never build ears from tapered limbs or solid ovals (elephants and primates excepted). Sink the base well inside the head, measured from its own radii, and lean the ear out with the skull, or the root floats.
 - Swimming: a wave swimmer's tail turns with the body wave's slope (`animatePart`); its phase runs by distance swum (`SWIM_STRIDE`). Check `node tools/fish-swim-check.mjs`. A snake's length is `sprite.length`.
+- Walkers stand along the ground's slope (2026-11-22): `slopePose` (actors-ground.js, after `stumblePose`) pitches a ground walker to the ground a third of a body length ahead and behind along its drawn heading, eased, at most 0.5 rad; not swimming or slithering. Drawn level, the uphill hooves sank into hillsides (21–180 per 1000 walker frames by map; now at most 1.2). Motion sweep: `sunk`.
 - Review: `http://localhost:8347/tools/animal-closeup-review.html` (`?bench=1`, `?model=close`, `map:key:male`), `node tools/animal-closeup-capture.mjs`. Cost: `?bench=1` and `play-profile` (`PLAY_VIEWS=closest`).
 
 ## History

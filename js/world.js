@@ -441,22 +441,45 @@ export function pnwBorderCell(x, y, r, r2, world) {
     else if (x === -1) { t = T.PASTURE; if (r < 0.3) shrub = world.catalog.plant.blackberry.id; }
     else if (y < 0) { t = T.DUFF; tree = world.catalog.plant.fir.id; g = 0.7 + r2 * 0.3; if (r < 0.2) tree = 0; }
     else { t = T.FIELD; if (x === -3 && r < 0.5) shrub = world.catalog.plant.blackberry.id; }
-  } else if (y < 0) {
+  } else if (y < 0 || x >= world.w) {
     t = T.DUFF;
-    if (r < 0.82) {
-      const s = r2 < 0.45 ? 'fir' : r2 < 0.75 ? 'hemlock' : r2 < 0.9 ? 'cedar' : 'maple';
-      tree = world.catalog.plant[s].id; g = 0.75 + hash2(x, y, 45) * 0.25;
-    } else shrub = r2 < 0.5 ? world.catalog.plant.vinemaple.id : world.catalog.plant.salal.id;
-    ground = world.catalog.plant.swordfern.id;
-  } else if (x >= world.w) {
-    t = T.DUFF;
-    if (r < 0.72) {
-      const s = r2 < 0.35 ? 'alder' : r2 < 0.55 ? 'maple' : r2 < 0.85 ? 'fir' : 'cedar';
-      tree = world.catalog.plant[s].id; g = 0.7 + hash2(x, y, 45) * 0.3;
-    } else shrub = r2 < 0.5 ? world.catalog.plant.salmonberry.id : world.catalog.plant.snowberry.id;
-    ground = world.catalog.plant.swordfern.id;
+    ({ tree, g, shrub, ground } = pnwOldForest(x, y, r, r2, world));
   }
   return { t, tree, g, shrub, ground };
+}
+
+// The old forest on the farm's north and east sides (drawn only: nothing in the simulation reads
+// the border). Mature Douglas-fir, western hemlock and redcedar with a few bigleaf maples, a tree
+// on nearly every tile; an uneven edge one to three tiles deep of shrubs, ferns and younger alder,
+// maple and fir, as a forest meets a field; the odd treefall gap of vine maple and huckleberry;
+// and where the creek comes out of it, a line of salmonberry with alder and redcedar either side.
+function pnwOldForest(x, y, r, r2, world) {
+  const P = world.catalog.plant, east = y >= 0;
+  const d = Math.max(-y, x - world.w + 1); // (tiles into the forest from the farm's edge)
+  const edge = 1.2 + valueNoise((east ? y : x) + 300, east ? 7 : 3, 5, 61) * 2.6 + (hash2(x, y, 62) - 0.5) * 0.8;
+  const pick = (u, mix) => { for (const [k, p] of mix) if ((u -= p) < 0) return P[k].id; return P[mix[mix.length - 1][0]].id; };
+  const wet = cx => !east && world.inb(cx, 0) && [0, 1, 2].some(cy => world.terrain[world.idx(cx, cy)] === T.CREEK); // (its spring sits a row or two in)
+  const creekAt = cx => wet(cx) && !(wet(cx - 1) && wet(cx + 1)); // (a creek running in, not a ditch dug along the fence: the border is rebuilt on load)
+  let tree = 0, g = 0, shrub = 0, ground = P.swordfern.id;
+  if (creekAt(x)) shrub = P.salmonberry.id;
+  else if (creekAt(x - 1) || creekAt(x + 1)) {
+    tree = r2 < 0.55 ? P.alder.id : P.cedar.id; g = 0.75 + hash2(x, y, 45) * 0.25;
+    if (r < 0.6) shrub = P.salmonberry.id;
+  } else if (d < edge) {
+    // (mostly evergreen: a first visit opens in March, when alder, maple and most shrubs are bare)
+    if (r < 0.3) { tree = pick(r2, [['fir', 0.4], ['hemlock', 0.25], ['cedar', 0.2], ['alder', 0.15]]); g = 0.45 + hash2(x, y, 45) * 0.3; }
+    if (r > 0.15) shrub = pick(hash2(x, y, 63), [['salal', 0.3], ['oregongrape', 0.25], ['salmonberry', 0.2], ['vinemaple', 0.15], ['elderberry', 0.1]]);
+    if (hash2(x, y, 64) < 0.15) ground = 0;
+  } else if (valueNoise(x + 500, y + 500, 3, 65) > 0.86) {
+    shrub = r2 < 0.5 ? P.vinemaple.id : r2 < 0.75 ? P.huckleberry.id : P.salal.id;
+  } else if (r < 0.95) {
+    tree = pick(r2, east ? [['fir', 0.5], ['hemlock', 0.24], ['cedar', 0.19], ['maple', 0.07]]
+      : [['fir', 0.46], ['hemlock', 0.3], ['cedar', 0.19], ['maple', 0.05]]);
+    g = 0.88 + hash2(x, y, 45) * 0.12;
+    const u = hash2(x, y, 66);
+    if (u < 0.1) shrub = pick(u / 0.1, [['salal', 0.4], ['huckleberry', 0.25], ['oregongrape', 0.2], ['vinemaple', 0.15]]);
+  } else shrub = P.vinemaple.id;
+  return { tree, g, shrub, ground };
 }
 
 // The land around the property: forest, neighbours' fields, the river and its far bank.

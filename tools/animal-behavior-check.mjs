@@ -26,7 +26,7 @@ check('All 204 regional species have bounded shared profiles and valid food webs
   for(const map of ['pnw','amazon','serengeti','atlanta','chinandega','reef','sumatra']) {
     reset(map);for(const d of ANIMALS){assert(Array.isArray(d.behavior.forage));assert(d.behavior.partners<=3);for(const k of d.prey||[])assert(ANIMAL[k]);count++;}
   }
-  assert.equal(count,204);
+  assert.equal(count,205);
 });
 check('Eating differs by habitat across every map and never creates additional animals',()=>{
   for(const [map,key,food] of [['pnw','rabbit','grass'],['atlanta','anole','insects'],['amazon','anteater','insects'],['serengeti','topi','grass'],['chinandega','iguana','browse'],['reef','greenturtle','seagrass'],['sumatra','pangolin','insects']]) {

@@ -11,6 +11,7 @@ import { plantPhase } from '../data/plants.js';
 import { CHECK_SHADERS } from '../performance.js';
 
 let R = null, scene, camera, scale = 1;
+const keptMaterials = new Map(); // (shader key -> the last portrait's material, see renderPortrait)
 const W = 320, H = 240;
 
 // Portraits drawn at a multiple of their usual size (the website's field guide asks for larger
@@ -154,7 +155,13 @@ export function renderPortrait(def, { fly: flying = false } = {}) {
   const out = document.createElement('canvas');
   out.width = W * scale; out.height = H * scale;
   out.getContext('2d').drawImage(R.domElement, 0, 0);
-  scene.remove(mesh); geo.dispose(); mat.dispose(); mesh.dispose();
+  scene.remove(mesh); geo.dispose(); mesh.dispose();
+  // (the material is kept until the next portrait with the same shader has been drawn, so its
+  // program is reused rather than compiled again: one compile per look instead of per species,
+  // each a long stall on weak graphics, docs/ideas/2026-11-21-first-minutes/s7.md)
+  const key = mat.customProgramCacheKey();
+  if (keptMaterials.get(key) !== mat) keptMaterials.get(key)?.dispose();
+  keptMaterials.set(key, mat);
   if (branch) { scene.remove(branch); branch.geometry.dispose(); branch.material.dispose(); }
   return out;
 }

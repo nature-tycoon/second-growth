@@ -23,6 +23,25 @@ const browserOptOut = () => navigator.globalPrivacyControl === true ||
   [navigator.doNotTrack, navigator.msDoNotTrack, window.doNotTrack].some(value => value === '1' || value === 'yes');
 const trackingAllowed = () => settings.analytics && !browserOptOut();
 
+// ---- Tester tag. Visiting ?tester=dev (the developer) or ?tester=tester (a playtester) once marks
+// this browser: the role is kept in localStorage and sent as the `tester` property on every event,
+// so PostHog reports can exclude it (docs/posthog-review-2026-11.md). ?tester=off clears it. A role
+// label only, never a name. The link is read even when tracking is off, so the flag is stored
+// anyway; it is only sent when analytics runs.
+const TESTER_KEY = 'second-growth-tester', TESTER_ROLES = ['dev', 'tester'];
+export function testerRole() {
+  try {
+    const url = new URL(location.href), asked = url.searchParams.get('tester');
+    if (asked != null) {
+      if (asked === 'off') localStorage.removeItem(TESTER_KEY);
+      else if (TESTER_ROLES.includes(asked)) localStorage.setItem(TESTER_KEY, asked);
+      url.searchParams.delete('tester'); history.replaceState(history.state, '', url); // a reload or share link doesn't repeat it
+    }
+    const role = localStorage.getItem(TESTER_KEY);
+    return TESTER_ROLES.includes(role) ? role : null;
+  } catch (e) { return null; /* storage unavailable */ }
+}
+
 function loadPostHog() {
   // PostHog's standard loader: queues calls until the library arrives from their CDN.
   /* eslint-disable */
@@ -44,6 +63,8 @@ function loadPostHog() {
     before_send: event => trackingAllowed() ? event : null,
   });
   window.posthog.register({ game_version: GAME_VERSION, release: RELEASE });
+  const role = testerRole(); // a tester's own browser: every event carries it, so reports can leave it out
+  if (role) window.posthog.register({ tester: role });
   return window.posthog;
 }
 
@@ -62,6 +83,43 @@ export function trackExit(event, props = {}) {
   const ph = P();
   if (!ph || !trackingAllowed()) return;
   try { ph.capture(event, props, { transport: 'sendBeacon' }); } catch (e) { /* ignore */ }
+}
+
+// ---- Loading state, shared with main.js (which sets it) and the session code (which reads it): while
+// the game is still loading, leaving is `loading_left`, not `game_left`.
+export const loadState = { stage: 'Starting', loaded: false, firstVisit: false };
+let loadingLeftSent = false;
+// Sent once, from main.js's own listeners (visibilitychange hidden is the one that reliably runs when a
+// tab is closed; pagehide often doesn't).
+export function reportLoadingLeft() {
+  if (loadState.loaded || loadingLeftSent) return;
+  loadingLeftSent = true;
+  trackExit('loading_left', { stage: loadState.stage, seconds: Math.round(performance.now() / 1000) });
+}
+
+// Events for the first-minutes work (docs/ideas/2026-11-21-first-minutes/plan.md). Sent today:
+//   first_animal_seen { seconds, species, beyond_fence? }   first time a larger animal is on screen, first visit only
+//   farm_opened { how: 'fence'|'culvert', seconds, prompted }   boundary fence or culvert out (ui/opening.js)
+//   (a shared farm opened as a visit is shared_farm_opened { map, game_year, from: 'link'|'file' }, ui/share.js: renamed from farm_opened, g1)
+//   first_tool { seconds_since_load, ... }   (session-analytics.js)
+//   opening_step { step: 'pull'|'trees'|'meadow', how: 'button'|'hand'|'skipped', seconds }   the opening's guided planting (ui/opening.js, timelapse-2)
+//   timelapse_started { map, from: 'auto'|'menu', first_visit, year }, timelapse_watched { map, seconds, years, ended, from, fps, days_per_s }
+//   (ui/timelapse.js: plays on its own after a first visit's guided planting; timelapse_offered and from: 'offer' were retired then)
+//   watch_mode { map, from: 'follow_deer'|'timelapse' }   "Follow a deer" in the opening (ui/opening.js), or the time-lapse
+//   intro_started { first, muted, size, played, downsized }, intro_skipped { second, first }, intro_finished { first }   the intro film (ui/intro.js; first: a first visit's, else a replay)
+//   intro_replay { from: 'start'|'menu', map }   "Watch intro" from the start menu or the menu
+//   goal_tracker_opened { map, next }   free play's goal tracker opened (ui.js renderGoalTracker; on PNW the chain toward the cougar)
+//   species_lost now skips migrants away for their season and carries cause: 'natural'|'habitat'|'prey' (session 10)
+//   goal_spotlight { map, next }   after the time-lapse the next goal stands out for 10 s (ui.js spotlightGoal)
+//   other_places_shown { map, where: 'menu'|'note' }, other_places_opened { map, from: 'menu'|'note' },
+//   other_place_started { map, from, resume }   "Other places to restore" (ui/other-places.js; map is the place chosen, from the farm left)
+// (Names reserved for later sessions go here, so they stay consistent.)
+// trackOnce sends an event the first time per page load only.
+const sentOnce = new Set();
+export function trackOnce(event, props = {}) {
+  if (sentOnce.has(event)) return;
+  sentOnce.add(event);
+  track(event, props);
 }
 
 // Crashes and script errors, so we can see where the game breaks for people (a few per session).

@@ -28,13 +28,16 @@ export function dabbleTip(def, a, time) {
 export function mealHead(a, w, time) {
   const bite = Math.sin(time * 6 + a.id * 1.3);
   if (a.state === 'feed') return 0.85 + 0.15 * bite - (Math.sin(time * 1.7 + a.id) > 0.85 ? 0.35 : 0);
+  // cropping and browsing: the head stays down and chews, a slow small nod (about 0.4 Hz), not a bob
+  // every second (Cole, 2026-11-22: deer and elk heads down)
+  const chew = Math.sin(time * 2.5 + a.id * 1.3);
   if (a.state !== 'forage' || !a.forage || a.forage.food === 'cleaned') return null;
   const { food, i } = a.forage;
   if (food === 'browse' || food === 'leaves') {
     const shrub = w.shrub[i] && w.shrubG[i] > 0.3;
-    return (shrub ? 0.25 : -0.45) + 0.12 * Math.max(0, bite);
+    return (shrub ? 0.25 : -0.45) + 0.08 * Math.max(0, chew);
   }
-  return a.flying ? 1 : 0.85 + 0.15 * bite;
+  return a.flying ? 1 : 0.94 + 0.06 * chew;
 }
 
 // The head of a fruit bird at its meal in a crown (1 down, 0 level, below 0 up), by how it eats:

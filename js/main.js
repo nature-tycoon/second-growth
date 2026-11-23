@@ -6,11 +6,12 @@ import { music } from './audio/music.js';
 import { createFrameLoop } from './frame-loop.js';
 import { PerformanceOverlay, probeGpu, weakGpu } from './performance.js';
 import { settings, saveSettings } from './settings.js';
-import { initAnalytics, track, trackExit } from './analytics.js';
+import { initAnalytics, track, loadState, reportLoadingLeft } from './analytics.js';
 import { initLang } from './i18n.js';
 import { BIOMES } from './biome.js';
 import { sharedFarmAtBoot, startVisit, openError } from './ui/share.js';
 import { reloadIfStale, watchForNewVersion } from './fresh-version.js';
+import { IntroFilm, introWanted } from './ui/intro.js';
 import './lang/es.js'; // the Spanish language pack (only used when a map is played in Spanish)
 
 const loading = document.getElementById('loading-screen');
@@ -23,8 +24,12 @@ const loadingRetry = document.getElementById('loading-retry');
 // loading_left: a player who gives up on the loading screen otherwise leaves no trace.
 const loadSteps = {};
 let loadLabel = 'Starting', loaded = false;
+// A tab closed during loading sends loading_left (analytics.js); listening from the very start covers
+// every step, and visibilitychange is the event that survives a closing tab.
+document.addEventListener('visibilitychange', () => { if (document.hidden) reportLoadingLeft(); });
+window.addEventListener('pagehide', reportLoadingLeft);
 function stage(label, progress) {
-  loadSteps[label] = Math.round(performance.now()); loadLabel = label;
+  loadSteps[label] = Math.round(performance.now()); loadLabel = label; loadState.stage = label;
   loadingStatus.textContent = label;
   setProgress(progress);
 }
@@ -35,7 +40,14 @@ function setProgress(progress) {
 }
 
 // Give the browser a chance to paint the loading page between the heavy setup steps.
-const nextPaint = () => new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
+// (or after a quarter second without one: a background tab, or an itch.io frame scrolled out of
+// view, paints nothing, and loading used to stop there until the player came back, s7.md)
+const nextPaint = () => new Promise(resolve => {
+  let done = false;
+  const go = () => { if (!done) { done = true; resolve(); } };
+  requestAnimationFrame(() => setTimeout(go, 0));
+  setTimeout(go, 250);
+});
 
 async function boot() {
   try {
@@ -64,7 +76,9 @@ async function boot() {
 
     // analytics first, so events from a game started on load (after a map switch) aren't lost
     initAnalytics();
-    window.addEventListener('pagehide', () => { if (!loaded) trackExit('loading_left', { stage: loadLabel, seconds: Math.round(performance.now() / 1000) }); });
+    // A first visit plays the intro film (after analytics, so intro_started is sent) over the loading screen while the game loads underneath
+    // (ui/intro.js); the farm waits for it and opens at the film's last frame.
+    const intro = !pending && !shared && !Game.hasSave() && introWanted(startMap) ? new IntroFilm({ first: true }) : null;
     const game = new Game();
     game.newGame(1987, 'free', 'standard', startMap, pending?.runSeed ?? Game.randomRunSeed());
     game.speed = 0; // paused until the player chooses Start or Continue
@@ -82,7 +96,9 @@ async function boot() {
       settings.quality = 'fast'; saveSettings();
     }
     const renderer = new Renderer(document.getElementById('view'), { catalog: game.catalog });
+    renderer.gpuName(); // (asked now, while the chip is idle: asked first after the first draw, it waited for that frame to finish, a second on weak graphics)
     const ui = new UI(game, renderer);
+    ui.intro = intro;
     const input = new Input(game, renderer, ui);
     renderer.resetView();
     window.addEventListener('resize', () => {
@@ -117,7 +133,8 @@ async function boot() {
       // backdrop clicks cannot start an unchosen farm or make it save-ready.
       ui.startPause = true;
       document.body.classList.add('choosing-map');
-      ui.openModeChoice(Game.hasSave(startMap));
+      // (this map's farm saved: the short start menu; otherwise the full choice of map and mode)
+      if (Game.hasSave(startMap)) ui.openStartMenu(startMap); else ui.openModeChoice(false);
     }
     ui.afterNewGame();
     watchForNewVersion(game);
@@ -146,7 +163,7 @@ async function boot() {
       steps: [
         ['simulation', dt => { if (!renderer.contextLost) game.update(dt); }],
         ['input', dt => input.update(dt)],
-        ['render', dt => renderer.draw(game, ui.state, dt)],
+        ['render', dt => { if (!ui.intro?.covering) renderer.draw(game, ui.state, dt); }], // (not under the intro film)
         ['interface', dt => ui.frame(dt)],
       ],
       onError(error, phase) {
@@ -186,12 +203,17 @@ async function boot() {
         renderer.draw(game, ui.state, 0);
         ui.frame(0);
         frame(now);
-        stage('Ready', 100); loaded = true;
+        stage('Ready', 100); loaded = true; loadState.loaded = true;
         // (page start to the first drawn frame, and each loading step's start, in ms)
         track('game_loaded', { load_ms: loadSteps.Ready, steps: loadSteps, map: game.map, quality: settings.quality, gpu: renderer.gpuName() });
         requestAnimationFrame(() => {
-          loading.classList.add('done');
-          loading.addEventListener('transitionend', () => loading.remove(), { once: true });
+          // (a first visit's film not playing yet: the loading screen stays up until it starts or is
+          // dropped, so the farm never shows for a moment before the film covers it)
+          intro?.gameReady();
+          (intro ? intro.decided : Promise.resolve()).then(() => {
+            loading.classList.add('done');
+            loading.addEventListener('transitionend', () => loading.remove(), { once: true });
+          });
         });
       } catch (error) {
         showLoadError(error);

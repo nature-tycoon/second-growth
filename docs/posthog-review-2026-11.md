@@ -72,7 +72,7 @@ redrawing them, and run the simulation on a second processor core. They're ranke
 | Event | When | Fields | Answers |
 | --- | --- | --- | --- |
 | `game_loaded` | first frame drawn | `load_ms`, `steps` (each loading step's start, ms), map, quality, gpu | how long loading really takes and which step is slow |
-| `loading_left` | tab closed during loading | `stage`, `seconds` | who gives up on the loading screen |
+| `loading_left` | tab closed or hidden during loading | `stage`, `seconds` | who gives up on the loading screen. Fixed 2026-11-21: it never fired in 28 days because `game_left` (from the session code, built before loading ends) took the `visibilitychange` exit and `loading_left` only listened to `pagehide`, from the step after analytics began. Now both listen from page start, and `game_left` is skipped until `game_loaded`. |
 | `load_failed` | load error shown | `stage`, `message` | broken loads |
 | `panel_closed` | any panel closed | `panel`, `seconds` | whether the welcome, mode choice and chapter story get read or skipped |
 | `objective_done` | each campaign objective ticked | chapter, `chapter_key`, `objective` (1–3), `desc`, `days_in_chapter`, `active_minutes` | which step of Chapter 1 players stall on |
@@ -81,6 +81,32 @@ redrawing them, and run the simulation on a second processor core. They're ranke
 | `species_lost` | a wild species gone since last month (max 5) | `species` | whether losing animals drives people away |
 | `perf_sample` at 10 s | as before, plus a 10 s sample | — | the opening view apart from later play |
 | `game_left` / `went_idle` gain | — | `tools_session`, `fails_money_session`, `fails_unsuitable_session`, `rewards_session`, `seconds_since_tool`/`_fail`/`_reward`/`_fire`/`_flood`, `paused_seconds`, `fast_seconds`, `last_month_net`, `zoom`, `species_lost_session`, `warnings_session`, campaign `objectives_done`/`objectives`/`next_objective`/`next_objective_progress`, or Free Play `goals_open` | what the player was doing, waiting for and stuck on when they left |
+
+### Tester tag and first-minutes events (2026-11-21)
+
+Every event carries `tester` when the browser was marked once with a link: `?tester=dev` (Cole) or
+`?tester=tester` (a playtester); `?tester=off` clears it. A role label only, never a name; it is kept
+in localStorage (`second-growth-tester`), so it rides on all later visits from that browser (not other
+browsers or private windows). In PostHog exclude with: property `tester` is not set. Local copies stay
+quiet anyway (add `?ph` to test).
+
+**Open question:** how the existing "internal" cohort (id 595715) is defined is not visible from the
+repo. Before trusting the tag, compare: count of `distinct_id` in that cohort vs those with `tester` set;
+exclude both for a while.
+
+| Event | When | Fields |
+| --- | --- | --- |
+| `first_animal_seen` | first visit only: first time a wild animal of 10 kg or more is inside the picture | `seconds` (since page start), `species` |
+| `first_tool` (existing) | first tool stroke that changes something | `seconds_since_load`, tool, category |
+
+Reserved for later first-minutes sessions (names fixed in `js/analytics.js`): `intro_started`,
+`intro_skipped` (`second`), `intro_finished`, `farm_opened` (`how`: fence or culvert, `seconds`),
+`timelapse_started`, `timelapse_watched` (`seconds`).
+
+Other places to restore (2026-11-22, `docs/ideas/2026-11-21-first-minutes/other-places.md`):
+`other_places_shown` (`map`, `where`: `menu` | `note`, once per page load each), `other_places_opened`
+(`map`, `from`: `menu` | `note`), `other_place_started` (`map`: the place chosen, `from`: the farm
+left, `resume`). And `goal_spotlight` (`map`, `next`): the next goal standing out after the time-lapse.
 
 Fixed: `species_discovered.species` is now the species' key (the old value was the count, now in
 `species_present`). Check: `node tools/play-analytics-browser-check.mjs` (in the browser suite).

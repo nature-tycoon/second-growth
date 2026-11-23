@@ -35,7 +35,7 @@ check('Every map produces finite diagnostics without changing simulation state o
     } finally { g.rng = rng; Math.random = random; forceSimRandom(null); }
     assert.equal(JSON.stringify({ states: g.wildlife.state, globals: g.wildlife.g, flags: g.flags, agents: g.wildlife.agents }), before);
   }
-  assert.equal(count, 204); // Adult model variants share their species' diagnostic. (202 + the reef hawkfish + the PNW dipper)
+  assert.equal(count, 205); // Adult model variants share their species' diagnostic. (202 + the reef hawkfish + the PNW dipper + the PNW crow)
 });
 
 g.newGame(1987, 'free', 'standard', 'pnw');

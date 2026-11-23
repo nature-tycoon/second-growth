@@ -221,7 +221,7 @@ object `restoreSnapshot` already accepts. The same file, downloaded, is the `.sg
    change here is saved." Buttons: **Make it my Serengeti farm** (asks first: "This replaces your
    own Serengeti farm"; if they have none, no question), **Back to my farm**, and **Report**.
    A bad or missing farm says so plainly and offers the map's start screen.
-3. **Analytics**: `farm_shared` (map, game year, size), `farm_opened` (map, ok or the reason it
+3. **Analytics**: `farm_shared` (map, game year, size), `shared_farm_opened` (map, ok or the reason it
    failed), `farm_adopted`. No ids of farms in PostHog.
 4. **Checks**: `tools/backend-check.mjs` grows the farm endpoints (KV mocked); a headless check
    round-trips every map's save through the share file and back to an identical `saveChecksum`; a

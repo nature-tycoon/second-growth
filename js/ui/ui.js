@@ -35,13 +35,17 @@ import { SaveControls } from './save-controls.js';
 import { SessionAnalytics } from './session-analytics.js';
 import { Cinematics } from './cinematics.js';
 import { Watch } from './watch.js';
+import { Opening } from './opening.js';
+import { IntroFilm } from './intro.js';
+import { Timelapse } from './timelapse.js';
 import { animalThumb, plantThumb, iconThumb } from './thumbnails.js';
 import { wildlifeDiagnostics } from '../sim/wildlife-diagnostics.js';
 import { saves } from '../saves.js';
 import { CHALLENGE_TOOL_ADVICE, pressureTileNotes } from '../sim/ecological-pressure.js';
 import { openShare } from './share.js';
-import { track, setAnalyticsEnabled, sendFeedback, feedbackPossible } from '../analytics.js';
+import { track, setAnalyticsEnabled, sendFeedback, feedbackPossible, loadState } from '../analytics.js';
 import { watchForOffer, openNewsletter, newsletterAvailable } from './newsletter.js';
+import { otherPlacesReady, otherPlacesShown, openOtherPlaces, watchOtherPlacesNote } from './other-places.js';
 
 export { animalThumb, plantThumb } from './thumbnails.js';
 
@@ -50,6 +54,17 @@ const $ = sel => document.querySelector(sel);
 const TOUCH = matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
 const COMPACT = () => innerHeight <= 520;
 const STORY_OFFERED = 'sg-story-offered'; // (offered once per device, after the first Free Play goal)
+// A first visit's opening minutes (docs/ideas/2026-11-21-first-minutes/s2.md): what the simulation
+// announces on its own is held back this long (alarms go to the journal only, good news one at a
+// time), and the Story offer waits for a pause, the menu, or this long without a click or key.
+const PORTRAIT_WARM_DELAY_MS = 30e3; // (see warmPortraits)
+// The one line over the farm when the first visit's intro film gives way to it (ui/intro.js)
+const INTRO_LINE = 'The forest stops at the fence. Bring it back.', INTRO_LINE_MS = 3200;
+const QUIET_MS = 5 * 60e3, QUIET_GAP_MS = 45e3, STORY_IDLE_MS = 25e3;
+// After the time-lapse the next goal stands out this long (renderGoalTracker), and the simulation's
+// routine news waits in the journal meanwhile; the Story offer keeps this far from the Other places note.
+const GOAL_SPOT_MS = 10e3, STORY_GAP_MS = 60e3;
+const ALARMS = new Set(['warn', 'fire', 'flood', 'bad']);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 const pct = v => Math.round(v * 100) + '%';
 // Only touch the page when something actually changed: every write is a DOM mutation, and the
@@ -113,6 +128,8 @@ export class UI {
     this.lastTop = 0; this.lastInfo = 0; this.lastMini = 0;
     this.toastCount = 0;
     this.dismissedBanners = {};
+    this.quiet = null; this.storyPending = false; this.lastInput = performance.now();
+    for (const type of ['pointerdown', 'keydown', 'wheel']) window.addEventListener(type, () => { this.lastInput = performance.now(); }, { capture: true, passive: true });
     this.newCats = new Set(); // tool categories a chapter just unlocked (they glow until opened)
     this.undo = new Undo(game);
     this.actions = new ToolActions(game, { undo: this.undo });
@@ -124,11 +141,13 @@ export class UI {
       open_panel: this.modalOpen ? this.lastModal : null, tool: this.state.tool || null, category: this.state.cat || null,
     }));
     this.cinematics = new Cinematics(game, renderer, this.state, {
-      isBusy: () => this.modalOpen || this.photo, isPhoto: () => !!this.photo || !!this.watch?.on, // (after a moment, the view stays clean in either)
+      isBusy: () => this.modalOpen || this.photo || this.timelapse?.on, isPhoto: () => !!this.photo || !!this.watch?.on, // (after a moment, the view stays clean in either)
       setSpeed: speed => this.setSpeed(speed), setFollow: agent => { this.follow = agent; },
       postcardText: title => this.postcardText(title),
     });
     this.watch = new Watch(game, renderer, this);
+    this.opening = new Opening(this);
+    this.timelapse = new Timelapse(this);
     this.buildToolbar();
     this.bindTopbar();
     this.minimap = $('#minimap');
@@ -140,6 +159,7 @@ export class UI {
     game.on('reset', () => { this.moment?.end(false); this.undo.clear(); this.journal = []; this.dismissedBanners = {}; this.bannerKey = null; this.closeInfo(); this.buildToolbar(); this.refreshTop(true); this.renderQuest(true); });
     game.on('chapter', e => this.onChapterDone(e));
     watchForOffer(this, game, () => !!currentChapter(game)); // (a guided chapter is on screen)
+    watchOtherPlacesNote(this); // (once per device, at the first new year played through: ui/other-places.js)
     // the first goal's follow-up ("watch it grow"), once its grant has had a moment on screen
     game.on('goal', goal => { if (goal.done) setTimeout(() => this.firstGoalNote(goal), 6000); });
     // a chapter objective ticked: say so where the eye is, not only in the folded tracker
@@ -150,6 +170,7 @@ export class UI {
     });
     game.on('event', kind => {
       if (kind === 'fire' || kind === 'flood') {
+        if (this.quietNow() || this.timelapse.on) { this.dismissedBanners[kind] = true; this.bannerKey = null; return; } // (no banner or pause in a first visit's opening minutes, or in the time-lapse: it plays out)
         delete this.dismissedBanners[kind]; this.bannerKey = null;
         if (settings.pauseOnEvents && game.speed) this.setSpeed(0);
       }
@@ -177,16 +198,23 @@ export class UI {
     if (stroke.tool.cat === 'visitors') this.renderToolPanel();
   }
 
-  // Render the field-guide portraits a few at a time in the background, so the guide opens instantly.
+  // Render the field-guide portraits one at a time in idle moments, so the guide opens instantly.
+  // They wait out the first half minute: each is a shader compile and a read back from the
+  // graphics chip, and on a weak laptop the queue starting at 1.5 s held the opening at 3-5 frames
+  // a second (s7.md). A portrait asked for sooner (the guide, an animal's panel) is drawn on the spot.
   warmPortraits() {
     // (this map's: another map chosen meanwhile has other species, and asking it for these threw)
     const catalog = this.game.catalog, queue = catalog.animals.map(a => a.key);
+    const idle = window.requestIdleCallback ? f => window.requestIdleCallback(f, { timeout: 3000 }) : f => setTimeout(f, 250);
     const step = () => {
       if (!queue.length || this.game.catalog !== catalog) return;
       animalThumb(queue.shift(), catalog);
-      (window.requestIdleCallback || (f => setTimeout(f, 60)))(step, { timeout: 400 });
+      idle(step);
     };
-    setTimeout(step, 1500);
+    // (counted from the end of loading, which can itself take half a minute there)
+    const loaded = () => { const l = document.getElementById('loading-screen'); return !l || l.classList.contains('done'); };
+    const wait = () => loaded() ? setTimeout(() => idle(step), PORTRAIT_WARM_DELAY_MS) : setTimeout(wait, 1000);
+    wait();
   }
 
   snapshot() { return this.analytics.snapshot(); }
@@ -730,7 +758,7 @@ export class UI {
       : a.fishing?.phase === 'go' ? 'Heading out to fish' : def.move === 'fly' ? 'Watching the water for fish' : 'Fishing';
     const grouped = def.familyHerd && (a.herdOf != null && a.herdOf !== a.id || this.game.wildlife.agents.some(c => c !== a && (c.herdOf === a.id || c.mom === a.id)));
     const familyStatus = a.mom != null ? (a.follow ? 'Following mother' : 'With a family herd') : grouped ? (isMaleVariant(def, a) ? 'With a bachelor group' : 'With a family herd') : null;
-    return a.leaving ? 'Leaving the property' : dormancyStatus(a) || (roostingNow(a, def, this.renderer?.nightOut) ? 'Roosting until dusk' : null) || (a.fromFire && a.state === 'fly' ? 'Fleeing the fire' : a.state === 'hunt' ? hunt : a.state === 'flee' ? (a.play ? 'Playing' : a.fromFire ? 'Fleeing the fire' : 'Running from danger')
+    return a.gate && !a.gate.entering ? 'Waiting at the forest edge, beyond the fence' : a.gate ? 'Coming in through the gap in the fence' : a.leaving ? 'Leaving the property' : dormancyStatus(a) || (roostingNow(a, def, this.renderer?.nightOut) ? 'Roosting until dusk' : null) || (a.fromFire && a.state === 'fly' ? 'Fleeing the fire' : a.state === 'hunt' ? hunt : a.state === 'flee' ? (a.play ? 'Playing' : a.fromFire ? 'Fleeing the fire' : 'Running from danger')
       : a.state === 'forage' ? ({ grass: 'Grazing', browse: 'Browsing leaves', leaves: 'Eating canopy leaves', fruit: 'Eating fruit', seeds: 'Foraging for seeds', insects: 'Catching insects', nectar: 'Feeding on nectar', seagrass: 'Grazing seagrass', sponge: 'Feeding on sponges', coral: 'Picking at coral', algae: 'Grazing algae', sediment: 'Deposit feeding', plankton: 'Feeding on plankton', dung: 'Feeding on dung', cleaning: 'Cleaning a reef fish', cleaned: 'Visiting a cleaning station' }[a.forage?.food] || 'Foraging') : a.forageGoal != null ? 'Moving to a feeding spot'
       : a.state === 'primate' ? 'Eating fruit' : a.fruitGoal ? 'Looking for fruit' : a.state === 'play' ? 'Playing' : a.cache === 'bury' && a.move === 'ground' ? 'Burying a nut' : a.cache === 'dig' && a.move === 'ground' ? 'Foraging on the ground' : a.state === 'fish' ? fishStatus : a.state === 'carry' ? (a.carry?.low ? 'Dragging a fish to the bank' : a.carry?.phase === 'mantle' ? 'Mantling over its catch' : 'Carrying its catch to a perch') : a.state === 'feed' ? (a.prey ? 'Eating its catch' : 'Feeding') : a.drinkT > 0 ? 'Drinking' : a.state === 'spar' ? (a.sparStyle === 'necking' ? 'Necking with a rival male' : def.sprite.male?.antlers ? 'Clashing antlers with a rival' : 'Sparring with a rival')
       : a.greet != null && def.sprite.male?.antlers && isMaleVariant(def, a) ? 'Approaching a rival' : a.socialWith != null ? 'Watching an approaching neighbour' : a.bugleT > 0 ? 'Bugling' : a.haremOf != null ? 'In a bull’s harem' : this.game.wildlife.agents.some(c => c.haremOf === a.id) ? 'Guarding his harem' : a.greetT > 0 ? 'Greeting a neighbour' : a.alertT > 0 ? 'On the alert' : familyStatus || birdStatus || (a.state === 'walk' || a.state === 'fly' ? (a.birdGround ? 'Hopping between feeding spots' : a.move === 'fly' ? 'Flying' : a.move === 'tree' && ['monkey', 'orangutan'].includes(def.sprite.kind) ? 'Climbing through the canopy' : 'Wandering') : a.state === 'idle' && a.restUntil > a.age ? (a.move === 'tree' ? 'Resting in the treetops' : 'Resting') : 'Resting / foraging'));
@@ -825,7 +853,11 @@ export class UI {
 
   // ------------------------------------------------------------ per-frame
   frame(dt = 0) {
+    if (this.introBegin) { const how = this.introBegin; this.introBegin = null; this.beginPlay(this.game.mode, true, how !== 'failed'); }
     this.watch.frame(dt);
+    this.opening.frame();
+    this.timelapse.frame();
+    if (this.storyPending) this.maybeOfferStory();
     this.refreshTop();
     rutSounds(this.game, this.renderer, music, this.renderer.time);
     flightCalls(this.game, this.renderer, music);
@@ -840,13 +872,14 @@ export class UI {
   toast(n) {
     this.journal.unshift(n);
     if (this.journal.length > 120) this.journal.pop();
-    if (settings.notifications === 'hidden') return;
+    if (settings.notifications === 'hidden' || n.journal) return; // (n.journal: the journal only, no pop-up)
     // "important only": routine updates skip the pop-up but stay in the journal
     if (settings.notifications === 'important' && (n.kind === 'info' || n.kind === 'season') && !n.loc) return;
+    if (this.holdInFirstMinutes(n)) return;
     const box = $('#toasts');
     const icon = { good: 'good', warn: 'warn', discover: 'star', goal: 'star', season: 'leaf', info: 'info', fire: 'fire', flood: 'rain' }[n.kind] || 'info';
     const t = el('div', `toast ${n.kind}` + (n.loc ? ' clickable' : ''), `<span class="ti">${ICONS[icon]}</span><span class="toast-text">${n.text}</span>${n.action ? `<button type="button" class="btn toast-act">${n.action.label}</button>` : ''}<button type="button" class="notice-close" aria-label="Dismiss notification" title="Dismiss notification">×</button>`);
-    t.querySelector('.notice-close').addEventListener('click', e => { e.stopPropagation(); t.remove(); });
+    t.querySelector('.notice-close').addEventListener('click', e => { e.stopPropagation(); t.remove(); n.onClose?.(); });
     t.querySelector('.toast-act')?.addEventListener('click', e => { e.stopPropagation(); t.remove(); n.action.run(); });
     if (n.loc) t.addEventListener('click', () => {
       this.follow = null;
@@ -863,12 +896,32 @@ export class UI {
     box.prepend(t);
     // keep the land in view (everything is in the journal): routine notes go first, so a warning
     // isn't pushed off the screen by two bits of news that came in just after it
+    if (n.sticky) t.classList.add('sticky'); // (a prompt waiting on the player: ui/opening.js)
     while (box.children.length > 2) {
       const kids = [...box.children], routine = kids.slice(1).reverse().find(c => /\b(info|season|good)\b/.test(c.className));
-      (routine || box.lastChild).remove();
+      const old = routine || [...kids].reverse().find(c => !c.classList.contains('sticky') && c !== t);
+      if (!old) break;
+      old.remove();
     }
     const life = n.life || (n.kind === 'discover' || n.kind === 'goal' || n.kind === 'fire' || n.kind === 'flood' ? 10000 : n.kind === 'warn' ? 8000 : 5500);
-    setTimeout(() => { t.classList.add('fade'); setTimeout(() => t.remove(), 600); }, life);
+    setTimeout(() => { if (!t.isConnected) return; t.classList.add('fade'); setTimeout(() => t.remove(), 600); if (n.sticky) n.onClose?.(); }, life); // (a prompt left to time out counts as closed)
+    return t;
+  }
+
+  quietNow() {
+    if (this.quiet && performance.now() > this.quiet.until) this.quiet = null;
+    return !!this.quiet;
+  }
+  // A first visit's opening minutes: the simulation runs as usual, but what it says on its own
+  // (n.sim: floods, fires, invasives, warnings) stays in the journal, and its good news pops up one
+  // at a time. Replies to the player (a refused stroke, an undo), goals, tips and offers still show.
+  holdInFirstMinutes(n) {
+    if (n.sim && !ALARMS.has(n.kind) && n.kind !== 'goal' && !n.action && this.goalSpotOn()) return true; // (the next goal has the screen for a moment after the time-lapse; it's in the journal)
+    if (!n.sim || n.kind === 'goal' || n.action || !this.quietNow()) return false;
+    const now = performance.now(), q = this.quiet;
+    if (!ALARMS.has(n.kind) && now - q.lastSoft >= QUIET_GAP_MS) { q.lastSoft = now; return false; }
+    q.held++;
+    return true;
   }
 
   // ------------------------------------------------------------ minimap
@@ -1193,6 +1246,7 @@ export class UI {
   }
 
   openMenu() {
+    const places = otherPlacesReady(this);
     const m = this.modal('Menu', `<div class="menu-list">
       <button class="btn secondary" data-a="overlay">Map overlay</button>
       <button class="btn secondary" data-a="settings">Settings</button>
@@ -1201,15 +1255,26 @@ export class UI {
       <button class="btn secondary" data-a="photo">Photo mode</button>
       <button class="btn secondary" data-a="share">Share this farm</button>
       <button class="btn secondary" data-a="watch">Watch (the camera finds the wildlife)</button>
+      <button class="btn secondary" data-a="lapse">Watch 10 years (a time-lapse)</button>
       <button class="btn secondary" data-a="feedback">Send feedback</button>
       ${newsletterAvailable() ? '<button class="btn secondary" data-a="news">Get updates by email</button>' : ''}
       <button class="btn secondary" data-a="help">How to play</button>
+      <button class="btn secondary" data-a="intro">Watch intro</button>
       <button class="btn secondary" data-a="save">Save game</button>
       <button class="btn secondary" data-a="backups">Restore an earlier save</button>
-      ${this.game.mode !== 'campaign' && this.game.catalog.definition.campaign ? '<button class="btn secondary" data-a="story">Story mode (guided chapters)</button>' : ''}
+      ${this.game.mode !== 'campaign' && this.game.catalog.definition.campaign ? `<button class="btn ${this.storyPending ? '' : 'secondary'}" data-a="story">${this.storyPending ? 'Want a guided start? Story mode, on this farm' : 'Story mode (guided chapters)'}</button>` : ''}
+      ${places ? '<button class="btn secondary" data-a="places">Other places to restore</button>' : ''}
       <button class="btn secondary" data-a="new">Start a new game (campaign or free play)</button></div>`, { narrow: true });
-    m.querySelector('[data-a=story]')?.addEventListener('click', () => { track('story_offer_taken', { map: this.game.map, from: 'menu' }); this.openModeChoice(true); });
+    if (places) otherPlacesShown(this, 'menu');
+    m.querySelector('[data-a=places]')?.addEventListener('click', () => openOtherPlaces(this, 'menu'));
+    // (the waiting Story offer is made here too: opening the menu is a pause)
+    const offered = this.storyPending && this.markStoryOffered('menu');
+    m.querySelector('[data-a=story]')?.addEventListener('click', () => {
+      track('story_offer_taken', { map: this.game.map, from: 'menu' });
+      if (offered) { this.closeModal(); this.startStoryHere(); } else this.openModeChoice(true);
+    });
     m.querySelector('[data-a=help]').addEventListener('click', () => this.openIntro(false));
+    m.querySelector('[data-a=intro]').addEventListener('click', () => this.watchIntro('menu'));
     m.querySelector('[data-a=overlay]').addEventListener('click', () => this.openOverlayPicker());
     m.querySelector('[data-a=settings]').addEventListener('click', () => this.openSettings());
     m.querySelector('[data-a=journal]').addEventListener('click', () => this.openJournal());
@@ -1219,22 +1284,50 @@ export class UI {
     m.querySelector('[data-a=share]').addEventListener('click', () => openShare(this));
     m.querySelector('[data-a=photo]').addEventListener('click', () => { this.closeModal(); this.togglePhoto(); });
     m.querySelector('[data-a=watch]').addEventListener('click', () => { this.closeModal(); this.watch.start(); });
+    m.querySelector('[data-a=lapse]').addEventListener('click', () => { this.closeModal(); this.timelapse.start('menu'); });
     m.querySelector('[data-a=save]').addEventListener('click', event => this.saving.manualSave(event.currentTarget));
     m.querySelector('[data-a=backups]').addEventListener('click', () => this.openSaveRecovery());
     m.querySelector('[data-a=new]').addEventListener('click', () => this.openModeChoice(true));
   }
 
   // After the first goal: watch the seeds grow. In Free Play, the first time on this device, the
-  // same note offers the story (new players start in Free Play rather than at a mode choice).
+  // story is offered too (new players start in Free Play rather than at a mode choice), but not
+  // now: players left within seconds of an offer made straight after a goal. It waits for a pause,
+  // the menu, or a while without input (maybeOfferStory).
   firstGoalNote(goal) {
     const g = this.game;
-    let offer = false;
-    if (g.mode === 'free' && g.catalog.definition.campaign) {
-      try { offer = !localStorage.getItem(STORY_OFFERED); localStorage.setItem(STORY_OFFERED, '1'); } catch { /* storage unavailable */ }
+    if (g.mode === 'free' && g.catalog.definition.campaign && !this.storyPending) {
+      try { this.storyPending = !localStorage.getItem(STORY_OFFERED); } catch { /* storage unavailable */ }
     }
-    if (offer) track('story_offered', { map: g.map });
-    this.toast({ text: goal.done + (offer ? ' Want a guided start? Story mode teaches restoration one chapter at a time.' : ''), kind: 'tip', date: g.dateString(),
-      life: offer ? 16000 : 9000, action: offer ? { label: 'Story mode', run: () => { track('story_offer_taken', { map: g.map }); this.openModeChoice(true); } } : null });
+    this.toast({ text: goal.done, kind: 'tip', date: g.dateString(), life: 9000 });
+  }
+  markStoryOffered(from) {
+    this.storyPending = false; this.storyOfferedAt = performance.now();
+    try { localStorage.setItem(STORY_OFFERED, '1'); } catch { /* storage unavailable */ }
+    track('story_offered', { map: this.game.map, from });
+    return true;
+  }
+  maybeOfferStory() {
+    const g = this.game, now = performance.now();
+    if (g.mode !== 'free' || this.modalOpen || this.moment || this.photo || this.watch?.on || this.opening.running || this.timelapse.busy) return; // (not over the opening's prompts or the time-lapse)
+    if (this.goalSpotOn() || now - (this.otherPlacesNoteAt ?? -1e9) < STORY_GAP_MS) return; // (not over the next goal after the time-lapse, nor next to the Other places note)
+    const paused = g.speed === 0, idle = now - this.lastInput >= STORY_IDLE_MS;
+    if (!paused && !idle) return;
+    this.markStoryOffered(paused ? 'pause' : 'idle');
+    this.toast({ text: 'Want a guided start? Story mode teaches restoration one chapter at a time, right here on this farm.', kind: 'tip', date: g.dateString(),
+      life: 16000, action: { label: 'Story mode', run: () => { track('story_offer_taken', { map: g.map }); this.startStoryHere(); } } });
+  }
+  // Taking the Story offer: Chapter 1 starts on this farm as it stands. It used to open the mode
+  // choice, which started a new farm (asking twice) and threw away what the player had planted.
+  startStoryHere() {
+    const g = this.game;
+    g.mode = 'campaign'; g.campaign = { chapter: 0 };
+    this.analyticsContext?.();
+    this.openCategory('inspect'); // (the tool in hand may belong to a later chapter)
+    this.buildToolbar();
+    this.renderQuest(true);
+    if (g.autosave !== false) void g.save();
+    this.openChapter(0);
   }
 
   openSaveRecovery() { return this.saving.openRecovery(); }
@@ -1291,7 +1384,8 @@ export class UI {
     };
     const nav = Object.entries(TABS).map(([k, [name]]) => `<button data-tab="${k}" class="${k === tab ? 'on' : ''}">${name}</button>`).join('');
     const m = this.modal('Settings', `<div class="settings-wrap"><nav class="settings-nav">${nav}</nav><div class="settings">${TABS[tab][1]}</div></div>`,
-      { foot: '<button class="btn secondary" data-a="reset">Restore defaults</button><button class="btn" data-a="done">Done</button>' });
+      { foot: '<button class="btn secondary" data-a="reset">Restore defaults</button><button class="btn" data-a="done">Done</button>',
+        onClose: () => { const back = this.afterSettings; this.afterSettings = null; back?.(); } }); // (opened from the start menu: back to it)
     m.classList.add('settings-modal');
     m.querySelectorAll('.set-more').forEach(d => d.addEventListener('toggle', () => { (this.settingsMore ||= {})[d.dataset.more] = d.open; }));
     m.querySelectorAll('.settings-nav [data-tab]').forEach(b => b.addEventListener('click', () => this.openSettings(b.dataset.tab)));
@@ -1448,26 +1542,9 @@ export class UI {
       track('setting_changed', { setting: 'language', value: b.dataset.l, map });
       this.openModeChoice(replacing, map, diff); // redrawn in the new language
     }));
-    m.querySelector('[data-a=resume]').addEventListener('click', async event => {
+    m.querySelector('[data-a=resume]').addEventListener('click', event => {
       event.currentTarget.disabled = true;
-      if (map !== this.game.map || relang()) return this.switchMap({ map, resume: true });
-      const wasStarting = !!this.startPause;
-      this.closeModal(true);
-      const speed = this.game.speed; this.setSpeed(0);
-      if (!await this.game.load(map)) {
-        this.setSpeed(wasStarting ? 0 : speed);
-        if (wasStarting) {
-          this.startPause = true;
-          document.body.classList.add('choosing-map');
-          this.openModeChoice(true, map, diff);
-        }
-        this.game.notify('That saved farm could not be opened. Your stored saves have been kept.', 'warn');
-        return;
-      }
-      void saves.requestPersistence();
-      track('game_start', { mode: 'continue', map });
-      this.afterNewGame();
-      this.game.notify(`Welcome back. It's ${this.game.dateString()}.`, 'season');
+      void this.continueFarm(map, diff);
     });
     m.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => {
       diff = b.dataset.d;
@@ -1488,6 +1565,56 @@ export class UI {
       await this.startMode(b.dataset.m, replacing, diff, map, undefined, { sandbox });
     }));
   }
+  // Continue a saved farm (the start menu, or the mode choice's "Continue at …").
+  async continueFarm(map, diff) {
+    if (map !== this.game.map || langFor(map) !== lang) return this.switchMap({ map, resume: true });
+    const wasStarting = !!this.startPause;
+    this.closeModal(true);
+    const speed = this.game.speed; this.setSpeed(0);
+    if (!await this.game.load(map)) {
+      this.setSpeed(wasStarting ? 0 : speed);
+      if (wasStarting) {
+        this.startPause = true;
+        document.body.classList.add('choosing-map');
+        this.openModeChoice(true, map, diff);
+      }
+      this.game.notify('That saved farm could not be opened. Your stored saves have been kept.', 'warn');
+      return;
+    }
+    void saves.requestPersistence();
+    track('game_start', { mode: 'continue', map });
+    this.afterNewGame();
+    this.game.notify(`Welcome back. It's ${this.game.dateString()}.`, 'season');
+  }
+
+  // A returning player's start (main.js, when this map has a saved farm): four choices, the rest of
+  // the old mode choice (map, mode, difficulty, sandbox, language) one step in under "New farm".
+  // Like the mode choice it can't be dismissed: Escape or a click outside never starts an unchosen farm.
+  openStartMenu(map = this.game.map) {
+    const b = BIOMES[map], year = Math.floor((saves.summary(map)?.day || 0) / DAYS_PER_YEAR) + 1;
+    const m = this.modal('Welcome back', `<div class="menu-list start-menu">
+      <button class="btn" data-a="resume">Continue at ${b.farm} <span class="small">(year ${year})</span> →</button>
+      <button class="btn secondary" data-a="new">New farm (another place, mode or difficulty)</button>
+      <button class="btn secondary" data-a="intro">Watch intro</button>
+      <button class="btn secondary" data-a="settings">Settings</button></div>`, { narrow: true, dismissible: false });
+    m.classList.add('startup-selector');
+    m.querySelector('[data-a=resume]').addEventListener('click', event => { event.currentTarget.disabled = true; void this.continueFarm(map); });
+    m.querySelector('[data-a=new]').addEventListener('click', () => this.openModeChoice(true, map));
+    m.querySelector('[data-a=intro]').addEventListener('click', () => this.watchIntro('start', () => this.openStartMenu(map)));
+    m.querySelector('[data-a=settings]').addEventListener('click', () => { this.afterSettings = () => this.openStartMenu(map); this.openSettings(); });
+  }
+
+  // "Watch intro" (the start menu, the menu): the film again over the paused farm (ui/intro.js).
+  watchIntro(from, after = null) {
+    if (this.intro && !this.intro.closed) return;
+    $('#modal-root').innerHTML = ''; this.modalOpen = false; // (not closeModal: at the start menu that would start the farm)
+    const g = this.game, speed = g.speed;
+    g.speed = 0; // (not setSpeed: the start menu's pause stays as it was)
+    track('intro_replay', { from, map: g.map });
+    this.intro = new IntroFilm();
+    this.intro.done.then(() => { g.speed = speed; this.refreshTop(true); after?.(); });
+  }
+
   // Another map means a different cast of plants and animals, so the page reloads into it:
   // every cached model, sprite and thumbnail starts clean. main.js picks up where this left off.
   async switchMap(pending) {
@@ -1515,17 +1642,47 @@ export class UI {
     }
     else { g.mode = mode; g.campaign = { chapter: 0 }; g.difficulty = difficulty; g.money = g.diff.startMoney; }
     if (sandbox) g.flags.sandbox = true; else delete g.flags.sandbox; // (saved with the farm)
+    if (firstVisit) loadState.firstVisit = true; // (for first_animal_seen, ui/session-analytics.js)
+    this.firstVisit = firstVisit; // (the time-lapse offer: ui/timelapse.js)
+    this.quiet = firstVisit ? { until: performance.now() + QUIET_MS, lastSoft: -1e9, held: 0 } : null;
     track('game_start', { mode, fresh, difficulty, map, ...(sandbox ? { sandbox: true } : {}), ...(firstVisit ? { first_visit: true } : {}) });
     this.newCats = new Set();
     this.afterNewGame();
     g.saveReady = true;
     void saves.requestPersistence();
     if (g.autosave !== false) void g.save();
+    // A first visit with the intro film playing over it (ui/intro.js) waits, paused at the film's
+    // last view, and begins once the film is over (ui.frame: after loading, so the line is seen).
+    if (firstVisit && this.intro && !this.intro.closed) {
+      this.intro.done.then(how => { this.introBegin = how; });
+      return;
+    }
+    this.beginPlay(mode, firstVisit);
+  }
+  beginPlay(mode, firstVisit, afterIntro = false) {
+    const g = this.game;
+    if (this.quiet) this.quiet.until = performance.now() + QUIET_MS; // (the quiet minutes start now)
     if (g.speed === 0) this.setSpeed(1);
     if (mode === 'campaign') this.openChapter(0);
-    else g.notify(this.game.catalog.definition.startText, 'season');
+    else if (!afterIntro) g.notify(this.game.catalog.definition.startText, 'season');
     // a first visit starts without any panel to read, so say what to try first (kept up a while)
-    if (firstVisit) this.toast({ text: `Try it: open Plant, pick a seed mix and ${TOUCH ? 'drag a finger' : 'drag'} across a field. The brush turns green where seeds will grow.`, kind: 'tip', life: 16000, date: g.dateString() });
+    // (the opening first: open the farm to the wild, then the planting tip: ui/opening.js)
+    if (!firstVisit) return;
+    // After the film, one line over the farm it ended on, then the opening's glide to the fence.
+    if (afterIntro) { this.introLine(); setTimeout(() => { if (!this.opening.start()) this.plantingTip(); }, INTRO_LINE_MS); }
+    else if (!this.opening.start()) this.plantingTip();
+  }
+  introLine() {
+    const p = document.createElement('p');
+    p.className = 'intro-line'; p.setAttribute('role', 'status');
+    p.textContent = INTRO_LINE;
+    document.body.append(p);
+    setTimeout(() => p.classList.add('out'), INTRO_LINE_MS);
+    setTimeout(() => p.remove(), INTRO_LINE_MS + 1200);
+  }
+  // A first visit's first planting tip (after the opening, when there is one).
+  plantingTip() {
+    this.toast({ text: `Try it: open Plant, pick a seed mix and ${TOUCH ? 'drag a finger' : 'drag'} across a field. The brush turns green where seeds will grow.`, kind: 'tip', life: 16000, date: this.game.dateString() });
   }
 
   // A chapter's introduction: the story, what to do, the goals, and the tools it unlocks.
@@ -1578,8 +1735,14 @@ export class UI {
   renderQuest(force = false) {
     const q = $('#quest'), g = this.game, c = currentChapter(g);
     document.body.classList.toggle('campaign', !!c);
-    if (!c) { q.classList.add('hidden'); return; }
     const now = performance.now();
+    if (!c) {
+      const shown = this.renderGoalTracker(q, force, now);
+      document.body.classList.toggle('quest-on', shown);
+      if (!shown) q.classList.add('hidden');
+      return;
+    }
+    document.body.classList.add('quest-on');
     if (!force && now - (this.questAt || 0) < 1000) return;
     this.questAt = now;
     const k = g.campaign.chapter, doneN = c.goals.filter(o => goalMet(g, o)).length;
@@ -1593,6 +1756,55 @@ export class UI {
     q.querySelector('.q-help')?.addEventListener('click', () => { if (!helpOpen) track('quest_help', { chapter: k + 1, chapter_key: c.key, objectives_done: doneN }); this.questHelpChapter = helpOpen ? null : c.key; this.renderQuest(true); });
     q.querySelector('.q-more')?.addEventListener('click', () => this.openChapter(k, true));
   }
+
+  // Free play's goal tracker, in the chapter tracker's place: once the first goal is done (so the
+  // opening stays clear), the next goal is always on screen. On a map with a goal chain (PNW: the
+  // cougar the intro promised) it names the chain's next step, and opens to every step with what
+  // helps and what the habitat still lacks; elsewhere it shows the next open goal. Returns whether
+  // it's showing.
+  renderGoalTracker(q, force, now) {
+    const g = this.game, goals = g.catalog.goals, done = k => !!g.goalsDone[k];
+    if (g.mode !== 'free' || g.visiting || !goals.length || !done(goals[0].key) || this.opening?.running || this.timelapse?.busy) return false;
+    const chain = g.catalog.definition.goalChain, steps = chain?.steps.map(k => goals.find(x => x.key === k)).filter(Boolean) || [];
+    const next = steps.find(x => !done(x.key)), near = goals.find(x => !done(x.key) && !x.chain);
+    const head = next || near;
+    if (!head) return false;
+    if (!force && now - (this.questAt || 0) < 1000) return !q.classList.contains('hidden');
+    this.questAt = now;
+    const spot = this.goalSpotOn();
+    const row = (x, label = '') => { const ok = done(x.key); return `<div class="q-goal ${ok ? 'ok' : ''}"><span class="q-box">${ok ? '✓' : ''}</span><span>${label}<b>${x.name}</b>${ok ? '' : ` · ${money(g.goalReward(x.reward))}`}${ok ? '' : `<span class="q-desc">${x.desc}</span><small>${x.prog(g)}</small>`}</span></div>`; };
+    const body = next
+      ? steps.map(x => row(x)).join('') + (near ? `<p class="q-tip">Nearer goal: <b>${near.name}</b> (${near.prog(g)}), ${money(g.goalReward(near.reward))}</p>` : '')
+      : row(head);
+    q.classList.remove('hidden');
+    q.classList.toggle('open', !!this.questOpen);
+    q.classList.toggle('spot', spot);
+    if (spot) this.goalSpotKey = head.key;
+    const label = next ? chain.title : 'Next goal';
+    const count = next ? `${steps.filter(x => done(x.key)).length}/${steps.length}` : `${goals.filter(x => done(x.key)).length}/${goals.length}`;
+    const html = `<button class="q-head" title="${this.questOpen ? 'Hide goal' : 'Show goal'}"><span class="q-ch">${label}</span><b>${head.name}</b><span class="q-n">${count}</span><span class="q-caret">${this.questOpen ? '▴' : '▾'}</span></button>` +
+      (this.questOpen ? `<div class="q-body">${body}<button class="q-more">All goals</button></div>`
+        : spot ? `<div class="q-body q-spot"><span class="q-desc">${head.desc}</span><small>${head.prog(g)}</small></div>` : '');
+    if (!setHTML(q, html)) return true;
+    q.querySelector('.q-head').addEventListener('click', () => {
+      this.questOpen = !this.questOpen;
+      if (this.questOpen) track('goal_tracker_opened', { map: g.map, next: head.key });
+      this.renderQuest(true);
+    });
+    q.querySelector('.q-more')?.addEventListener('click', () => this.openGoals());
+    return true;
+  }
+
+  // After the time-lapse hands back control: the next goal stands out (a glow and its one line of
+  // what helps under the head) for GOAL_SPOT_MS, with nothing to press. Folds back on its own.
+  spotlightGoal() {
+    this.goalSpot = performance.now() + GOAL_SPOT_MS;
+    this.renderQuest(true);
+    const q = $('#quest');
+    if (q.classList.contains('hidden') || !q.classList.contains('spot')) { this.goalSpot = 0; return; } // (no tracker to show: no hold either)
+    track('goal_spotlight', { map: this.game.map, next: this.goalSpotKey || null });
+  }
+  goalSpotOn() { return !!this.goalSpot && performance.now() < this.goalSpot; }
 
   // Photo mode: everything but the land goes away, the edges of the view soften into a vignette,
   // and a small bar offers to save the picture (with the vignette) to the device.

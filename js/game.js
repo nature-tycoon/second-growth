@@ -14,7 +14,7 @@ import { wallowDay } from './sim/wallows.js';
 import { updatePlants, seedRain, rootsLoosen } from './sim/plants.js';
 import { Wildlife } from './sim/animals.js';
 import { aOne } from './data/animals.js';
-import { ecoScore, monthlyGrant, nativePlantSpecies, speciesPresent } from './sim/goals.js';
+import { ecoScore, monthlyGrant, nativePlantSpecies, speciesPresent, adoptChain } from './sim/goals.js';
 import { Visitors } from './sim/visitors.js';
 import { Events } from './sim/events.js';
 import { checkCampaign } from './sim/campaign.js';
@@ -35,6 +35,7 @@ export class Game {
     this.cache = {};
     this.invasives = true; // the Invasive species setting (off: none take root, see updatePlants)
     this.dayRun = null; // a day being worked through a part a frame (see update)
+    this.lapse = null; // the time-lapse's own clock, while it runs (see startLapse)
     this.saveDue = false; // the month's autosave, made once the day's work is done
   }
 
@@ -52,7 +53,8 @@ export class Game {
     this.mapDefinition = setBiome(map);
     this.catalog = mapCatalog(this.mapDefinition.id);
     Object.assign(this, createFarmState({ seed, runSeed, mode, difficulty, map: this.mapDefinition.id }));
-    this.dayRun = null; this.saveDue = false;
+    this.dayRun = null; this.lapse = null; this.saveDue = false;
+    if (this.mapDefinition.goalChain) this.flags.chain = 1; // (a new farm starts the chain from scratch)
     this.loaded = false;
     this.saveReady = false; // the welcome screen must never overwrite a saved farm
     this.saveEpoch = (this.saveEpoch || 0) + 1;
@@ -67,8 +69,9 @@ export class Game {
     this.visitors = new Visitors(this);
     this.events = new Events(this);
     this.refreshEnvironment();
-    this.wildlife.computeSuitability();
+    // (the starting animals first, so a hunter's room at the start counts the prey already here)
     this.seedStartingWildlife();
+    this.wildlife.computeSuitability();
     this.mapDefinition.onStart?.(this); // anything a map wants to note about its starting state
     this.updateScore();
     this.updateEco();
@@ -130,7 +133,9 @@ export class Game {
   // scaled by difficulty (the UI shows this figure, so it always matches the payout).
   goalReward(r) { return Math.round(r * 0.6 * this.diff.grants); }
 
-  notify(text, kind = 'info', loc = null) { this.emit('notify', { text, kind, loc, date: this.dateString() }); }
+  // (`sim`: said by the clock on its own, not in reply to the player; a first visit's opening
+  // minutes hold those back, ui.holdInFirstMinutes. `extra` adds fields, e.g. { journal: true })
+  notify(text, kind = 'info', loc = null, extra = null) { this.emit('notify', { text, kind, loc, date: this.dateString(), ...(this.inSim ? { sim: true } : null), ...extra }); }
 
   refreshEnvironment() {
     this.water?.sync();
@@ -141,9 +146,14 @@ export class Game {
 
   // ------------------------------------------------------------------ clock
   update(dtSec) {
+    this.inSim = true;
+    try { this.advance(dtSec); } finally { this.inSim = false; }
+  }
+  advance(dtSec) {
     const sp = SPEEDS[this.speed];
     if (!sp) return;
     useSimRandom(this.wildRng);
+    if (this.lapse) { this.lapseAdvance(); momentsUpdate(this); return; }
     // (the calendar and the animals keep separate paces only at watch pace: see ANIMAL_SPEEDS)
     const step = Math.min(dtSec, 0.1);
     let days = step * (ANIMAL_SPEEDS[this.speed] ?? sp);
@@ -185,6 +195,73 @@ export class Game {
     const run = this.dayRun;
     this.dayRun = null;
     if (run) for (const _ of run);
+    const L = this.lapse;
+    if (L?.run && !L.inside) { const r = L.run; L.run = null; for (const _ of r); L.done++; }
+  }
+
+  // ------------------------------------------------------------------ time-lapse
+  // The time-lapse (ui/timelapse.js) runs far past the top speed: up to `rate` game days a real
+  // second. Each day is stepped exactly as a headless run steps it (the day's work, then the animals
+  // in ten tenth-of-a-day steps, as tools/balance-sim.mjs does), so the ecology is the same; it only
+  // goes in parts between drawn frames, as much a frame as `budget` ms allows. The budget is set by
+  // the frame rate: it grows while frames come faster than 30 a second and shrinks when they come
+  // slower (a machine whose drawing alone is slower than that holds 20). On a slow machine that means
+  // fewer days a second, not a slide show: ui/timelapse.js stops it after a while, years or not.
+  // (Letting a slow machine drop to 20 fps for more days was tried: at CPU x4, 11.5 → 12.9 days a
+  // second for 30 → 21 fps. The days themselves are the cost there, so it holds 30.) Animals aren't
+  // drawn meanwhile (they'd streak), which is why ten-tenth steps rather than per-frame ones do.
+  startLapse(rate) {
+    this.finishDay();
+    this.lapse = { rate, owed: 0, done: 0, run: null, budget: 6, goal: 1000 / 30, ema: 1000 / 30, last: 0, slowFor: 0, t0: performance.now(), inside: false };
+  }
+
+  stopLapse() {
+    const L = this.lapse;
+    if (!L) return;
+    this.finishDay();
+    this.lapse = null; this.acc = 0;
+    this.wildlife.lifePace = 1;
+    if (L.saveAtEnd) void this.save({ speed: 1 });
+  }
+
+  lapseAdvance() {
+    const L = this.lapse, now = performance.now();
+    if (L.last) {
+      const interval = Math.min(250, now - L.last);
+      L.ema += (interval - L.ema) * 0.15;
+      if (L.ema > L.goal * 1.08) {
+        L.budget = Math.max(2, L.budget * 0.88);
+        // (still too slow with next to nothing simulated: this machine's drawing alone takes that long)
+        if (L.budget <= 2.5 && (L.slowFor += interval) > 1000) L.goal = 1000 / 20;
+      } else {
+        L.slowFor = 0;
+        if (L.ema < L.goal * 0.95) L.budget = Math.min(40, L.budget + 0.5);
+      }
+    }
+    L.last = now;
+    // (eased in over the first second and a half, so the land is seen starting to move)
+    const t = (now - L.t0) / 1000;
+    L.owed = L.rate * (t < 1.5 ? t * t / 3 : t - 0.75);
+    this.wildlife.lifePace = 1;
+    const until = now + L.budget;
+    while (performance.now() < until) {
+      if (!L.run) { if (L.done >= L.owed) break; L.run = this.lapseDay(); }
+      L.inside = true;
+      let end;
+      try { end = L.run.next().done; } finally { L.inside = false; }
+      if (end) { L.run = null; L.done++; if (this.saveDue) { this.saveDue = false; L.saveAtEnd = true; } } // (the month's autosave once, at the end: forty in twenty seconds would stall it)
+    }
+  }
+
+  *lapseDay() {
+    yield* this.dayWork();
+    yield;
+    for (let k = 0; k < 10; k++) {
+      this.wildlife.update(0.1);
+      this.visitors.update(0.1);
+      this.mapDefinition.update?.(this, 0.1);
+      if (k % 3 === 2) yield;
+    }
   }
 
   // One game day, in parts: each yield is where the live game moves on to the next frame.
@@ -329,6 +406,7 @@ export class Game {
 
   // dailyOnly: the goals marked `daily` (the first goal, so its reward follows the first stroke)
   checkGoals(dailyOnly = false) {
+    adoptChain(this); // (an older save's met steps, no grant: goals.js)
     for (const g of this.catalog.goals) {
       if (this.goalsDone[g.key] || dailyOnly && !g.daily) continue;
       if (g.check(this)) {
@@ -384,7 +462,7 @@ export class Game {
     });
   }
 
-  async save({ speed = this.speed } = {}) {
+  async save({ speed = this.lapse ? 1 : this.speed } = {}) { // (mid time-lapse: a reload carries on at normal speed)
     if (this.visiting) return false; // (a shared farm being visited never overwrites the player's own: ui/share.js)
     this.finishDay(); // (never half a day)
     const map = this.map, epoch = this.saveEpoch, request = this.saveRequest = (this.saveRequest || 0) + 1;
@@ -514,7 +592,7 @@ export class Game {
     if (waterModelOn(definition.id) && !savedWater) migrateMarkedPools(w);
     this.water = waterModelOn(definition.id) ? new HollisWater(w, savedWater) : null;
     Object.assign(this, farmState);
-    this.dayRun = null; this.saveDue = false;
+    this.dayRun = null; this.lapse = null; this.saveDue = false;
     this.world = w;
     this.border = new Border(w, this.mapDefinition.borderCell);
     this.rng = mulberry32(1); this.rng.setState(data.rng);

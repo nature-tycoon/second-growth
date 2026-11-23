@@ -323,6 +323,9 @@ export class Terrain {
             else c = mixRgb([1, 1, 1], [0.85, 1, 0.8], f);
           }
         }
+        // the old forest round a farm (border tiles with a fern floor): moss and needles, where bare
+        // duff between the trunks read as thin, cut woods (look.borderMoss, PNW)
+        if (!inside && def.look.borderMoss && gid && game.catalog.plants[gid].look.type === 'fern') { tex = S.TURF; c = def.look.borderMoss; bare = 0; }
         // under a closing canopy the ground fades into shaded forest floor
         if (canopy > 0.3 && t !== T.ROAD && t !== T.GRAVEL && t !== T.TRAIL) {
           if (canopy > 0.6 && (tex === T.FIELD || tex === T.SOIL)) tex = S.TURF;

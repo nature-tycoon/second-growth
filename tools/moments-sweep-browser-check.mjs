@@ -39,7 +39,7 @@ try {
           return g.flags.moments.monarchs != null;
         }
         const a = g.wildlife.agents.find(a => !a.leaving);
-        return moment(g,'${key}', a && ${JSON.stringify(['salmon', 'jaguar', 'howler', 'elephant', 'orangutans', 'gajah', 'harimau', 'congos', 'manta', 'humphead'])}.includes('${key}') ? a : c);
+        return moment(g,'${key}', a && ${JSON.stringify(['salmon', 'jaguar', 'howler', 'elephant', 'orangutans', 'gajah', 'harimau', 'congos', 'manta', 'humphead', 'owlHunt', 'elkCreek', 'cougarHunt'])}.includes('${key}') ? a : c);
       })()`);
       assert.ok(fired, `${map}/${key}: the moment fired`);
       await b.waitFor(`window.secondGrowth.ui.moment?.key === '${key}'`, `${map}/${key}: cinematic starts`, 40000);

@@ -28,14 +28,14 @@ const dist = (w, i, j) => Math.hypot(i % w.w - j % w.w, (i / w.w | 0) - (j / w.w
 // Who holds a home: an independent adult, or the leader of its herd/family. Followers go where
 // their leader goes; the young stay with their mother.
 function holder(wl, a, def) {
-  if (a.leaving || a.juvenile || a.mom != null || a.visit || a.trip != null) return false;
+  if (a.leaving || a.juvenile || a.mom != null || a.visit || a.passUntil != null || a.trip != null) return false;
   if ((def.herd || def.familyHerd) && wl.herdLeader(a) !== a) return false;
   return homeEligible(wl, def);
 }
 
 // Keep a valid home, settling one when there is none. Returns the home, or null.
 export function ensureHome(wl, a, def) {
-  if (!holder(wl, a, def)) { if (a.home && a.trip == null && !a.leaving && !a.visit) a.home = null; return null; }
+  if (!holder(wl, a, def)) { if (a.home && a.trip == null && !a.leaving && !a.visit && a.passUntil == null) a.home = null; return null; }
   const w = wl.game.world, map = wl.suit[a.sp];
   let h = a.home;
   const ok = j => Number.isInteger(j) && j >= 0 && j < w.n && !w.fire[j] && passable(w, j, a) && map[j] > 0.1;

@@ -4,6 +4,7 @@
 
 import { T, F, isWater, clamp, DAYS_PER_YEAR, lifeAge } from '../config.js';
 import { many, cap, preyFor, preyPer, isMale, isMaleVariant } from '../data/animals.js';
+import { trait } from '../data/animal-kinds.js';
 import { browseSapling, hungryPredator, foodDeparture } from './ecological-pressure.js';
 import { canStartHunt, leaveBody, haremDay } from './animal-life.js';
 import { inRut } from './cervid-groups.js';
@@ -20,6 +21,7 @@ import { simRandom } from './sim-random.js';
 import { swimDepth } from './waterline.js';
 import { crossingColumn } from './migration-route.js';
 import { territory, Animal, inRiver, spotIn, WITH_MOM } from './wildlife-shared.js';
+import { waitAtFence, waitingAtFence } from './fence-gate.js';
 
 const LEAVE_DAYS = 20; // (days a leaving animal has to get off the map: a walk off takes one or two)
 
@@ -38,6 +40,15 @@ export function arrivalFinding(def, st) {
 // Young born here that leave home once independent to find a patch of their own: the walkers and
 // waders that don't live in herds (herds and deer families keep their young with them).
 const disperses = def => !def.herd && !def.familyHerd && !def.patrol && !def.reef && (def.move === 'ground' || def.move === 'semi');
+
+// Why a species' last animal went (speciesLost): its habitat still holds one (natural), its prey or
+// hosts are too few (prey), or the habitat itself is too small (habitat). From the month's capacity.
+function lossCause(def, st) {
+  const need = def.minK ?? 1;
+  if (st.K >= need) return 'natural'; // (and so new ones can still move in: immigration needs K >= minK)
+  const food = Math.min(st.preyK ?? Infinity, st.hostK ?? Infinity);
+  return food < need && (st.habitatK ?? 0) >= need ? 'prey' : 'habitat';
+}
 
 export class WildlifePopulation {
   updateGlobals() {
@@ -173,6 +184,7 @@ export class WildlifePopulation {
     this.ids?.set(id, a);
     this.spacingDirty = true;
     const st = this.state[def.index];
+    if (opts.outside) return a; // (beyond the boundary fence: not here yet, see fence-gate.js)
     st.pop++;
     if (!st.discovered && !opts.silent) {
       st.discovered = true;
@@ -210,16 +222,18 @@ export class WildlifePopulation {
     return Math.max(0, Math.min(def.max, Math.ceil(this.state[def.index].K)) - present);
   }
 
-  immigrate(def, n, returning = false) {
+  // at: { edge, at } tries that one spot (a first visit's opening: the deer's first try made at once).
+  immigrate(def, n, returning = false, at = null) {
     n = Math.min(n, this.recruitmentRoom(def));
     if (n <= 0) return 0;
     if (def.crossing) return this.crossRiver(def, n);
     const w = this.game.world, rng = this.game.rng;
-    const edge = def.sources[Math.floor(rng() * def.sources.length)];
-    let placed = 0, blocked = false;
-    for (let tries = 0; tries < 16 && placed < n; tries++) {
+    const edge = at ? at.edge : def.sources[Math.floor(rng() * def.sources.length)];
+    let placed = 0, blocked = null;
+    for (let tries = 0; tries < (at ? 1 : 16) && placed < n; tries++) {
       let x, y;
-      if (edge === 'N') { x = Math.floor(rng() * w.w); y = 0; }
+      if (at) { x = edge === 'N' ? at.at : edge === 'E' ? w.w - 1 : 0; y = edge === 'N' ? 0 : at.at; }
+      else if (edge === 'N') { x = Math.floor(rng() * w.w); y = 0; }
       else if (edge === 'S') { x = Math.floor(rng() * w.w); y = w.h - 1; }
       else if (edge === 'E') { x = w.w - 1; y = Math.floor(rng() * (w.h - 6)); }
       else { x = 0; y = Math.floor(rng() * (w.h - 6)); }
@@ -252,14 +266,23 @@ export class WildlifePopulation {
       }
       const i = w.idx(x, y);
       if (!passable(w, i, def)) {
-        if (w.feature[i] === F.FENCE) blocked = true;
+        if (w.feature[i] === F.FENCE) blocked ??= edge === 'N' ? x : y;
         continue;
       }
       const c = this.spawn(def, x, y);
       c.wait = 0;
       placed++;
     }
-    if (!placed && blocked && !this.state[def.index].blockedNotified) {
+    // Stopped by the fence: they stand a while at the forest edge beyond it, and come in if a gap
+    // opens near them (fence-gate.js). One group waits at a time.
+    if (!placed && blocked != null && edge !== 'S' && def.move === 'ground' && !waitingAtFence(this, def)) {
+      const group = waitAtFence(this, def, n, edge, blocked);
+      if (!this.state[def.index].blockedNotified && this.game.flags.opening?.stage !== 'fence') { // (a first visit's opening says it with its prompt)
+        this.state[def.index].blockedNotified = true;
+        const dir = { N: 'north', E: 'east', W: 'west' }[edge];
+        this.game.notify(`${cap(many(def))} came to the ${dir} edge, but the old boundary fence stopped them. They're waiting at the forest edge: tear out the fence and they'll come in.`, 'warn', group[0]);
+      }
+    } else if (!placed && blocked != null && !this.state[def.index].blockedNotified && this.game.flags.opening?.stage !== 'fence') {
       this.state[def.index].blockedNotified = true;
       const dir = { N: 'north', E: 'east', W: 'west', S: 'south' }[edge];
       this.game.notify(`${cap(many(def))} tried to wander in from the ${dir}, but the old boundary fence stopped them. Tearing out fences opens a wildlife corridor.`, 'warn');
@@ -365,6 +388,7 @@ export class WildlifePopulation {
       const inSeason = !def.season || def.season.includes(m);
       const mine = this.agents.filter(a => a.sp === def.index && !a.leaving);
       let pop = mine.length;
+      const passing = mine.filter(a => a.passUntil != null).length; // (hunters passing through: not residents)
       const K = st.K;
 
       if (!inSeason) {
@@ -389,8 +413,8 @@ export class WildlifePopulation {
       }
 
       // births
-      if (def.breed.includes(m) && pop >= 2 && pop < K) {
-        const adults = mine.filter(a => a.state !== 'dormant' && lifeAge(a) >= def.mature * DAYS_PER_YEAR && !hungryPredator(game, a, def));
+      if (def.breed.includes(m) && pop - passing >= 2 && pop < K) {
+        const adults = mine.filter(a => a.passUntil == null && a.state !== 'dormant' && lifeAge(a) >= def.mature * DAYS_PER_YEAR && !hungryPredator(game, a, def));
         // (the young follow a female: in family herds the adults without the male look, otherwise any
         // female adult, or any adult at all if there are no females)
         const females = def.familyHerd ? null : adults.filter(a => !isMale(def, a));
@@ -438,8 +462,9 @@ export class WildlifePopulation {
       if (K >= def.minK && pop < K && !dormancySeason(game, def)) {
         // seasonal visitors only count their months here, so they catch on proportionally faster
         // (quick: butterflies, bees and hummingbirds find a new garden within weeks, not seasons)
-        const finding = arrivalFinding(def, { ...st, pop });
-        const chance = def.mig * (pop === 0 ? 1 : 0.35) * clamp((K - pop) / K + 0.2, 0, 1) * game.diff.arrivals * finding;
+        const res = pop - passing;
+        const finding = arrivalFinding(def, { ...st, pop: res });
+        const chance = def.mig * (res === 0 ? 1 : 0.35) * clamp((K - res) / K + 0.2, 0, 1) * game.diff.arrivals * finding;
         if (rng() < chance) {
           const n = def.groupSize[0] + Math.floor(rng() * (def.groupSize[1] - def.groupSize[0] + 1));
           this.immigrate(def, n);
@@ -458,6 +483,33 @@ export class WildlifePopulation {
       game.notify(lt ? `${lt[0]}: ${list(left)}.${first ? ' ' + lt[1] : ''}` : `Heading south for the winter: ${list(left)}.${first ? ' They remember good habitat and come back in spring if it is still here.' : ''}`, 'info');
     }
     this.recount();
+    this.speciesLost(m);
+  }
+
+  // A resident species whose last animal went this month. Why decides how it's told: with its
+  // habitat still here it's nature (a vole crash, an old animal, a hunt), kept to the journal; with
+  // the habitat or the prey gone, the player can do something, so it's a warning that says what.
+  // Migrants gone for their off season aren't losses (they're announced as leaving, above).
+  speciesLost(m) {
+    const game = this.game, cat = game.catalog, here = new Int32Array(cat.animals.length);
+    for (const a of this.agents) if (!a.leaving && a.passUntil == null) here[a.sp]++;
+    for (const def of cat.animals) {
+      const st = this.state[def.index], was = st.residents || 0;
+      st.residents = here[def.index];
+      if (here[def.index]) { st.since ??= game.day; st.lostCause = null; } else st.since = null; // (living here since: goals.js's year-long fallback)
+      if (!was || here[def.index] || def.domestic || def.special || def.season && !def.season.includes(m)) continue;
+      const cause = st.lostCause = lossCause(def, st);
+      if (game.day - (st.lostNoted ?? -1e9) < DAYS_PER_YEAR) continue; // (one note a year for a species that comes and goes)
+      st.lostNoted = game.day;
+      if (cause === 'natural') {
+        game.notify(`The ${many(def)} here have died out for now. Their numbers rise and fall on their own, and their habitat is still here, so new ones will move in.`, 'info', null, { journal: true });
+      } else if (cause === 'prey') {
+        const food = (def.prey || def.needs || []).filter(k => cat.animal[k]).map(k => many(cat.animal[k]));
+        game.notify(`The last ${many(def)} have left: too few ${food.length > 1 ? food.slice(0, -1).join(', ') + ' and ' + food.at(-1) : food[0]} here to live on. Habitat for those brings them back.`, 'warn');
+      } else {
+        game.notify(`The last ${many(def)} have left: the farm no longer has room for them. What they need: ${def.hint}`, 'warn');
+      }
+    }
   }
 
   leave(a) {
@@ -540,11 +592,15 @@ export class WildlifePopulation {
     }
     haremDay(this);
     this.damDay();
+    this.rangingVisits();
     for (const a of this.agents.slice()) {
       // (an animal that can't find its way off the map slips away unseen rather than staying for
       // ever: stuck coho fry once piled up by the thousand over centuries, never ageing, 2026-11)
+      if (a.leaving && a.gate) continue; // (waiting at a boundary fence: fence-gate.js says how long)
       if (a.leaving) { if ((a.leaveDays = (a.leaveDays || 0) + 1) > LEAVE_DAYS) this.remove(a, 'left'); continue; }
       const def = this.game.catalog.animals[a.sp];
+      // (a hunter passing through moves on when its days are up, once it has finished a chase)
+      if (a.passUntil != null && game.day >= a.passUntil && (!a.hunt || game.day >= a.passUntil + 3)) { this.leave(a); continue; }
       const x = Math.floor(a.x), y = Math.floor(a.y);
       if (!w.inb(x, y)) continue;
       const i = w.idx(x, y);
@@ -571,6 +627,30 @@ export class WildlifePopulation {
         if (ecology) browseSapling(game, a, def);
         else if (w.tree[i] && w.treeG[i] < 0.4 && w.feature[i] !== F.FENCE) w.treeG[i] = Math.max(0.05, w.treeG[i] - 0.01);
       }
+    }
+  }
+
+  // A hunter whose range runs over the neighbouring land too (trait `ranges`: a coyote's covers
+  // several farms) crosses this one now and then while none live here, if the farm has prey to
+  // hunt: it comes in from its side, hunts a few days, and goes on its rounds (a.visit: the day it
+  // leaves: a.passUntil). One at a time, and it doesn't breed here. Once some settle (the monthly
+  // arrivals), the visits stop. None during a first visit's opening, while deer wait at the fence.
+  rangingVisits() {
+    const game = this.game, stage = game.flags.opening?.stage;
+    if (stage === 'fence' || stage === 'culvert') return;
+    for (const def of game.catalog.animals) {
+      if (!trait(def, 'ranges')) continue;
+      const st = this.state[def.index];
+      if (st.pop > 0 || !(st.habitatK >= def.minK) || dormancySeason(game, def)) continue;
+      // (prey here now, not last month's count: enough to feed some of one)
+      let prey = 0;
+      for (const pk of preyFor(def, game) || []) if (game.catalog.animal[pk]) prey += this.state[game.catalog.animal[pk].index].pop;
+      if (prey / preyPer(def, game) < 0.3) continue;
+      if (this.agents.some(a => a.sp === def.index)) continue; // (one still leaving counts too)
+      // (the wildlife stream, not game.rng: weather and fires draw from that one, decision 0035)
+      if (simRandom() >= game.diff.arrivals / 20) continue;
+      const n = this.agents.length;
+      if (this.immigrate(def, 1) && this.agents.length > n) this.agents[this.agents.length - 1].passUntil = game.day + 5 + Math.floor(simRandom() * 6);
     }
   }
 

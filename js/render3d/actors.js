@@ -1,7 +1,7 @@
 // Animals (instanced 3D models, see animals/animal-model.js), plus visitors and flames drawn as camera-facing sprites.
 
 import * as THREE from 'three';
-import { LEVEL, isWater, F as FEAT, clamp } from '../config.js';
+import { LEVEL, BORDER, isWater, F as FEAT, clamp } from '../config.js';
 import { drawDef, drawLooks, maleLook } from '../data/animals.js';
 import { trait } from '../data/animal-kinds.js';
 import { leavesCarcass } from '../sim/animal-life.js';
@@ -19,10 +19,12 @@ import { SlothBridges } from './sloth-bridge.js';
 import { ActorView, animalViewRadius, pixelsPerUnit, perspectiveScale } from './actor-view.js';
 import { carcassDecay, fitCarcass, Remains } from './carcass-decay.js';
 import { PX, TURN, turnToward, beginAnimal, crownTile, turnBody, bodyPhase, finishAnimal } from './actors-common.js';
-import { wadeOrSwim, gait, headPose, huntPose, stumblePose } from './actors-ground.js';
+import { wadeOrSwim, gait, headPose, huntPose, stumblePose, slopePose } from './actors-ground.js';
 import { crownHeight, canopyHeight, branchPose, climbSupport, grips } from './actors-climb.js';
 import { snagBank, trunkCling, seaFlightHeight, crownPerch, snagPerch, birdHeight, plungePose, anchorPose, dabblePose, perchLimb } from './actors-fly.js';
 import { riverFishHeight, tailBend, snapPose, tailBeat } from './actors-swim.js';
+
+const NONE = [];
 import { reefHeight, munchTarget, munchPose } from './actors-reef.js';
 
 export { salmonLeap } from './actors-common.js';
@@ -165,7 +167,9 @@ export class Actors {
     const fr = { game, w, F, k, frameDt, time, seen, chased, hunters, canopySites, bridges, shadow };
     // Each animal through the same steps in the same order; a step is a mode's (actors-ground.js,
     // -climb, -fly, -swim, -reef) or everyone's (actors-common.js), and does nothing for the others.
-    for (const a of game.wildlife.viewAgents) {
+    // (none drawn while the time-lapse runs, `hidden`: at sixty game days a second they'd streak; ui/timelapse.js)
+    const hide = !!this.hidden;
+    for (const a of hide ? NONE : game.wildlife.viewAgents) {
       const c = beginAnimal(this, fr, a);
       if (!c) continue;
       drawnHeight(this, c);
@@ -179,6 +183,7 @@ export class Actors {
       huntPose(c);
       snapPose(c);
       stumblePose(c);
+      slopePose(c);
       plungePose(c);
       anchorPose(c);
       dabblePose(c);
@@ -201,12 +206,12 @@ export class Actors {
     // and rots (see carcass-decay.js): its flesh drawing back onto the bones until it's a skeleton,
     // which slumps into a pile of bones that go one by one, over a spreading stain.
     this.remains.begin();
-    for (const c of game.wildlife.carcasses || []) {
+    for (const c of hide ? NONE : game.wildlife.carcasses || []) {
       const cdef = game.catalog.animals[c.sp];
       if (!cdef) continue;
       const def = drawDef(cdef, c, game.month);
       const ageF = def.mature > 0 ? clamp(0.55 + 0.45 * c.age / (def.mature * 120), 0.55, 1) : 1;
-      const sc = adultAnimalScale(def.sprite) * ageF, ground = w.heightAt(clamp(c.x, 0, w.w), clamp(c.y, 0, w.h)) * LEVEL;
+      const sc = adultAnimalScale(def.sprite) * ageF, ground = w.heightAt(clamp(c.x, -BORDER, w.w + BORDER - 0.001), clamp(c.y, -BORDER, w.h + BORDER - 0.001)) * LEVEL; // (a kill out in the border lies on the border land)
       const yaw = -c.yaw, roll = c.side * Math.PI / 2;
       if (this.view.enabled && !this.view.visible(c.x, ground - 0.2, ground + 0.6, c.y, animalViewRadius(def))) continue;
       const h = (def.sprite.h || 10) * sc, len = (def.sprite.len || 10) * sc, lift = h * 0.32;
@@ -234,7 +239,7 @@ export class Actors {
 
     // ---- visitors: same instanced 3D style as the wildlife
     const pseen = new Set();
-    for (const v of game.residents ? game.visitors.agents.concat(game.residents) : game.visitors.agents) {
+    for (const v of hide ? NONE : game.residents ? game.visitors.agents.concat(game.residents) : game.visitors.agents) {
       pseen.add(v.id);
       let st = this.people.get(v.id);
       if (!st) { st = { yaw: 0, gait: 0, px: v.x, py: v.y }; this.people.set(v.id, st); }

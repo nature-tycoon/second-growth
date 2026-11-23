@@ -1,0 +1,457 @@
+{
+  "title": "Second Growth: first-visit intro",
+  "map": "pnw",
+  "seed": 1987,
+  "seconds": 31.8,
+  "fps": 30,
+  "sourceRevision": "00d648b09d9e27a4dc584fabafd2e38fe5bfbea5",
+  "sourceDate": "2026-11-22",
+  "uncommittedGameChanges": true,
+  "madeAt": "2026-11-22T23:52:55.429Z",
+  "madeWith": "node tools/film-intro.mjs (tools/intro-film.mjs, tools/intro-film-shots.mjs)",
+  "lastFrame": {
+    "image": "assets/intro/intro-film-last.jpg",
+    "camera": {
+      "x": 44,
+      "y": 38,
+      "groundHeight": 0.8231,
+      "zoom": 0.62,
+      "az": 0.7853981633974483,
+      "timeOfDay": 0.4501,
+      "pixelsPerTile": 28.52,
+      "width": 1920,
+      "height": 1080,
+      "resetView": true
+    }
+  },
+  "beats": {
+    "headUp": 13.8,
+    "bolt": 14.8,
+    "breakCover": 14.8,
+    "pounce": 15.73,
+    "fence": 19.44
+  },
+  "layers": [
+    {
+      "game": "start",
+      "shot": 1,
+      "title": "The opening",
+      "subjects": [
+        "buck",
+        "cougar"
+      ],
+      "name": "opening",
+      "from": 0.8,
+      "to": 4.8,
+      "fade": 1,
+      "fromBlack": true,
+      "sweep": false
+    },
+    {
+      "game": "start",
+      "shot": 2,
+      "title": "His ears",
+      "subjects": [
+        "buck"
+      ],
+      "name": "ears",
+      "from": 4.8,
+      "to": 7.8,
+      "fade": 0,
+      "fromBlack": false,
+      "sweep": false
+    },
+    {
+      "game": "start",
+      "shot": 3,
+      "title": "The cougar",
+      "subjects": [
+        "cougar"
+      ],
+      "name": "eyes",
+      "from": 7.8,
+      "to": 11.3,
+      "fade": 0,
+      "fromBlack": false,
+      "sweep": false
+    },
+    {
+      "game": "start",
+      "shot": 4,
+      "title": "The stalk",
+      "subjects": [
+        "cougar",
+        "buck"
+      ],
+      "name": "stalk",
+      "from": 11.3,
+      "to": 13.3,
+      "fade": 0,
+      "fromBlack": false,
+      "sweep": false
+    },
+    {
+      "game": "start",
+      "shot": 5,
+      "title": "Head up",
+      "subjects": [
+        "buck"
+      ],
+      "name": "headup",
+      "from": 13.3,
+      "to": 15.15,
+      "fade": 0,
+      "fromBlack": false,
+      "sweep": false
+    },
+    {
+      "game": "start",
+      "shot": 6,
+      "title": "The burst",
+      "subjects": [
+        "buck",
+        "cougar"
+      ],
+      "name": "burst",
+      "from": 15.15,
+      "to": 18.4,
+      "fade": 0,
+      "fromBlack": false,
+      "sweep": false
+    },
+    {
+      "game": "start",
+      "shot": 7,
+      "title": "Over the fence",
+      "subjects": [
+        "buck",
+        "cougar"
+      ],
+      "name": "fence",
+      "from": 18.4,
+      "to": 21.8,
+      "fade": 0,
+      "fromBlack": false,
+      "sweep": false
+    },
+    {
+      "game": "start",
+      "shot": 8,
+      "title": "It watches",
+      "subjects": [
+        "cougar"
+      ],
+      "name": "watch",
+      "from": 21.8,
+      "to": 23.2,
+      "fade": 0,
+      "fromBlack": false,
+      "sweep": false
+    },
+    {
+      "game": "start",
+      "shot": 9,
+      "title": "The rise",
+      "subjects": [],
+      "name": "rise",
+      "from": 23.2,
+      "to": 26.4,
+      "fade": 0,
+      "fromBlack": false,
+      "sweep": true
+    },
+    {
+      "game": "restored",
+      "shot": 10,
+      "title": "30 years on",
+      "subjects": [],
+      "name": "rise30",
+      "from": 25.6,
+      "to": 31.4,
+      "fade": 0.8,
+      "fromBlack": false,
+      "cameraOf": 9,
+      "sweep": true
+    },
+    {
+      "game": "start",
+      "shot": 11,
+      "title": "Today",
+      "subjects": [],
+      "name": "start",
+      "from": 30.2,
+      "to": 31.8,
+      "fade": 1.2,
+      "fromBlack": false,
+      "sweep": false
+    }
+  ],
+  "look": "Balanced detail, shadows on, no weather, 1920×1080 at a pixel ratio of 1",
+  "staging": "Staged from the approved shot list (tools/intro-film-plan.mjs): one camera per shot, eased moves and smoothed looks. Start game: the farm as a first visit opens it (seed 1987, run seed 20261121); the buck and the cougar are posed and moved along the plan's paths at real speeds (smooth curves through its marks), pitched to the slope, drawn by the game's own walker drawing (stride, gallop, head, crouch; the buck's fence jump and the cougar's pounce are the pounce arc), with 1.5 s of half-speed slow motion at the pounce. Restored game: release-fixtures' restored PNW (the fence and culvert gone), June, three elk staged in the meadow, the rest of its wildlife living by the simulation. Nothing is painted or generated.",
+  "sound": [
+    {
+      "file": "field-bed-stream-1",
+      "by": "National Park Service",
+      "license": "Public domain",
+      "source": "https://www.nps.gov/subjects/sound/sounds-stream.htm",
+      "at": 0
+    },
+    {
+      "file": "field-bed-wind-1",
+      "by": "alppdcjr12",
+      "license": "CC0",
+      "source": "https://freesound.org/people/alppdcjr12/sounds/662575/",
+      "at": 0
+    },
+    {
+      "file": "field-raven-1",
+      "by": "National Park Service (David Restivo), Yellowstone sound library",
+      "license": "Public domain",
+      "source": "https://commons.wikimedia.org/wiki/File:Yellowstone_sound_library_-_Common_Raven_-_001.mp3",
+      "at": 0.1
+    },
+    {
+      "file": "field-pacific-wren-1",
+      "by": "Alejandro Erickson",
+      "license": "CC BY-SA 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Troglodytes_pacificus_-_Pacific_Wren_XC120847.ogg",
+      "at": 2.6
+    },
+    {
+      "file": "field-twig-snap-1",
+      "by": "stephan",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:Snapping_twig_(single).ogg",
+      "at": 13.15
+    },
+    {
+      "file": "field-hooves-1",
+      "by": "Bruno Auzet (Freesound Community, Pixabay)",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:Six_Horses_Galloping_By.ogg",
+      "at": 14.7
+    },
+    {
+      "file": "field-hooves-2",
+      "by": "Bruno Auzet (Freesound Community, Pixabay)",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:Six_Horses_Galloping_By.ogg",
+      "at": 20
+    },
+    {
+      "file": "field-american-crow-1",
+      "by": "Jonathon Jongsma",
+      "license": "CC BY-SA 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Corvus_brachyrhynchos_-_American_Crow_-_XC80525.ogg",
+      "at": 21.9
+    },
+    {
+      "file": "field-meadowlark-1",
+      "by": "Jonathon Jongsma",
+      "license": "CC BY-SA 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Sturnella_neglecta_-_Western_Meadowlark_-_XC104522.ogg",
+      "at": 26
+    },
+    {
+      "file": "field-swainsons-thrush-2",
+      "by": "Doug Hynes",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Catharus_ustulatus_-_Swainson%27s_Thrush_XC613535.mp3",
+      "at": 27.6
+    },
+    {
+      "file": "field-robin-1",
+      "by": "Jonathon Jongsma",
+      "license": "CC BY-SA 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Turdus_migratorius_-_American_Robin_-_XC107523.ogg",
+      "at": 30
+    }
+  ],
+  "outputs": [
+    {
+      "id": "game",
+      "width": 1280,
+      "height": 720,
+      "quantizer": {
+        "mp4": 27,
+        "shots": {
+          "rise": -2,
+          "rise30": -4,
+          "start": -6
+        }
+      },
+      "keyframeEvery": 300,
+      "audioBitrate": 96000,
+      "codecs": {
+        "mp4": "avc1.64001f"
+      },
+      "files": [
+        {
+          "file": "assets/intro/intro-film.mp4",
+          "kind": "mp4",
+          "bytes": 15521332,
+          "sha256": "7dbf3a27abced1f1f4f3e3a1e4a9cfdf50a3531276ce8c65563a39316f35407d",
+          "checked": {
+            "duration": 31.872,
+            "width": 1280,
+            "height": 720,
+            "soundSeconds": 31.87,
+            "soundRms": 0.0697
+          },
+          "kbBySecond": [
+            11,
+            26,
+            354,
+            679,
+            941,
+            1104,
+            1172,
+            1228,
+            1325,
+            1480,
+            1657,
+            1848,
+            2001,
+            2077,
+            2200,
+            2334,
+            2634,
+            2923,
+            3270,
+            3526,
+            3586,
+            3675,
+            3774,
+            3867,
+            4198,
+            4799,
+            5658,
+            7507,
+            9623,
+            11624,
+            13520,
+            14824,
+            15158
+          ]
+        }
+      ]
+    },
+    {
+      "id": "site",
+      "width": 1920,
+      "height": 1080,
+      "quantizer": {
+        "mp4": 29,
+        "shots": {
+          "rise": -1,
+          "rise30": -3,
+          "start": -5
+        }
+      },
+      "keyframeEvery": 300,
+      "audioBitrate": 128000,
+      "codecs": {
+        "mp4": "avc1.640028"
+      },
+      "files": [
+        {
+          "file": "website/review-media/video/intro-film-1080.mp4",
+          "kind": "mp4",
+          "bytes": 27958053,
+          "sha256": "738bbc1b775a440d3ac173bc6ec73ff24345963c097c3cb3bfa3157a7fa312ee",
+          "checked": {
+            "duration": 31.872,
+            "width": 1920,
+            "height": 1080,
+            "soundSeconds": 31.87,
+            "soundRms": 0.0698
+          },
+          "kbBySecond": [
+            11,
+            33,
+            571,
+            1106,
+            1559,
+            1849,
+            1955,
+            2045,
+            2192,
+            2439,
+            2715,
+            3001,
+            3250,
+            3387,
+            3590,
+            3801,
+            4280,
+            4746,
+            5311,
+            5719,
+            5830,
+            5981,
+            6143,
+            6303,
+            6831,
+            7768,
+            9142,
+            12104,
+            15952,
+            19994,
+            24054,
+            26752,
+            27303
+          ]
+        },
+        {
+          "file": "assets/intro/intro-film-1080.mp4",
+          "kind": "mp4",
+          "bytes": 27958053,
+          "sha256": "738bbc1b775a440d3ac173bc6ec73ff24345963c097c3cb3bfa3157a7fa312ee",
+          "game": true,
+          "checked": {
+            "duration": 31.872,
+            "width": 1920,
+            "height": 1080,
+            "soundSeconds": 31.87,
+            "soundRms": 0.0698
+          },
+          "kbBySecond": [
+            11,
+            33,
+            571,
+            1106,
+            1559,
+            1849,
+            1955,
+            2045,
+            2192,
+            2439,
+            2715,
+            3001,
+            3250,
+            3387,
+            3590,
+            3801,
+            4280,
+            4746,
+            5311,
+            5719,
+            5830,
+            5981,
+            6143,
+            6303,
+            6831,
+            7768,
+            9142,
+            12104,
+            15952,
+            19994,
+            24054,
+            26752,
+            27303
+          ]
+        }
+      ]
+    }
+  ]
+}
