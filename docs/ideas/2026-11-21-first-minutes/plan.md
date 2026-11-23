@@ -382,3 +382,5 @@ Cole's answers:
 | F4 | Cole's notes, final render, sound with crow and raven | default | M | [x] 377415b, bb457ae (done in F3) |
 
 After F4: the follow-ups from open.md.
+
+- 2026-11-22: Cole rewatched the re-encoded film (a61d4a2): looks good.
