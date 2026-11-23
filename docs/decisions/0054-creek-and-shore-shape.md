@@ -1,0 +1,87 @@
+# 0054 Creek and shore shape: creeks bend in curves, shores follow smooth lines
+
+2026-11-22, ideas batch creeks-fps, session 5. Cole: creeks get 90° angles as he edits terrain, the PNW
+creek has 90° bends, and creek and pond shores both look jagged, "from the terrain". Fix the terrain
+cause, not only the creek.
+
+## Rules
+
+- **The shape rule lives in one place**, `js/maps/water-shape.js`. Course: `smoothCourse` (rounded
+  corners, `COURSE_RADIUS` 4 tiles), `rasterCourse` (a line to 4-connected tiles), `sharpBends(w)`
+  (turn over 3-tile chords above `COURSE_TURN` 70°; within two tiles of a junction it's a confluence,
+  not a bend), `steerCourse`/`finishCourse` (the creek tool). Shore: `shoreHeights`/`shapeShore`.
+  Anything that lays or re-routes a creek (flood trimming, session 6) calls these, never its own copy.
+- **Map creeks are laid as rounded polylines.** PNW's ditch is still a straightened ditch (it's the
+  farm's story) but its corners are 4-tile arcs; it still passes the culvert at (54, 75). Sumatra's
+  canal grid keeps its right-angle junctions (real peat canals; junctions are exempt).
+- **The creek tool steers** (`course: true` on the tool, ToolActions.paint): a head follows the
+  stroke 5 tiles behind it, turning no tighter than 4 tiles, so a corner in the stroke is cut round.
+  A stroke that turns back or ends inside the tightest turn stops short of the cursor. A stroke
+  starting at a creek's end carries on its heading (`creekEndHeading`); from mid-creek it's a
+  tributary and may leave at any angle.
+- **The shore pass** (`shoreHeights`): the water's tiles blurred (σ 0.9 tile), outline where it falls
+  to 0.35. A water tile's corner outside the outline (the outer corner of a step or bend: touched by
+  that one water tile only) is lifted at most 0.3 out of the water, never the only lowest corner of its
+  tile (that sets the tile's level), never a river's or a waterfall's, never one two water bodies share
+  (a creek feeding a pond, 0048), and no bed is ever lowered: **water levels, grading (0048) and falls
+  (0050) don't move**. The drawing paints such a tile as shore mud (`liftedCorner`, terrain.js), else
+  its exposed corner showed as a square tab of pond bed.
+- Levels are the full ones: a Hollis pond's never below its lowest corner plus `WATER_FILL`, so a bank
+  shaped in a dry August doesn't flood when the pond refills.
+- Corners that stay: a building's, a road's (the culvert crossing, the suburb's bridges), a dam's, a
+  culvert's, a boardwalk's, and a Fill & grade stroke's own tiles (its pad keeps its level). After an
+  edit only corners within 3 tiles of the stroke move (old saves change only where edited).
+  A land corner beside the water is set so the drawn waterline crosses each mesh edge where the outline
+  does: lowered (never under the water: bank 0.15 by ponds and marsh, 0.03 by creeks), raised at most
+  0.3 by ponds and marsh only (a creek's banks stay low: its floodplain is where a beaver pond and a
+  flood spread; raised, `beaver-dam-growth-check`'s pond never formed) and only where the land behind still drains (`drainsPast`, else a hollow: 0044), and lifted if
+  it stood under the water (after an edit even where that closes a hollow: the player's Lower dug it;
+  at generation not).
+- **It runs last in `generateHeights`** (every map, after drains, ponds, `creekDownhill`, falls) and at
+  the end of every land-tool stroke (`shapeShoreNear` in ToolActions.end, through `terrainEdit` with every
+  tile its own: the pass keeps its own rules). Undo puts the whole height grid back.
+- Old saves keep their heights (vh is saved) until edited nearby. Loading marks as player-dug any creek
+  tile the freshly generated map lacks, except `formerCreek` (the PNW ditch's square-cornered course,
+  kept by the generator), so an old farm's ditch is never re-graded as a dug creek.
+- Generated maps change (heights by the water on every map, PNW's ditch course): 0048's "generated
+  maps byte-for-byte unchanged" is about the edit path, not this; baselines that read the map (perf
+  guard, calibrate, the intro film's staging) are re-measured with the change.
+- Check: `node tools/water-shape-check.mjs [maps]` (no sharp bend on any map as generated; the drawn
+  waterline's share of points turning over 60° within a tile under each map's ceiling; a right-angle
+  creek stroke, a zigzag, a filled tile, a pond dug in steps and Lower beside a creek, through
+  ToolActions; no water tile's level moved). Also run `terrain-relief-check` (no hollows),
+  `terrain-edit-check`, `dug-creek-check`, `hollis-water-check`, `waterfall-check`.
+
+## History
+
+### Why the shores were jagged
+
+The ground is a grid of corner heights, 8 m apart, drawn as two triangles a tile, and water is a flat
+sheet per tile that the ground hides where it rises above it. A tile is either water (its corners
+carved down) or land, so the waterline ran along the tiles' edges: a pond's outline was a staircase
+of tile steps, a diagonal creek a zigzag, and a creek turning on the grid a right angle. Measured on
+the drawn waterline (ground meets water on the mesh's triangles, as `buildWater` draws it), 4-13% of
+every map's shore turned over 60° within a tile. The water shader's rounding (`vRound`) can only draw
+the water back by a few centimetres of depth, not round a step a tile wide.
+
+### What was tried
+
+- Lowering land corners only, to an outline of the blurred tiles: halved the sharp turns but left the
+  outer corner of every step standing in the water, so diagonals stayed notched.
+- Lifting those outer corners too (pass 1) fixed the notches. Raising banks up to 0.3 smoothed straight
+  reaches further (281 sharp turns on all maps against 718 before) but at first closed 157 small
+  hollows on the PNW behind raised banks; `drainsPast` keeps the raise only where the land behind still
+  drains, with no loss of smoothness.
+- The creek tool first held the head to a turn rate straight toward the cursor: a right-angle stroke
+  overshot 8 tiles and looped. Following a point 5 tiles ahead on the stroke (pure pursuit) cuts the
+  corner round instead.
+- After the review: creek banks are no longer raised (beaver ponds), only one water body's outer corners
+  are lifted, levels are the full ones. Measured share of the waterline turning over 60° within a tile,
+  before → after: pnw 7% → 1.2%, amazon 12% → 3.5%, serengeti 13% → 3.6%, atlanta 8% → 5.1%,
+  chinandega 9% → 8.0% (its crater lake and lagoon don't drain), sumatra 4% → 3.4%.
+- Fixtures that named the PNW ditch's old corner tile (54, 46) for a beaver dam now use (54, 48) on the
+  new curve. A dam on a diagonal reach can have its crest under its basin's lowest corner; an empty
+  basin's level is now never above its crest (`level`, hollis-water.js).
+- Considered and not done: a separate smooth creek mesh (a ribbon along a spline) in the drawing. It
+  would leave the land, the fish and the shore plants on the old staircase, and Cole asked for the
+  terrain cause. Smoothing below the tile size (sub-tile shore detail) would need a finer ground mesh.

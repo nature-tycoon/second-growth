@@ -54,7 +54,7 @@ export function createTools(catalog) {
     desc: 'Deep, open water for ducks, turtles, fish and beavers.', apply: dig(T.POND) });
   tool({ key: 'marsh', cat: 'land', name: 'Shallow marsh', cost: 35, icon: { terrain: T.MARSH },
     desc: 'Knee-deep water where cattails, frogs and herons thrive.', apply: dig(T.MARSH) });
-  tool({ key: 'creek', cat: 'land', name: 'Creek channel', cost: 45, icon: { terrain: T.CREEK }, size: 0,
+  tool({ key: 'creek', cat: 'land', name: 'Creek channel', cost: 45, icon: { terrain: T.CREEK }, size: 0, course: true,
     desc: 'Carve a flowing creek. Connect it to the river so fish can swim in. Try adding some bends.', apply: dig(T.CREEK) });
   tool({ key: 'fill', cat: 'land', name: 'Fill & grade', cost: 25, icon: { terrain: T.SOIL },
     desc: 'Grade the ground level at the height where you start, filling in water as loose bare soil. Roads and gravel stay (Demolish takes up roads and gravel people laid).',

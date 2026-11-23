@@ -19,7 +19,7 @@ const willows = g => { const w = g.world; for (let i = 0; i < w.n; i++) if (!isW
 const fill = (g, days = 30) => { g.weather = 'rain'; for (let k = 0; k < days; k++) g.water.step(g); };
 const pondTiles = (g, b) => b.cells.reduce((n, v) => n + (g.world.terrain[v.i] === T.POND ? 1 : 0), 0);
 const wetTiles = (g, b) => b.cells.reduce((n, v) => n + (g.world.terrain[v.i] === T.POND || g.world.terrain[v.i] === T.MARSH ? 1 : 0), 0);
-const GOOD = [54, 46]; // (a slow stretch of Hollis Farm's creek: a dam here makes a real pond)
+const GOOD = [60, 45]; // (a slow stretch of Hollis Farm's creek: a dam here makes a real pond)
 
 check('A dam backs up a distinct pond: open water in the middle, marsh at the edge, never past DAM_CELLS', () => {
   const g = farm(), w = g.world; g.wildlife.buildDam(w.idx(...GOOD), 1); fill(g);
@@ -134,7 +134,7 @@ check('Saves keep beaver meadows and wallows', () => {
 check('A dam spans the creek bank to bank and its pond stops at the lowest bank (cinema-creeks s5)', () => {
   // (a dam was one tile, its pond held along the whole dam line by an invisible wall: at 54,71 the
   // channel is 3 tiles wide and water stood beside the dam 0.3 levels over the ground below it)
-  const sites = [[54, 71], [54, 46], ...Array.from({ length: 12 }, (_, k) => null)];
+  const sites = [[54, 71], GOOD, ...Array.from({ length: 12 }, (_, k) => null)];
   const g0 = farm(), creek = []; for (let i = 0; i < g0.world.n; i += 11) if (g0.world.terrain[i] === T.CREEK) creek.push(i);
   let spans = 0, tested = 0;
   for (const s of [...sites.filter(Boolean).map(([x, y]) => g0.world.idx(x, y)), ...creek]) {
@@ -142,14 +142,18 @@ check('A dam spans the creek bank to bank and its pond stops at the lowest bank 
     const b = g.water.basins.find(b => b.kind === 'dam' && b.site === s); if (!b) continue;
     tested++;
     const L = g.water.level(b), n = w.n, blocked = new Set(b.dam.map(([a, c]) => a * n + c));
-    assert.ok(L <= b.crest + 1e-9, 'never over the crest');
+    assert.ok(L <= b.crest + 1e-9, `never over the crest at ${s % w.w},${(s / w.w) | 0}: ${L} > ${b.crest}`);
     // no way round the dam under its water (other basins as walls, as the rebuild has them)
     const occupied = new Uint8Array(n); for (const o of g.water.basins) if (o !== b) { for (const v of o.cells) occupied[v.i] = 1; for (const i of o.fringe || []) occupied[i] = 1; }
     const lk = g.water.leak(s, b.axis, b.crest, blocked, occupied);
     assert.equal(lk, null, `dam at ${s % w.w},${(s / w.w) | 0}: water gets round it at ${lk?.level?.toFixed(3)} under its crest ${b.crest.toFixed(3)}`);
     // the whole channel across: every creek tile along the dam line next to the site is dammed
-    const [ax, ay] = b.axis;
-    for (const dir of [1, -1]) for (let k = 1; ; k++) {
+    // (on a straight reach: on a bend of a creek laid in curves (0054) the tile beside the site along
+    // the dam line is the same creek coming round the bend, not the channel's far side)
+    const [ax, ay] = b.axis, sx = s % w.w, sy = (s / w.w) | 0;
+    const creekAt = (x, y) => w.inb(x, y) && g.water.base[w.idx(x, y)] === T.CREEK;
+    const bend = [[ay, -ax], [-ay, ax]].some(([dx, dy]) => creekAt(sx + dx, sy + dy) && !creekAt(sx + dx + ax, sy + dy + ay) && !creekAt(sx + dx - ax, sy + dy - ay));
+    if (!bend) for (const dir of [1, -1]) for (let k = 1; ; k++) {
       const x = s % w.w + ay * dir * k, y = ((s / w.w) | 0) - ax * dir * k;
       if (!w.inb(x, y) || g.water.base[w.idx(x, y)] !== T.CREEK) break;
       assert.ok(b.dam.some(e => e[0] === w.idx(x, y)), `creek tile ${x},${y} beside the dam is dammed`);

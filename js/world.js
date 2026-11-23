@@ -6,6 +6,7 @@ import { activeCatalog } from './data/catalog.js';
 import { mulberry32, hash2, valueNoise } from './rng.js';
 import { removeTree } from './sim/plants.js';
 import { fillPits, creekDownhill, creekFalls, tileDistance, smoothstep } from './maps/landform.js';
+import { smoothCourse, rasterCourse, shapeShore } from './maps/water-shape.js';
 import { WATER_FILL } from './sim/waterline.js';
 
 export const STRUCTURES = {
@@ -211,11 +212,15 @@ export function generateFarm(seed = 1987, catalog = activeCatalog) {
   rect(56, 74, 60, 76, i => { if (w.terrain[i] !== T.ROAD) { w.terrain[i] = T.GRAVEL; w.marks[i] |= LAID; } });
 
   // The drainage ditch: a straightened creek, runs from a spring in the north to the river.
-  const ditch = [];
-  for (let y = 1; y <= 45; y++) ditch.push([69, y]);
-  for (let x = 68; x >= 54; x--) ditch.push([x, 45]);
-  for (let y = 46; y < Hh; y++) ditch.push([54, y]);
+  // (dug with rounded corners, as a real ditch is: a creek never turns on the tile grid's right
+  // angles, 0054. It still passes the culvert at (54, 75))
+  const ditch = rasterCourse(smoothCourse([[69.5, 1.5], [69.5, 45.5], [54.5, 45.5], [54.5, Hh + 0.5]]));
+  // (the ditch as farms made before 0054 have it, with square corners: loading one doesn't take
+  // those tiles for creek the player dug, game.js)
+  w.formerCreek = new Set();
+  for (let y = 40; y <= 50; y++) for (let x = 50; x <= 74; x++) if ((x === 69 && y <= 45) || (y === 45 && x >= 54 && x <= 69) || (x === 54 && y >= 45)) w.formerCreek.add(w.idx(x, y));
   for (const [x, y] of ditch) {
+    if (!w.inb(x, y)) break;
     const i = w.idx(x, y);
     if (w.terrain[i] === T.RIVER) break;
     w.terrain[i] = T.CREEK;
@@ -405,6 +410,7 @@ export function generateHeights(w, fields, land = null) {
   }
   if (land?.drain) creekDownhill(w);
   if (land?.falls) creekFalls(w); // (after the creeks fall to the river: a fall gathers a steep reach's drop at one ledge)
+  shapeShore(w); // (last: the land at the water's edge follows a smooth waterline, not the tiles' steps, 0054)
   w.heightDirty = true;
 }
 

@@ -26,8 +26,9 @@ check('No game code outside map generation writes heights except through js/terr
   const root = new URL('../js/', import.meta.url), files = [];
   const walk = dir => { for (const e of readdirSync(new URL(dir, root), { withFileTypes: true })) e.isDirectory() ? walk(dir + e.name + '/') : e.name.endsWith('.js') && files.push(dir + e.name); };
   walk('');
-  // (map generation: world.js and each map's *-world.js and landform.js; drawing reads heights only)
-  const generation = f => f === 'world.js' || f === 'terrain-edit.js' || /^maps\/(landform|[a-z]+-world)\.js$/.test(f) || f.startsWith('render3d/');
+  // (map generation: world.js, each map's *-world.js, landform.js and water-shape.js's shapeShore (the
+  // player's edits reach it through terrainEdit); drawing reads heights only)
+  const generation = f => f === 'world.js' || f === 'terrain-edit.js' || /^maps\/(landform|water-shape|[a-z]+-world)\.js$/.test(f) || f.startsWith('render3d/');
   const writes = /setVert\(|\.carve\(|flattenRect\(|\bvh\[[^\]]+\]\s*[-+]?=[^=]|\bvh\.(set|fill)\(/;
   const bad = files.filter(f => !generation(f)).filter(f => readFileSync(new URL(f, root), 'utf8').split('\n').some(l => writes.test(l) && !/^\s*\/\//.test(l)));
   assert.deepEqual(bad, [], `height writes outside the edit path: ${bad.join(', ')}`);

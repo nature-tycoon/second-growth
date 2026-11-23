@@ -551,7 +551,8 @@ export class Game {
     // before the mark has it too; laid gravel already filled stays soil)
     for (let i = 0; i < w.n; i++) if ((fresh.marks[i] & LAID) && w.terrain[i] === T.GRAVEL) w.marks[i] |= LAID;
     // (creek the player dug: what the map as generated doesn't have. Graded again when next dug or joined)
-    for (let i = 0; i < w.n; i++) if (w.terrain[i] === T.CREEK && fresh.terrain[i] !== T.CREEK) w.dugBed[i] = Math.max(...w.corners(i % w.w, (i / w.w) | 0));
+    // (nor the map's own creek where it ran before it was laid in curves: fresh.formerCreek, 0054)
+    for (let i = 0; i < w.n; i++) if (w.terrain[i] === T.CREEK && fresh.terrain[i] !== T.CREEK && !fresh.formerCreek?.has(i)) w.dugBed[i] = Math.max(...w.corners(i % w.w, (i / w.w) | 0));
     for (const [k, Type] of Object.entries(EXTRA_ARRAYS)) {
       const a = data.world.arrays[k];
       if (a?.b) {

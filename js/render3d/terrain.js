@@ -19,6 +19,23 @@ import { PALETTES, paletteLeafColor, pastureColor } from './palettes.js';
 import { WATER_FILL } from '../sim/waterline.js';
 import { FALL_MIN } from '../maps/landform.js';
 
+// Does a water tile have a corner the shore pass lifted out of its water (0054): one above the tile's
+// fill line that no other water tile touches? (A steep creek's high side is shared with the creek above.)
+function liftedCorner(w, x, y, t) {
+  const L = Math.min(w.vert(x, y), w.vert(x + 1, y), w.vert(x + 1, y + 1), w.vert(x, y + 1)) + WATER_FILL[t] + 0.02;
+  for (const [dx, dy] of [[0, 0], [1, 0], [1, 1], [0, 1]]) {
+    const vx = x + dx, vy = y + dy;
+    if (w.vert(vx, vy) <= L) continue;
+    let others = 0;
+    for (const [ox, oy] of [[0, 0], [-1, 0], [0, -1], [-1, -1]]) {
+      const tx = vx + ox, ty = vy + oy;
+      if ((tx !== x || ty !== y) && w.inb(tx, ty) && isWater(w.terrain[w.idx(tx, ty)])) others++;
+    }
+    if (!others) return true;
+  }
+  return false;
+}
+
 // Grass, soil and water colours come from the world’s map catalog.
 
 const lin = v => v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
@@ -310,9 +327,14 @@ export class Terrain {
       // kind of ground: gravel is crusted hardpan on Serengeti, sand where the map says so, and stones
       // elsewhere (the reef's rubble too)
       let bare = t === T.SOIL || t === T.MUD || t === T.FIELD || t === T.GRAVEL ? 1 : 0;
-      const mud = t === T.MUD, def = game.catalog.definition;
+      // (a water tile whose outer corner stands out of the water, where the shore cuts across it
+      // (0054): its bed shows there, so it's drawn as the wet mud of a shore, not a square of pond bed)
+      const shore = inside && isWater(t) && t !== T.RIVER && liftedCorner(w, x, y, t);
+      const mud = t === T.MUD || shore, def = game.catalog.definition;
+      if (shore) bare = 1;
       const kind = t !== T.GRAVEL || (def.hardpan && !def.sandBed) ? 255 : def.look.sand ? 150 : 200; // (earth, sand, stones)
-      if (t === T.MARSH) { tex = S.TURF; c = [0.52, 0.58, 0.42]; }
+      if (shore) { tex = S.TURF; c = def.look.mud; }
+      else if (t === T.MARSH) { tex = S.TURF; c = [0.52, 0.58, 0.42]; }
       else if (t === T.TRAIL && game.catalog.definition.sandBed) { tex = S.TURF; c = pastureColor(game.catalog.definition.id, season, game.catalog.definition.look.pasture[season]).map(v => v * 1.04); } // (a snorkel trail is just marked with buoys over the sand)
       // pond beds share the marsh's soft texture (just darker), so the two blend at their edges
       else if (t === T.POND) { tex = S.TURF; c = [0.4, 0.44, 0.34]; }

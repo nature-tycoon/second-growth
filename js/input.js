@@ -427,7 +427,11 @@ export class Input {
     this.stroke = null; this.hoverKey = null;
     document.body.classList.remove('painting');
     if (!s) return;
+    const before = s.changed.length, w = this.game.world;
     this.ui.actions.end(s);
+    // (a creek runs on to the stroke's end as it finishes: 0054)
+    // (and the shores near the stroke are shaped again, which moves corners round it)
+    for (const i of [...s.changed.slice(before), ...(s.shaped || [])]) this.r.markTileDirty(i % w.w, Math.floor(i / w.w));
   }
 
   inspectAt(t) {

@@ -57,6 +57,8 @@ are still proposals. 2026-11-14, ideas batch water-fixes, session 2.
   with one hint pointing to Demolish; **Demolish takes up roads and gravel people laid** (`LAID`) to bare
   soil (15 a tile; the suburb's streets stay). Check: `tool-actions-check` (level per map, creek bed
   untouched, filled pond tile dry, gravel lots, roads).
+- After every land-tool stroke the shores it reached are shaped again (`shapeShoreNear`, 0054): land
+  corners at the edge and the outer corners of water tiles, never a bed or a tile's level.
 - Before building phase 3, read "Proposed model" below. A new tool or event that changes heights calls
   `terrainEdit` with the tiles it shapes; it never gets its own copy of the owner rules.
 
