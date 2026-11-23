@@ -986,7 +986,7 @@ export class Renderer {
   refreshWorld(game, swapped, now) {
     const w = this.world;
     let surface = false, flora = false;
-    if (w.hv !== this.terrain.hv) { this.terrain.updateHeights(); surface = flora = true; }
+    if (w.hv !== this.terrain.hv) { this.terrain.updateHeights(); surface = flora = true; this.previewKey = null; } // (the brush preview sits on the new ground too)
     this.frameN = (this.frameN || 0) + 1;
     if (game.day !== this.lastDay) { this.lastDay = game.day; this.dayDirty = this.frameN; flora = true; this.terrain.refreshWater(); this.terrain.refreshFlood(); }
     else if (game.dayRun && this.dayDirty) this.dayDirty = this.frameN; // (and wait while the day is still being worked through: Game.update)
@@ -1253,8 +1253,10 @@ export class Renderer {
   updateOverlay(game, ui, now) {
     const mode = ui.clean ? 'none' : ui.overlay || 'none';
     if (mode === 'none') { if (this.overlayMode !== 'none') this.terrain.setOverlay(null); this.overlayMode = 'none'; return; }
-    if (mode === this.overlayMode && ui.overlaySpecies === this.overlaySpecies && ui.densitySpecies === this.densitySpecies && now - this.overlayAt < 800) return;
-    this.overlayMode = mode; this.overlaySpecies = ui.overlaySpecies; this.densitySpecies = ui.densitySpecies; this.overlayAt = now;
+    // (elevation colours come from the ground's heights, so they're redone as soon as it's reshaped)
+    const reshaped = mode === 'elevation' && this.overlayHv !== game.world.hv;
+    if (!reshaped && mode === this.overlayMode && ui.overlaySpecies === this.overlaySpecies && ui.densitySpecies === this.densitySpecies && now - this.overlayAt < 800) return;
+    this.overlayMode = mode; this.overlaySpecies = ui.overlaySpecies; this.densitySpecies = ui.densitySpecies; this.overlayAt = now; this.overlayHv = game.world.hv;
     const w = game.world, out = new Float32Array(w.n * 4);
     const suit = mode === 'species' && ui.overlaySpecies != null ? game.wildlife.suit[ui.overlaySpecies] : null;
     let hmin = Infinity, hmax = -Infinity;

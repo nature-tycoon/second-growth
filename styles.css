@@ -381,10 +381,16 @@ button:focus-visible, select:focus-visible, .tool-card:focus-visible { outline: 
 .info-actions button.primary:hover { filter: brightness(1.08); }
 
 /* ---------------- legend */
-#legend { right: var(--ui-edge); bottom: 202px; padding: 12px 16px; font-size: 12px; z-index: 7; max-width: 300px; }
-#legend .row { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
-#legend .grad { height: 10px; border-radius: 5px; width: 180px; margin: 4px 0; }
-#legend .ends { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); width: 180px; }
+#legend { right: var(--ui-edge); bottom: 202px; padding: 10px 14px 12px; font-size: 13px; z-index: 7; width: 230px; max-width: 300px; box-sizing: border-box; }
+#legend .lg-head { display: flex; align-items: center; gap: 8px; margin: -2px -6px 6px 0; }
+#legend .lg-head b { flex: 1; font-size: 14px; line-height: 1.25; }
+#legend .lg-off { flex: none; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line); background: var(--paper-2); color: var(--ink-2); font-size: 16px; line-height: 1; padding: 0; cursor: pointer; }
+#legend .lg-off:hover { background: var(--paper-3); }
+#legend .lg-note { font-size: 12px; line-height: 1.4; color: var(--ink-2); margin-top: 8px; }
+#legend .row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+#legend .chip { width: 14px; height: 14px; }
+#legend .grad { height: 12px; border-radius: 6px; width: 100%; margin: 4px 0 3px; }
+#legend .ends { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--muted); width: 100%; }
 
 /* ---------------- minimap */
 #minimap-wrap { right: var(--ui-edge); bottom: var(--ui-edge); padding: 8px; z-index: 7; }
@@ -567,6 +573,9 @@ body.menu-effects-off .toast { background: rgba(28, 38, 30, 0.86); -webkit-backd
 .menu-more summary { cursor: pointer; color: var(--ink-2); font-size: 13px; font-weight: 700; padding: 6px 4px; }
 .menu-more[open] summary { margin-bottom: 8px; }
 .modal.narrow:has(.menu-groups) { width: min(760px, calc(100vw - 40px)); }
+/* the map overlay picker: "No overlay" across the top, then the overlays by group */
+.overlay-pick .overlay-off { display: block; width: 100%; text-align: left; padding: 10px 16px; font-size: 15px; border-radius: 16px; margin-bottom: 6px; }
+.modal:has(.overlay-pick) { width: min(760px, calc(100vw - 40px)); }
 
 ::-webkit-scrollbar { width: 9px; }
 ::-webkit-scrollbar-thumb { background: var(--paper-3); border-radius: 6px; }
@@ -785,7 +794,7 @@ html.upright-ok #rotate-hint { display: none; }
   #toasts { width: min(340px, 44vw); bottom: 6px; }
   .toast { font-size: 12px; padding: 7px 10px; }
   #toasts .toast:nth-child(n+3) { display: none; }
-  #legend { bottom: 52px; right: calc(60px + env(safe-area-inset-right)); max-width: 220px; }
+  #legend { bottom: 52px; right: calc(60px + env(safe-area-inset-right)); width: 210px; max-width: 220px; padding: 8px 12px 10px; }
   #minimap-wrap { right: calc(6px + env(safe-area-inset-right)); bottom: 6px; }
   #minimap-wrap:not(.collapsed) canvas { width: 180px; height: 135px; }
   #view-ctrls { right: calc(6px + env(safe-area-inset-right)); bottom: 190px; padding: 4px; gap: 2px; } /* (a row: a column would run up under the top bar) */
@@ -1376,4 +1385,6 @@ body.moment-on #joystick, body.moment-on #view-ctrls, body.moment-on #toolpanel,
   .menu-list button { padding: 8px 12px; font-size: 14px; }
   .menu-list button small { font-size: 12px; }
   .menu-group .section-title { margin: 2px 0 6px; }
+  .overlay-pick .overlay-off { padding: 7px 12px; font-size: 14px; margin-bottom: 2px; }
+  .overlay-pick .menu-list button small { display: none; } /* (short screens: the names alone, so all eleven fit) */
 }

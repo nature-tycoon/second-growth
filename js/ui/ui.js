@@ -115,6 +115,15 @@ const PILL = {
   follow: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="4.8" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="1.6" fill="currentColor"/></svg>',
 };
 
+// The map overlays, grouped as the picker and the top bar's dropdown show them, each with a one-line hint.
+const OVERLAY_GROUPS = [
+  ['Land', [['habitat', 'Habitat types', 'What grows where'], ['elevation', 'Elevation', 'Hollows hold water, rises stay dry'],
+    ['moisture', 'Moisture', 'Wet and dry ground'], ['soil', 'Soil health', 'Worn out to rich'], ['light', 'Sunlight', 'Shade under the trees']]],
+  ['Water', [['flood', 'Flood risk', 'Where floodwater reaches'], ['fish', 'Fish passage', 'Water fish can reach, and how clean']]],
+  ['Wildlife', [['animals', 'Where animals are', 'Every animal, right now'], ['species', 'Species habitat', 'Where one species could live'],
+    ['disturb', 'Visitor disturbance', 'Busy trails scare shy animals']]],
+];
+
 export class UI {
   constructor(game, renderer) {
     this.game = game;
@@ -318,6 +327,7 @@ export class UI {
     $('#btn-overlay').addEventListener('click', () => this.openOverlayPicker()); // (phones, and narrow top bars: the menu as a button)
     // "Where animals are": a legend row shows just that species (tap it again for every animal)
     $('#legend').addEventListener('click', e => {
+      if (e.target.closest('[data-overlay-off]')) { this.setOverlay('none'); return; }
       const row = e.target.closest('[data-density]');
       if (!row) return;
       const sp = row.dataset.density === '' ? null : +row.dataset.density;
@@ -985,6 +995,7 @@ export class UI {
     if (mode === 'none') { lg.classList.add('hidden'); return; }
     lg.classList.remove('hidden');
     const grad = (cols, a, b) => `<div class="grad" style="background:linear-gradient(90deg,${cols.join(',')})"></div><div class="ends"><span>${a}</span><span>${b}</span></div>`;
+    const note = t => `<div class="lg-note">${t}</div>`;
     let html = '';
     if (mode === 'habitat') {
       const counts = this.game.world.stats.counts || [];
@@ -994,16 +1005,17 @@ export class UI {
     else if (mode === 'soil') html = '<b>Soil health</b>' + grad(['#c8b89a', '#8a6a3a', '#3a2614'], 'worn out', 'rich');
     else if (mode === 'light') html = '<b>Sunlight at ground level</b>' + grad(['#1c2a3a', '#6a8a6a', '#f2e08a'], 'deep shade', 'full sun');
     else if (mode === 'elevation') html = '<b>Elevation</b>' + grad(['#2f6a5a', '#c8c07a', '#f4f0e8'], 'low (wetter)', 'high (drier)');
-    else if (mode === 'disturb') html = '<b>Visitor disturbance</b>' + grad(['#f2e08a', '#e0843a', '#b8302a'], 'a little', 'a lot') + '<div class="small" style="margin-top:4px">Shy species avoid busy trails. Screening shrubs and viewing blinds help.</div>';
-    else if (mode === 'flood') html = '<b>Flood risk</b><div class="row"><span class="chip" style="background:#1f6bf2"></span>Underwater right now</div><div class="row"><span class="chip" style="background:#3380d9"></span>Floods most winters</div><div class="row"><span class="chip" style="background:#8cc7f2"></span>Only in a big flood</div><div class="small" style="margin-top:4px">Marshes, ponds and beaver dams soak up floodwater and shrink these zones.</div>';
+    else if (mode === 'disturb') html = '<b>Visitor disturbance</b>' + grad(['#f2e08a', '#e0843a', '#b8302a'], 'a little', 'a lot') + note('Shy species avoid busy trails. Screening shrubs and viewing blinds help.');
+    else if (mode === 'flood') html = '<b>Flood risk</b><div class="row"><span class="chip" style="background:#1f6bf2"></span>Underwater right now</div><div class="row"><span class="chip" style="background:#3380d9"></span>Floods most winters</div><div class="row"><span class="chip" style="background:#8cc7f2"></span>Only in a big flood</div>' + note('Marshes, ponds and beaver dams soak up floodwater and shrink these zones.');
     else if (mode === 'fish') html = '<b>Fish passage</b><div class="row"><span class="chip" style="background:#c83c32"></span>Cut off from the river</div>' + grad(['#d88a4a', '#e8d86a', '#5ad0a0'], 'connected, poor', 'connected, clean & shaded');
     else if (mode === 'animals') html = this.animalsLegendHTML();
     else if (mode === 'species') {
       const def = this.game.catalog.animals[this.state.overlaySpecies];
-      html = `<b>Where ${many(def)} could live</b>` + grad(['#c8584a', '#e8c85a', '#4ac86a'], 'poor', 'ideal') + `<div class="small" style="margin-top:4px">${def.hint}</div>`;
+      html = `<b>Where ${many(def)} could live</b>` + grad(['#c8584a', '#e8c85a', '#4ac86a'], 'poor', 'ideal') + note(def.hint);
     }
     const list = lg.querySelector('.density-list'), top = list ? list.scrollTop : 0;
-    lg.innerHTML = html;
+    // (the first bold line is the title, set beside a × that turns the overlay off)
+    lg.innerHTML = html.replace(/^<b>(.*?)<\/b>/, '<div class="lg-head"><b>$1</b><button class="lg-off" data-overlay-off title="Turn the overlay off">×</button></div>');
     if (list) { const l2 = lg.querySelector('.density-list'); if (l2) l2.scrollTop = top; }
   }
   // Each species on the map: its minimap colour, how many there are, and the change over the past year
@@ -1241,8 +1253,12 @@ export class UI {
 
   // The overlay menu as a list (on a phone, or wherever the top bar has no room for the dropdown)
   openOverlayPicker() {
-    const opts = [...$('#overlay').options].map(o => [o.value, o.value === 'none' ? 'No overlay' : o.textContent]);
-    const m = this.modal('Map overlay', `<div class="menu-list">${opts.map(([v, t]) => `<button class="btn ${v === this.state.overlay ? '' : 'secondary'}" data-v="${v}">${t}</button>`).join('')}</div>`, { narrow: true });
+    const cur = this.state.overlay;
+    const label = (v, t) => v === 'species' ? $('#overlay option[value="species"]').textContent : t;
+    const item = ([v, t, hint]) => `<button class="btn ${v === cur ? '' : 'secondary'}" data-v="${v}"><b>${label(v, t)}</b><small>${hint}</small></button>`;
+    const m = this.modal('Map overlay', `<div class="overlay-pick">
+      <button class="btn ${cur === 'none' ? '' : 'secondary'} overlay-off" data-v="none"><b>No overlay</b></button>
+      <div class="menu-groups">${OVERLAY_GROUPS.map(([g, list]) => `<div class="menu-group"><div class="section-title">${g}</div><div class="menu-list">${list.map(item).join('')}</div></div>`).join('')}</div></div>`, {});
     m.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', () => { this.setOverlay(b.dataset.v); this.closeModal(); }));
   }
 

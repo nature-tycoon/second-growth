@@ -238,7 +238,22 @@ export class Terrain {
     this.buildSkirt();
     this.buildLine();
     this.buildWater();
-    if (this.overlay) { this.scene.remove(this.overlay); this.overlay.geometry.dispose(); this.overlay = null; }
+    this.liftOverlay();
+  }
+
+  // Reshaped ground moves the overlay with it, in place: the mesh, its colours and whether it shows
+  // all stay, so an overlay that's on stays on through a Raise or Lower drag. (It was thrown away
+  // here and only made again on the scene's next overlay refresh, up to 800 ms later, so it blinked
+  // off after every stroke.) Same vertex order as quadMesh.
+  liftOverlay() {
+    const o = this.overlay;
+    if (!o) return;
+    const w = this.world, pos = o.geometry.attributes.position.array;
+    let k = 1;
+    for (let y = 0; y < w.h; y++) for (let x = 0; x < w.w; x++)
+      for (const [vx, vy] of [[x, y], [x + 1, y + 1], [x + 1, y], [x, y], [x, y + 1], [x + 1, y + 1]]) { pos[k] = this.h(vx, vy) + 0.03; k += 3; }
+    o.geometry.attributes.position.needsUpdate = true;
+    o.geometry.computeBoundingSphere();
   }
 
   // Textures and colors: what's on each tile this season.
