@@ -454,3 +454,61 @@ export function shapeShore(w) {
   if (out.length) { w.heightDirty = true; w.hv = (w.hv || 0) + 1; }
   return out.length / 3;
 }
+
+// ---------------------------------------------------------------- beyond the north fence
+
+// The starting creek carried on through the drawn land beyond the farm's north edge, so it's seen to
+// come from somewhere (Cole, 2026-11-22). Drawing only: `course(y)` is the map's own creek line
+// (`northCreek` in its definition) for y < 0; the tiles between course(y) and course(y + 1) become
+// creek, as the map's own loops lay it. The bed is carved only at vertices north of row 0 (the
+// farm's corners and the simulation never move), falling toward the farm at least BED_FALL a row,
+// so the water runs downhill into it (0044). Its targets come from bank corners the carve never
+// touches, so running it again (every load: an old save's border is carved the same) changes nothing.
+// Returns the rows where the land falls northward faster than the bed could (0 on every map now).
+const BED_DEPTH = 0.6, BED_FALL = 0.02;
+// The creek's tiles on row y < 0 beyond the fence, [lo, hi], as outsideCreek lays them: between
+// course(y) and course(y + 1), and on the row by the fence as wide as the creek coming under it (a
+// two-tile creek at row 0 doesn't narrow to one past the fence). Null where it isn't carried on.
+export function northCreekSpan(w, course, y) {
+  if (!course) return null;
+  const c0 = course(0);
+  if (w.terrain[w.idx(c0, 0)] !== T.CREEK) return null;
+  const a = course(y), b = course(y + 1);
+  let lo = Math.min(a, b), hi = Math.max(a, b);
+  if (y === -1) {
+    // (and as far as the row beyond reaches: a bank tile on the inside of a bend by the fence carried
+    // the higher water upstream onto the farm's own corners, and drew a fall at the fence)
+    lo = Math.min(lo, course(-2)); hi = Math.max(hi, course(-2));
+    while (lo > 0 && w.terrain[w.idx(lo - 1, 0)] === T.CREEK && lo - 1 >= c0 - 2) lo--;
+    for (let x = c0; x < w.w - 1 && x < c0 + 2 && w.terrain[w.idx(x + 1, 0)] === T.CREEK; x++) hi = Math.max(hi, x + 1);
+  }
+  return [lo, hi];
+}
+export function outsideCreek(w, border, course, B) {
+  // (only where the creek still reaches the fence: an old PNW farm's ditch began a row in, at a spring,
+  // and keeps it; a creek the player filled at the fence isn't carried on past it on the next load)
+  if (!northCreekSpan(w, course, -1)) return 0;
+  let uphill = 0, moved = false;
+  const span = y => northCreekSpan(w, course, y);
+  for (let y = -B; y < 0; y++) {
+    const [lo, hi] = span(y);
+    for (let x = lo; x <= hi; x++) {
+      const bi = border.bi(x, y);
+      if (bi < 0 || border.terrain[bi] === T.RIVER || border.terrain[bi] === T.ROAD) continue;
+      border.terrain[bi] = T.CREEK;
+      border.tree[bi] = border.shrub[bi] = border.ground[bi] = 0; border.treeG[bi] = 0;
+    }
+  }
+  const c0 = course(0);
+  let prev = Math.min(w.vert(c0, 0), w.vert(c0 + 1, 0)); // (the creek's bed as it comes under the fence)
+  for (let vy = -1; vy >= -B; vy--) {
+    const [a0, a1] = span(vy - 1), [b0, b1] = span(vy), lo = Math.min(a0, b0), hi = Math.max(a1, b1) + 1;
+    const bank = Math.min(w.vert(lo - 1, vy), w.vert(hi + 1, vy));
+    let bed = Math.max(bank - BED_DEPTH, prev + BED_FALL);
+    if (bed > bank - 0.15) uphill++;
+    for (let x = lo; x <= hi; x++) if (w.vert(x, vy) > bed) { w.setVert(x, vy, bed); moved = true; }
+    prev = bed;
+  }
+  if (moved) { w.heightDirty = true; w.hv = (w.hv || 0) + 1; }
+  return uphill;
+}

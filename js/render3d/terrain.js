@@ -552,6 +552,10 @@ export class Terrain {
     const wc = this.catalog.definition.look.water;
     const COL = { [T.POND]: wc.pond, [T.CREEK]: wc.creek, [T.RIVER]: wc.river, [T.MARSH]: wc.marsh };
     const level = new Float32Array(TW * TH).fill(NaN), kind = new Uint8Array(TW * TH), wet = new Uint8Array(TW * TH);
+    // (the water model runs a dry summer on the farm, not beyond it: where the starting creek is dry at
+    // the fence, the stretch drawn beyond it, outsideCreek, is too)
+    const nc = this.catalog.definition.northCreek, ni = nc ? w.idx(nc(0), 0) : -1;
+    const outsideDry = ni >= 0 && !!w.waterManaged?.[ni] && !Number.isFinite(w.waterLevel[ni]);
     for (let ty = 0; ty < TH; ty++) for (let tx = 0; tx < TW; tx++) {
       const x = tx + X0, y = ty + Y0, t = this.terrainAt(x, y);
       const i = w.inb(x, y) ? w.idx(x, y) : -1, k = ty * TW + tx;
@@ -560,6 +564,7 @@ export class Terrain {
         level[k] = w.waterLevel[i]; kind[k] = isWater(t) ? t : T.MARSH; wet[k] = 1;
       } else {
         if (!isWater(t)) continue;
+        if (outsideDry && t === T.CREEK && y < 0) continue; // (the creek beyond the fence runs dry with the ditch it feeds)
         level[k] = Math.min(...w.corners(x, y)) + FILL[t]; kind[k] = t; wet[k] = 1;
       }
     }
@@ -865,6 +870,7 @@ export class Terrain {
     // a strip: its lip's two ends [x, z, level] (a), the points under them at its foot (b), and how it falls
     for (const k of tiles) if (wet[k] && tileDrop[k] >= FALL_MIN) {
       const x = (k % TW) + X0, y = Math.floor(k / TW) + Y0;
+      if (!w.inb(x, y)) continue; // (the creek beyond the fence, outsideCreek, comes down the foothills as white cascade water, not a ledge a tile)
       const c = [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]], L = c.map(([vx, vy]) => vLevel(vx, vy));
       // the lip: the tile's edge with the highest water; the foot the edge opposite it
       let lip = 0, best = -Infinity;

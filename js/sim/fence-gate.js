@@ -14,6 +14,7 @@ import { passable } from './animal-terrain.js';
 import { facePoint } from './animal-positioning.js';
 import { simRandom } from './sim-random.js';
 import { travelSpeed } from './climb-pace.js';
+import { northCreekSpan } from '../maps/water-shape.js';
 
 const REACH = 4;          // how far along the fence (tiles) a waiting animal notices a gap
 const OUT = [1.15, 1.85]; // how far beyond the edge it stands (leaving animals are removed past 2)
@@ -23,6 +24,14 @@ const HOLD_MAX = 90;      // a first visit's opening holds them while its prompt
 const edgeTile = (w, edge, k) => edge === 'N' ? w.idx(k, 0) : edge === 'E' ? w.idx(w.w - 1, k) : w.idx(0, k);
 const inward = edge => edge === 'N' ? [0, 1] : edge === 'E' ? [-1, 0] : [1, 0];
 
+// A spot beyond the north fence moved sideways onto the nearer bank if the starting creek, carried on
+// past the fence there (northCreek, outsideCreek), runs under it: a waiting deer stood on its bed.
+function offCreek(w, x, y) {
+  const s = northCreekSpan(w, w.catalog.definition.northCreek, Math.floor(y));
+  if (!s || x < s[0] - 0.3 || x > s[1] + 1.3) return x;
+  return x - s[0] < s[1] + 1 - x ? s[0] - 0.4 : s[1] + 1.4;
+}
+
 // Stand a group of n just beyond edge tile `at` (column for N, row for E and W). Returns the animals.
 export function waitAtFence(wl, def, n, edge, at) {
   const w = wl.game.world, out = [], [ix, iy] = inward(edge);
@@ -30,7 +39,7 @@ export function waitAtFence(wl, def, n, edge, at) {
   for (let k = 0; k < n; k++) {
     const a = wl.spawn(def, edge === 'N' ? at : edge === 'E' ? w.w - 1 : 0, edge === 'N' ? 0 : at, { outside: true });
     const along = (k - (n - 1) / 2) * 0.9 + (simRandom() - 0.5) * 0.4, back = OUT[0] + simRandom() * (OUT[1] - OUT[0]);
-    if (edge === 'N') { a.x = at + 0.5 + along; a.y = -back; }
+    if (edge === 'N') { a.x = offCreek(w, at + 0.5 + along, -back); a.y = -back; }
     else if (edge === 'E') { a.x = w.w + back; a.y = at + 0.5 + along; }
     else { a.x = -back; a.y = at + 0.5 + along; }
     a.leaving = true; a.state = 'idle'; a.wait = 1e9; a.path = null;

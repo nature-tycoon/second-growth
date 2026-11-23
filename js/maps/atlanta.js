@@ -6,7 +6,7 @@
 
 import buildAtlantaPlants from '../data/plants-atlanta.js';
 import buildAtlantaAnimals from '../data/animals-atlanta.js';
-import { generateSubdivision, atlantaBorderCell } from './atlanta-world.js';
+import { generateSubdivision, atlantaBorderCell, creekX } from './atlanta-world.js';
 import { FIRST_GOAL, PNW_GOALS, pop, speciesPresent } from '../sim/goals.js';
 import { isBlooming } from '../data/plants.js';
 import { plantSuit } from '../sim/plants.js';
@@ -356,6 +356,7 @@ export default {
   generate: generateSubdivision,
   stones: 0.03, // the odds loosening the soil turns up stones on a tile (0035): Piedmont clay with quartz and granite rubble
   borderCell: atlantaBorderCell,
+  northCreek: creekX, // (its creek carried on through the drawn land beyond the north fence, outsideCreek)
   stats: suburbStats,
   // trees and shrubs don't seed themselves into established meadows and gardens here
   meadowsHold: true,

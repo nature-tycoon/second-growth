@@ -60,8 +60,23 @@ cause, not only the creek.
   the whole height grid back). Loading marks dug creek only where the fresh map has none, so a cut
   through an old save's ground the fresh map has as creek loads as the map's own (not graded again,
   never lowered): accepted. Check: `node tools/creek-cutoff-check.mjs`.
+- **The starting creek runs on beyond the north fence** (2026-11-22, ideas batch creeks-fps session 9;
+  drawing only): a map's `northCreek(y)` (its creek's own line, y < 0) is laid into the drawn border
+  by `outsideCreek` at the end of the `Border` constructor (every new game and every load), at the
+  creek's full width by the fence (`northCreekSpan`, which the sim also reads: waiting deer stand on a
+  bank, not its bed, `offCreek` in fence-gate.js). It carves **only vertices north of row 0** (the farm
+  and the simulation never move), its bed falling toward the farm at least 0.02 a row, from bank corners
+  it never touches, so running it again moves nothing. It's skipped where the creek no longer reaches
+  row 0 (an old PNW farm, whose ditch began a row in, keeps it; a creek the player filled at the fence).
+  It draws dry while the Hollis model has the fence tile dry. Its corners aren't recarved after a
+  stroke at row 0 until the next load: accepted. PNW's course swings west at once to keep the intro
+  film's stage (x 67-71, rows -6 to -1) dry; move the film's marks and `PNW_NORTH` (world.js) together.
+  PNW's ditch now starts at row 0 under a water-gap fence (`F.FENCE` on the creek tile), so the north
+  fence stays whole for 0053. Reef: no creek, no `northCreek`. Steep land draws a sloped sheet (each
+  water corner takes its highest neighbour's level), on PNW 2.5 levels a row by the fence.
 - Check: `node tools/water-shape-check.mjs [maps]` (no sharp bend on any map as generated; the drawn
-  waterline's share of points turning over 60° within a tile under each map's ceiling; a right-angle
+  waterline's share of points turning over 60° within a tile under each map's ceiling; the creek
+  beyond the north fence, full width, falling, carved again unchanged; a right-angle
   creek stroke, a zigzag, a filled tile, a pond dug in steps and Lower beside a creek, through
   ToolActions; no water tile's level moved). Also run `terrain-relief-check` (no hollows),
   `terrain-edit-check`, `dug-creek-check`, `hollis-water-check`, `waterfall-check`.

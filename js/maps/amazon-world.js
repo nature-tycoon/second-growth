@@ -10,7 +10,7 @@ import { activeCatalog } from '../data/catalog.js';
 import { mulberry32, hash2, valueNoise } from '../rng.js';
 
 // the igarapé, winding down from the terra firme to the river
-const creekX = y => Math.round(52 + Math.sin(y / 9) * 6 + Math.sin(y / 23 + 1) * 4);
+export const creekX = y => Math.round(52 + Math.sin(y / 9) * 6 + Math.sin(y / 23 + 1) * 4);
 
 export function generateRanch(seed = 2024, catalog = activeCatalog) {
   const w = new World(undefined, undefined, catalog);

@@ -3,7 +3,7 @@
 
 import buildSerengetiPlants from '../data/plants-serengeti.js';
 import buildSerengetiAnimals from '../data/animals-serengeti.js';
-import { generateRange, serengetiBorderCell } from './serengeti-world.js';
+import { generateRange, serengetiBorderCell, luggaX } from './serengeti-world.js';
 import { FIRST_GOAL, PNW_GOALS, perimeterFence, culvertExists, pop, speciesPresent } from '../sim/goals.js';
 
 
@@ -109,6 +109,7 @@ export default {
   generate: generateRange,
   stones: 0.03, // the odds loosening the soil turns up stones on a tile (0035): granite grit and kopje boulders under the crust
   borderCell: serengetiBorderCell,
+  northCreek: luggaX, // (its creek carried on through the drawn land beyond the north fence, outsideCreek)
   startWildlife: [['warthog', 3, 50, 44, 4], ['gazelle', 5, 56, 20, 5], ['tortoise', 2, 40, 58, 4], ['monitor', 1, 56, 52, 2],
     ['catfish', 5, 58, 52, 2], ['weaver', 4, 50, 40, 3], ['dungbeetle', 3, 52, 46, 3]],
   startText: 'The long rains have started, Year 1. A few warthogs and gazelles pick at what grass is left, and the park\'s tall grass waves just across the fence to the north.',

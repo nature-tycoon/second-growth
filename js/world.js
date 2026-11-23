@@ -6,7 +6,7 @@ import { activeCatalog } from './data/catalog.js';
 import { mulberry32, hash2, valueNoise } from './rng.js';
 import { removeTree } from './sim/plants.js';
 import { fillPits, creekDownhill, creekFalls, tileDistance, smoothstep } from './maps/landform.js';
-import { smoothCourse, rasterCourse, shapeShore } from './maps/water-shape.js';
+import { smoothCourse, rasterCourse, shapeShore, outsideCreek } from './maps/water-shape.js';
 import { WATER_FILL } from './sim/waterline.js';
 
 export const STRUCTURES = {
@@ -214,7 +214,8 @@ export function generateFarm(seed = 1987, catalog = activeCatalog) {
   // The drainage ditch: a straightened creek, runs from a spring in the north to the river.
   // (dug with rounded corners, as a real ditch is: a creek never turns on the tile grid's right
   // angles, 0054. It still passes the culvert at (54, 75))
-  const ditch = rasterCourse(smoothCourse([[69.5, 1.5], [69.5, 45.5], [54.5, 45.5], [54.5, Hh + 0.5]]));
+  // It comes in from the old forest under the north fence (2026-11-22: it began a row in, at a spring)
+  const ditch = rasterCourse(smoothCourse([[69.5, 0.5], [69.5, 45.5], [54.5, 45.5], [54.5, Hh + 0.5]]));
   // (the ditch as farms made before 0054 have it, with square corners: loading one doesn't take
   // those tiles for creek the player dug, game.js)
   w.formerCreek = new Set();
@@ -254,6 +255,7 @@ export function generateFarm(seed = 1987, catalog = activeCatalog) {
     w.feature[i] = F.FENCE;
   };
   for (let x = 0; x < W; x++) fence(x, 0);
+  w.feature[w.idx(pnwNorthCreek(0), 0)] = F.FENCE; // (a water-gap fence hung across the ditch: the north fence stays whole, as before, 0053)
   for (let y = 0; y < Hh - 9; y++) fence(W - 1, y);
   for (let y = 0; y < Hh - 9; y++) fence(0, y);
   const fenceRect = (x0, y0, x1, y1, gap) => {
@@ -431,6 +433,14 @@ function pondGroups(w, tiles) {
 
 // ---------------------------------------------------------------- Surroundings (render only)
 
+// The ditch's course beyond the north fence (drawn only, outsideCreek), by rows north of the fence:
+// a forest creek coming down from the north-west into the ditch. It swings west at once so the intro
+// film's stage, the salmonberry opening at x 69 where the buck browses and the cougar creeps
+// (tools/intro-film-plan.mjs ANIMALS, x 67-71, rows -6 to -1), stays dry ground: two tiles clear of the
+// cougar's ferns. It turns 45° at most, gentler than 0054's limit.
+const PNW_NORTH = [69, 69, 68, 67, 66, 65, 65, 64, 64, 64, 65, 65, 66, 66, 67];
+export const pnwNorthCreek = y => PNW_NORTH[Math.min(PNW_NORTH.length - 1, Math.max(0, -y))];
+
 // Hollis farm surroundings: conifer forest north and east, fields and blackberry west, the river south.
 export function pnwBorderCell(x, y, r, r2, world) {
   let t = T.DUFF, tree = 0, g = 0, shrub = 0, ground = 0;
@@ -505,6 +515,9 @@ export class Border {
       const c = cell(x, y, hash2(x, y, 41), hash2(x, y, 43), world);
       this.terrain[i] = c.t; this.tree[i] = c.tree || 0; this.treeG[i] = c.g || 0; this.shrub[i] = c.shrub || 0; this.ground[i] = c.ground || 0;
     }
+    // the starting creek runs on beyond the north fence (drawing only: its bed is carved north of row 0)
+    const course = world.catalog?.definition?.northCreek;
+    if (course) outsideCreek(world, this, course, B);
   }
   bi(x, y) {
     const bx = x + BORDER, by = y + BORDER;
