@@ -26,7 +26,7 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
   try {
     await b.send('Page.enable');
     await b.send('Network.enable');
-    await b.send('Network.setBlockedURLs', { urls: ['*posthog.com*'] });
+    await b.send('Network.setBlockedURLs', { urls: ['*posthog.com*', '*t.secondgrowth.earth*'] });
     await b.send('Page.addScriptToEvaluateOnNewDocument', { source: settings });
     await b.navigate('/?ph');
     await b.waitFor(booted, 'Game boot');

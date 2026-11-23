@@ -12,7 +12,7 @@ const ev = async expression => {
 try {
   await b.send('Page.enable');
   await b.send('Network.enable');
-  await b.send('Network.setBlockedURLs', { urls: ['*posthog.com*'] });
+  await b.send('Network.setBlockedURLs', { urls: ['*posthog.com*', '*t.secondgrowth.earth*'] });
   await b.send('Page.addScriptToEvaluateOnNewDocument', { source: `
     window.policyViolations=[];
     document.addEventListener('securitypolicyviolation', e=>window.policyViolations.push({directive:e.effectiveDirective,uri:e.blockedURI}));
@@ -45,7 +45,7 @@ try {
   assert.ok(await ev('document.querySelector("#loading-tip").textContent.length>0'), 'Hashed loading script runs');
   await b.waitFor('!!document.querySelector("#loading-retry:not(.hidden)")||(!!window.secondGrowth&&!document.querySelector("#loading-screen:not(.done)"))', 'Game boots with CSP');
   assert.ok(await ev('!!window.secondGrowth&&!document.querySelector("#loading-retry:not(.hidden)")'), 'No game startup failure');
-  assert.equal(await ev('!!document.querySelector("script[src*=posthog]")'), false, 'Opt-out keeps SDK absent');
+  assert.equal(await ev('!!document.querySelector("script[src*=\x27t.secondgrowth.earth/static/array.js\x27]")'), false, 'Opt-out keeps SDK absent');
   // (a first visit goes straight into Free Play; with a saved farm, the chooser comes first)
   await ev('document.querySelector("[data-m=free]")?.click()');
   await b.waitFor('window.secondGrowth.game.saveReady&&!window.secondGrowth.ui.modalOpen');
@@ -81,7 +81,7 @@ try {
   // The optional SDK's origin is permitted by CSP, but network-blocked in this test.
   const count = await ev('window.policyViolations.length');
   await ev(`(async()=>{history.replaceState(null,'','?ph');const a=await import('./js/analytics.js');a.setAnalyticsEnabled(true);a.setAnalyticsEnabled(false)})()`);
-  await b.waitFor('!!document.querySelector("script[src*=posthog]")');
+  await b.waitFor('!!document.querySelector("script[src*=\x27t.secondgrowth.earth/static/array.js\x27]")');
   assert.equal(await ev('window.policyViolations.length'), count, 'Optional SDK origin is allowed');
   console.log('PASS real CSP enforcement; homepage/gallery; game boot, inline hashes, UI styles, thumbnails, local saves, canvas export, audio, fullscreen, opt-out and optional SDK origin. External analytics blocked throughout.');
 } catch (error) {

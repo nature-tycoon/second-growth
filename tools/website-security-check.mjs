@@ -35,11 +35,11 @@ for (const path of ['index.html', 'website/index.html', 'website/visuals.html'])
   }
   assert.deepEqual(scripts.filter(value => value.startsWith("'sha256-")), expectedHashes, `${path}: no unused inline-script permissions`);
   const remoteScripts = scripts.filter(value => value.startsWith('https:'));
-  assert.deepEqual(remoteScripts, site ? ['https://www.googletagmanager.com'] : ['https://us-assets.i.posthog.com']);
+  assert.deepEqual(remoteScripts, site ? ['https://www.googletagmanager.com'] : ['https://t.secondgrowth.earth']);
   // (the homepage also reads its own quotes.json for the ratings block, and it and the game reach the Worker: BACKEND_URL, docs/backend-setup.md)
   const home = path === 'website/index.html';
   assert.deepEqual(directives.get('connect-src'), site
     ? [...(home ? ["'self'"] : []), 'https://*.google-analytics.com', 'https://*.analytics.google.com', 'https://*.googletagmanager.com', ...(home ? [BACKEND] : [])]
-    : ["'self'", 'https://us.i.posthog.com', 'https://us-assets.i.posthog.com', BACKEND]);
+    : ["'self'", 'https://t.secondgrowth.earth', BACKEND]);
 }
 console.log('PASS early CSP/referrer coverage, exact game inline hashes, narrow script/network allowlists, blocked inline handlers, frames, objects, forms and workers.');
