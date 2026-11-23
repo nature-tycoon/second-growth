@@ -12,7 +12,9 @@ Read `fps` against `target_fps`, the frame cap the game allowed itself (30 on to
 
 From then on `renderer_revision`, and the `release` property on every event, is the release: the commit date and short hash (`2026-10-25-abc1234`), written into `js/release.js` by `tools/stamp-release.sh` in the deploy workflows. Local copies read `dev`. Earlier samples carry hand-set labels (`low-end-1`, then `plant-view-cache-1` from 2026-10-14 until this change).
 
-Also look at `auto_quality` (its `reason`: `graphics_chip` or `slow` for a step down to Fast, `room` for a step back up, `undo` when a step up proved too much), `setting_changed` and `tool_used` (tool, tiles). Device details come from `$os`, `$browser` and `$screen_width`.
+`triangles` and `draw_calls` before the 2026-11-22 frame-rate change (idea batch creeks-fps, session 7) are unreliable: three.js reset its counters in each render call, so the lens and tree-card passes after the main view left many samples at 0 triangles and 1–10 draws. From then on they count the whole frame.
+
+Also look at `auto_quality` (its `reason`: `graphics_chip` or `slow` for a step down to Fast, `room` for a step back up, `undo` when a step up proved too much; from 2026-11-22 also `work_ms` and `gpu_ms`, the slower frames' processor and GPU time that decided it, and on a step up `capped`, true when the frame rate was held to 30 and the step was judged by that work, plus `base_dpr`; see `Renderer.autoQuality` and [fps-plan](ideas/2026-11-22-creeks-fps/fps-plan.md)), `setting_changed` and `tool_used` (tool, tiles). Device details come from `$os`, `$browser` and `$screen_width`.
 
 ## Why players stop
 

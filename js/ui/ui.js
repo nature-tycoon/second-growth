@@ -241,8 +241,10 @@ export class UI {
     document.body.classList.toggle('menu-effects-off', settings.quality === 'fast');
     // the renderer asks for a lighter Detail level when this computer can't keep up, and a
     // sharper one again once it has had room for a while (see Renderer.autoQuality)
-    this.renderer.onQuality ??= (quality, fps, reason) => {
-      track('auto_quality', { from: settings.quality, to: quality, fps, reason });
+    this.renderer.onQuality ??= (quality, fps, reason, measured = {}) => {
+      // (measured: the slower frames' processor and GPU ms that decided it, and on a step up whether
+      // the frame rate was held to 30: see Renderer.autoQuality)
+      track('auto_quality', { from: settings.quality, to: quality, fps, reason, ...measured });
       const name = { high: 'Sharp', balanced: 'Balanced', fast: 'Fast' }[quality];
       settings.quality = quality; settings.autoQualityAt = Date.now();
       if (quality === 'fast') settings.slowFps = fps;

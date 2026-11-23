@@ -135,6 +135,10 @@ export class Renderer {
     this.dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer });
     this.gl.debug.checkShaderErrors = CHECK_SHADERS;
+    // (the frame's triangle and draw counts add up every pass drawn in it, reset at the top of draw:
+    // three.js resets them in each render call, so the lens's and tree-card passes after the main
+    // view left perf_sample reading 0 triangles and 1-10 draws)
+    this.gl.info.autoReset = false;
     // (submit: the gl.render call alone, part of render. The rest of render is getting the frame
     // ready, plants above all, so a slow laptop shows which side of the hand-off holds it up.)
     this.cpuPerf = new FrameCpuStats([...CPU_STAGES, 'submit']);
@@ -362,35 +366,51 @@ export class Renderer {
   // - Each step up is on trial for two minutes: slow spells in that time put it straight back,
   //   and it doesn't try again for a day. (Running slow later in the session, after a step up,
   //   drops it to Fast as usual and counts as a failed try too.)
-  // A frame rate held to 30 (Auto on battery, or the setting) never shows room, so it stays put.
+  // - A frame rate held to 30 (Auto on a laptop running on battery, or the setting) can't show 50, so there room is judged by the work itself: the slower frames' processor work and
+  //   the GPU's time both within 16 ms, half the 33 ms a frame has at 30, for the same minute.
+  //   Without a GPU timer (Safari) that can't be judged, so it stays put.
+  // - On a screen of 1.5 pixels a point or less Sharp and Balanced draw the same picture, so the
+  //   step up from Fast goes straight to Sharp there.
+  // (Goal, Cole 2026-11-22: as many players as possible at a sharp 30 frames a second;
+  // docs/ideas/2026-11-22-creeks-fps/fps-plan.md.)
   autoQuality(game) {
     if (TOUCH || !this.onQuality || this.qualityChosen) return;
     const now = performance.now(), A = this.qWin;
     this.qStart ??= now;
-    if (!A || now - A.last > 3000) { this.qWin = { t0: now, last: now, gaps: [] }; return; }
+    const timer = this.gpuTimer;
+    if (!A || now - A.last > 3000) { this.qWin = { t0: now, last: now, gaps: [] }; this.qWork = []; if (timer) timer.recent = []; return; }
     A.gaps.push(now - A.last); A.last = now;
     if (now - A.t0 < 3000) return;
     this.qWin = { t0: now, last: now, gaps: [] };
+    const work = this.qWork || [], gpu = timer?.ext ? timer.recent : [];
+    this.qWork = []; if (timer) timer.recent = [];
     if (now - this.qStart < 8000) return;
     const g = A.gaps.sort((a, b) => a - b), fps = 1000 / Math.max(1, g[Math.floor(g.length * 0.75)]);
+    const p75 = v => v.length ? [...v].sort((a, b) => a - b)[Math.floor(v.length * 0.75)] : null;
+    const workMs = p75(work), gpuMs = p75(gpu);
+    this.qLast = { work_ms: workMs == null ? null : +workMs.toFixed(1), gpu_ms: gpuMs == null ? null : +gpuMs.toFixed(1) };
     const trial = this.qTrial;
     if (trial) {
       this.qBad = fps < 26 ? (this.qBad || 0) + 1 : 0;
-      if (this.qBad >= 3) { this.qTrial = null; this.qBad = 0; this.qStart = null; this.onQuality(trial.from, Math.round(fps), 'undo'); }
+      if (this.qBad >= 3) { this.qTrial = null; this.qBad = 0; this.qStart = null; this.onQuality(trial.from, Math.round(fps), 'undo', this.qLast); }
       else if (now - trial.at > 120000) this.qTrial = null;
       return;
     }
     this.qSlow = fps < 20 && this.quality !== 'fast' ? (this.qSlow || 0) + 1 : 0;
-    if (this.qSlow >= 3) { this.qSlow = 0; this.qGood = 0; this.qStart = null; this.onQuality('fast', Math.round(fps), this.qRaised ? 'undo' : 'slow'); return; }
-    const up = { fast: 'balanced', balanced: 'high' }[this.quality];
-    const room = up && game?.speed > 0 && fps >= 50 && this.resScale >= 0.999 && !this.shadowsDropped;
+    if (this.qSlow >= 3) { this.qSlow = 0; this.qGood = 0; this.qStart = null; this.onQuality('fast', Math.round(fps), this.qRaised ? 'undo' : 'slow', this.qLast); return; }
+    const flat = (window.devicePixelRatio || 1) <= 1.5;
+    const up = { fast: flat ? 'high' : 'balanced', balanced: 'high' }[this.quality];
+    const capped = (this.frameCap?.().target_fps ?? 60) <= 30;
+    // (held to 30 and keeping up, with both sides of the frame done in half the time it has)
+    const roomy = fps >= 50 || (capped && fps >= 27 && workMs != null && gpuMs != null && Math.max(workMs, gpuMs) <= 16);
+    const room = up && game?.speed > 0 && roomy && this.resScale >= 0.999 && !this.shadowsDropped;
     this.qGood = room ? (this.qGood || 0) + 1 : 0;
     const wall = Date.now();
     if (this.qGood >= 20 && wall - (this.qualityAt || 0) >= 180000 && wall - (this.upFailedAt || 0) >= 86400000) {
       this.qGood = 0; this.qStart = null;
       this.qTrial = { from: this.quality, at: now };
       this.qRaised = true;
-      this.onQuality(up, Math.round(fps), 'room');
+      this.onQuality(up, Math.round(fps), 'room', { ...this.qLast, capped, base_dpr: window.devicePixelRatio || 1 });
     }
   }
   setRes(sc) {
@@ -953,6 +973,8 @@ export class Renderer {
     if (document.hidden) { this.cpuSkipNext = true; return; }
     if (this.cpuSkipNext) { this.cpuSkipNext = false; return; }
     this.cpuPerf.record({ timings: { ...sample.timings, submit: this.submitMs ?? 0 } });
+    // (each frame's processor work, for autoQuality's step-up test on a frame rate held to 30)
+    if (this.qWork && this.qWork.length < 600 && sample.work >= 0) this.qWork.push(sample.work);
   }
   // How smoothly the game has been drawing since the last sample, and with what: for the analytics,
   // so we can see how real phones cope. reset = false peeks without starting a new window.
@@ -1055,6 +1077,7 @@ export class Renderer {
       const ms = t - P.last; P.last = t;
       if (!document.hidden && ms > 0) { P.frames++; P.time += ms; if (ms > 34) P.slow++; } // (slower than 30 fps; a hidden tab's gap doesn't count, and a laptop's long stalls do)
     }
+    this.gl.info.reset(); // (see the constructor: one count for the whole frame)
     if (dt > 0) { this.autoResolution(); this.autoQuality(game); }
     const swapped = game.world !== this.world; // (a new world, or then-and-now's day-one farm: paint it all this frame)
     if (swapped) this.setWorld(game);
