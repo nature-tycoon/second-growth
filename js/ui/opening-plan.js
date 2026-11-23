@@ -5,12 +5,13 @@
 //   'pull'   every invasive shrub (or tree) on the farm (PNW: Himalayan blackberry). All of them, not
 //            just the creek's: in a seeded run, pulling only the banks let the stands left elsewhere
 //            seed them again, and the banks' blackberry grew 51 → 129 tiles in ten years (all pulled: 0–4).
-//   'trees'  the cheapest tree mix (PNW: pioneer trees, alder and cottonwood first) two tiles either
-//            side of the whole creek.
-//   'meadow' the first groundcover mix (PNW: upland meadow) on a 12 × 9 patch of open field beside the
-//            planting, clear of the trees' band; the player can drag it on instead.
-// A step that would leave under RESERVE is skipped. On PNW the three come to about $4,400 of the
-// $30,000 start (after the fence and culvert, about $20,000 is left).
+//   'trees'  the cheapest tree mix (PNW: pioneer trees, alder and cottonwood first) put in the player's
+//            hand, and a band two tiles either side of the creek's stretch by the site highlighted;
+//            the player drags along it until TREES have gone in (`need`; `path` is the hint's line).
+//   'meadow' the first groundcover mix (PNW: upland meadow) in hand and a 12 × 9 patch of open field
+//            beside the planting highlighted, clear of the trees' band, until MEADOW plants are in.
+// The planting steps are the player's own strokes (Cole, 2026-11-22: they learn the brush); only the
+// pull is a button. A step that would leave under RESERVE is skipped.
 
 import { F, T, isWater } from '../config.js';
 import { toolCost } from '../tools.js';
@@ -18,6 +19,26 @@ import { toolCost } from '../tools.js';
 export const STEPS = ['pull', 'trees', 'meadow'];
 const RESERVE = 5000;          // a guided step is skipped if it would leave less than this
 const BANK = 2;                // trees go this many tiles either side of the creek
+const REACH = 16;              // the highlighted stretch of creek: this many tiles either way of the site
+export const TREES = 40;       // trees the player plants in that stretch to finish the step (three or four strokes;
+                               // fewer left too few standing after ten years: 20 → as few as 13, 30 → as few as 6; 40 → 21–25)
+export const MEADOW = 30;      // meadow plants sown in the patch to finish it (a stroke or two)
+
+const nearOne = (w, i, set, r) => {
+  const x = i % w.w, y = Math.floor(i / w.w);
+  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (w.inb(x + dx, y + dy) && set.has(w.idx(x + dx, y + dy))) return true;
+  return false;
+};
+
+// Tiles' centres in order along their longer side (a creek's reach, a patch's middle row): the drag hint's path.
+function line(w, tiles) {
+  const xs = tiles.map(i => i % w.w), ys = tiles.map(i => Math.floor(i / w.w));
+  const along = Math.max(...xs) - Math.min(...xs) >= Math.max(...ys) - Math.min(...ys) ? 'x' : 'y';
+  const mid = along === 'x' ? (Math.min(...ys) + Math.max(...ys)) / 2 : (Math.min(...xs) + Math.max(...xs)) / 2;
+  const by = new Map();
+  tiles.forEach((i, k) => { const a = along === 'x' ? xs[k] : ys[k], c = along === 'x' ? ys[k] : xs[k]; if (!by.has(a) || Math.abs(c - mid) < Math.abs(by.get(a) - mid)) by.set(a, c); });
+  return [...by].sort((p, q) => p[0] - q[0]).map(([a, c]) => along === 'x' ? { x: a + 0.5, y: c + 0.5 } : { x: c + 0.5, y: a + 0.5 });
+}
 
 // The middle of the 16-tile square holding the most of these tiles (also the time-lapse's subject,
 // ui/watch.js: a creek's whole length of planting doesn't fit in one picture).
@@ -74,26 +95,28 @@ export function stepPlan(g, k, isOpen = () => true, site = null, touch = false) 
       text: `${name} has the creek banks, and birds spread its seeds. First, pull out every stand on the farm.` };
   }
   if (k === 'trees') {
+    // a stretch of both banks either side of the site, highlighted: the player drags along it until
+    // TREES of the mix have gone in (a few strokes), with the creek's line for the drag hint
     const mix = Object.values(tools).filter(t => t.cat === 'plants' && t.sub === 'mixes' && t.layer === 2 && isOpen(t.key)).sort((a, b) => a.cost - b.cost)[0];
     if (!mix || !creek.length) return null;
-    const tiles = bank(BANK).filter(i => !w.tree[i]);
-    if (!tiles.length) return null;
-    site ||= densest(w, tiles);
-    // (about what a stroke places: one tile in four or so, where they'll grow)
-    const cost = Math.round(tiles.length * density(g, mix) * mix.cost * 0.92 / 50) * 50;
+    site ||= densest(w, bank(BANK));
+    const reach = creek.filter(c => Math.max(Math.abs(c % w.w - site.x), Math.abs(Math.floor(c / w.w) - site.y)) <= REACH);
+    if (reach.length < 6) return null;
+    const near = new Set(reach), band = bank(BANK).filter(i => !w.tree[i] && nearOne(w, i, near, BANK));
+    const cost = Math.round(TREES * mix.cost / 50) * 50;
     if (!left(cost)) return null;
-    return { tool: mix.key, tiles, cost, site, about: true, label: 'Plant trees along the creek',
-      text: `The banks are bare. Trees along the creek shade the water and hold the banks: ${mix.name.toLowerCase()} go in first.` };
+    return { tool: mix.key, tiles: band, need: TREES, path: line(w, reach), cost, site, about: true,
+      text: `The banks are bare. Trees shade the creek and hold its banks: ${mix.name.toLowerCase()} are in your hand. ${touch ? 'Drag a finger' : 'Drag'} along the creek where it glows.` };
   }
   if (k === 'meadow') {
     const mix = Object.values(tools).find(t => t.cat === 'plants' && t.sub === 'mixes' && t.layer === 0 && isOpen(t.key));
     if (!mix) return null;
     const tiles = meadowPatch(w, usable, site);
-    if (tiles.length < 20) return null;
-    const cost = Math.round(tiles.length * density(g, mix) * mix.cost / 10) * 10;
+    if (tiles.length < 40) return null;
+    const cost = Math.round(MEADOW * mix.cost / 10) * 10;
     if (!left(cost)) return null;
-    return { tool: mix.key, tiles, cost, site, about: true, select: true, label: 'Sow it here',
-      text: `Last, a meadow beside them. The ${mix.name.toLowerCase()} is ready: ${touch ? 'drag a finger' : 'drag'} across the field to sow it.` };
+    return { tool: mix.key, tiles, need: MEADOW, path: line(w, tiles), cost, site, about: true,
+      text: `Last, a meadow beside them. The ${mix.name.toLowerCase()} is in your hand: ${touch ? 'drag a finger' : 'drag'} across the glowing patch to sow it.` };
   }
   return null;
 }

@@ -1,4 +1,4 @@
-// The first visit's guided planting and time-lapse in real Chrome (GPU on), measured: how long the
+// The first visit's guided planting (strokes along each step's line) and time-lapse in real Chrome (GPU on), measured: how long the
 // lapse takes, its frame rate, game days a second, and how fast the ground moves across the screen
 // (against the film's map-pan limit, 0.35 widths a second, and its 40°/s turn limit), with an optional
 // CPU slowdown. Not a pass/fail check: numbers for docs/ideas/2026-11-21-first-minutes/timelapse-2.md.
@@ -24,10 +24,16 @@ try {
   await b.waitFor(has('/^Pull it out/'), 'culvert prompt', 90000);
   await b.evaluate(click('/^Pull it out/'));
   const steps = {};
-  for (const [k, re] of [['pull', '/^Pull out the/'], ['trees', '/^Plant trees along/'], ['meadow', '/^Sow it here/']]) {
-    await b.waitFor(has(re), k + ' prompt', 20000);
+  await b.waitFor(has('/^Pull out the/'), 'pull prompt', 20000);
+  await new Promise(r => setTimeout(r, 1500));
+  steps.pull = await b.evaluate(`(()=>{ const g=window.secondGrowth.game, m=g.money; ${click('/^Pull out the/')}; return { cost: Math.round(m-g.money), money: Math.round(g.money) }; })()`);
+  // the trees and the meadow: strokes along the guide's line until each step is done (first-minutes-browser-check drives real drags)
+  for (const k of ['trees', 'meadow']) {
+    await b.waitFor(`window.secondGrowth.ui.state.guide?.step==='${k}'`, k + ' step', 20000);
     await new Promise(r => setTimeout(r, 1500));
-    steps[k] = await b.evaluate(`(()=>{ const g=window.secondGrowth.game, m=g.money; ${click(re)}; return { cost: Math.round(m-g.money), money: Math.round(g.money), text: [...document.querySelectorAll('#toasts .toast-text')].map(t=>t.textContent)[0] }; })()`);
+    steps[k] = await b.evaluate(`(()=>{ const {game:g,ui}=window.secondGrowth, m=g.money; let n=0;
+      while (ui.state.guide?.step==='${k}' && n<20) { const G=ui.state.guide, s=ui.actions.begin(ui.state.tool); for (const p of G.path.slice((n*8)%G.path.length, (n*8)%G.path.length+8)) ui.actions.paint(s, Math.floor(p.x), Math.floor(p.y), s.tool.size); ui.actions.end(s); n++; }
+      return { strokes: n, cost: Math.round(m-g.money), money: Math.round(g.money) }; })()`);
   }
   if (cpu > 1) await b.send('Emulation.setCPUThrottlingRate', { rate: cpu });
   // per-frame samples from the page while the lapse runs

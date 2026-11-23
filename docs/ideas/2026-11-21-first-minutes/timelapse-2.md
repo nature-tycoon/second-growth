@@ -87,6 +87,59 @@ passes at 812×375 and 1280×800. Also passing: `opening-lapse-check`, `play-ana
 `motion-sweep-check` (movement code is unchanged; the lapse only steps it in 0.1-day steps, as
 headless runs do).
 
+## Follow-up: the trees and the meadow are dragged (Cole's answer to question 3)
+
+Cole's call: the player plants the trees and the meadow themselves, to learn the brush. Pulling the
+blackberry stays a button.
+
+- **Trees**: the pioneer-tree mix is put in the player's hand and the Plant panel opens. A soft,
+  pulsing band glows on both banks of a 33-tile stretch of the creek (`render3d/guide.js`, drawn on
+  the effects layer over the land). The prompt keeps a count ("12 of 40"). Only plants landing in
+  the glowing tiles count. The step is done at **40 trees**, about three or four strokes.
+- **Meadow**: the same, on a 12 × 9 patch beside the trees, done at **30 plants** (one stroke or two).
+- **No planting buttons any more.** After **20 s without a stroke**, a fingertip slides along the
+  glowing ground, trailing the stroke it draws, and repeats until the next stroke. It works the same
+  for mouse and touch.
+- Each step centres the camera on its own glowing ground and zooms out until all of it fits. At
+  812×375 the creek's stretch didn't fit at first: the strokes that reached it stalled at 39 of 40,
+  and the meadow patch was off screen.
+- `opening_step { step, how, seconds }`: `how` is `drag` for the trees and meadow, `button` (or
+  `hand`) for the pull, `skipped` for ×.
+
+**The payoff with a player who does only what's asked** (`opening-lapse-check`, rewritten): the pull
+by its button, then strokes along the hint's line, stopping the moment each count is met. Then ten
+years as the time-lapse steps them, run seeds 5/7/11:
+
+| trees to finish | strokes | trees standing on the planted stretch after 10 years |
+|---|---|---|
+| 20 | 2 | 13–26 (the whole creek) |
+| 30 | 2–3 | **6**–17 |
+| **40 (chosen)** | 3–4 | **21–25**, growth 0.66–0.85 (median 22, 0.70) |
+
+Creek blackberry 51 → **0–8** (median 2). Farm-wide 271 → 248–443. Money left about **$21,000**.
+Fewer trees than 40 left too few standing to read as success. About half the saplings die over ten
+years: the deer that walked in browse them (decision 0033). I raised the count; the ecology is
+unchanged. The check now judges the planted stretch (the one the time-lapse looks at): at least 20
+trees standing, growth past 0.6.
+
+Real drags in `first-minutes-browser-check`, touch at 812×375 and the mouse at 1280×800: the trees
+took 2 strokes and 1, the meadow 1 and 1, and the hint shows after 20 s. Both sizes pass, and so do
+`opening-lapse-check` and `play-analytics-browser-check`. The time-lapse itself is unchanged, so its
+numbers above stand.
+
+While testing, a headless Chrome left over from another session (`second-growth-dbg` profile, about
+5 h old) was using 5–9 cores and made two runs time out at the opening's hawk-and-crows wait. Cole
+had me stop it.
+
+### Open questions (follow-up)
+
+6. **40 trees is three or four strokes on desktop, two with a finger at phone zoom.** My
+   recommendation: keep it. It's the lowest count that reliably leaves 20 or more trees standing
+   after ten years.
+7. **Saplings are browsed by the deer the opening lets in.** Tree guards (shelters) would be the
+   real-world answer, and a lovely next tool for the creek step. My recommendation: a later session,
+   since it's a new tool with its own sim rule.
+
 ## Open questions for Cole
 
 1. **On a slow laptop (CPU x4) the lapse stops at 45 s with about five and a half years, and the
@@ -96,7 +149,7 @@ headless runs do).
    Pulling only the creek let it come back worse than it started. My recommendation: keep it. It's
    real restoration practice (clear the seed sources first), and money is still about $19,800 after
    all the steps.
-3. **The three steps are buttons, and only the meadow asks the player to drag.** My recommendation:
+3. *(Answered by Cole: the trees and the meadow are now dragged; see the follow-up above.)* **The three steps are buttons, and only the meadow asks the player to drag.** My recommendation:
    keep the buttons for speed, and watch `opening_step { how }`. If most players press "Sow it here"
    rather than drag, the brush isn't being learned, and the meadow could require the drag.
 4. **"Watch 10 years" from the Menu now uses the same fast lapse, animals hidden.** My

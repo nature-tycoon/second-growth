@@ -2,6 +2,7 @@
 // A transparent 2D canvas on top carries weather, sparkles and labels.
 
 import { easeAnimalTarget, followHeight } from './animal-camera.js';
+import { drawGuide } from './guide.js';
 import { EyeCamera, EYE_FAR, EYE_FOG_NEAR, WATER_FAR } from './eye-camera.js';
 import { EyeSky } from './eye-sky.js';
 import { Lightning } from './lightning.js';
@@ -1329,6 +1330,9 @@ export class Renderer {
     this.ambience.drawWorld(ctx, this, game, dt, bx0, bx1, bz0, bz1);
     this.drawTrails(ctx, game, dt);
     this.drawNight(ctx, game, dt, bx0, bx1, bz0, bz1);
+
+    // the opening's planting guide: the ground to plant, and a finger when the player is stuck (guide.js)
+    if (ui.guide && !ui.clean) drawGuide(ctx, this, game, ui.guide, [bx0, bx1, bz0, bz1]);
 
     // brush ring
     if (ui.hover && ui.previewTiles && !ui.clean) {

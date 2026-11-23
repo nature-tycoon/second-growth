@@ -6,8 +6,9 @@
 // refused building says where it fits. The opening (session 3): the view starts at the boundary fence
 // with deer waiting beyond it, one click tears the fence out and they walk onto the field within
 // ~10 s, one button follows one at eye level (session 4), then one click pulls the road culvert,
-// then three guided planting steps, one button each (blackberry out, trees along the creek, a meadow
-// sown; timelapse-2), and a few seconds later the time-lapse plays on its own: past the top speed on
+// then the guided planting (timelapse-2): blackberry out by one button, then real drags (touch at phone
+// size, the mouse on desktop) along the glowing creek bank and meadow patch until each count is met,
+// with the drag hint after 20 s stuck, and a few seconds later the time-lapse plays on its own: past the top speed on
 // its own clock, no animals drawn, the camera over the planting, then a newcomer at normal speed and
 // one line (from the menu it ends on any key, or when money runs low: session 4). A hawk and a party
 // of crows are in that first picture (session 5). A player with a saved farm gets the short start menu (session 9). FIRST_MINUTES_SHOTS=<dir> also saves screenshots of the sown strip.
@@ -105,22 +106,59 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
     await b.evaluate(act('/^Pull out the blackberry/'));
     const inv1 = await b.evaluate(inv);
     assert.ok(inv0 > 50 && inv1 === 0, `one click pulls every invasive shrub on the farm (${inv0} → ${inv1})`);
-    await b.waitFor(`[...document.querySelectorAll('#toasts .toast-act')].some(x=>/^Plant trees along the creek/.test(x.textContent))`, 'the trees prompt', 8000);
-    const bankTrees = `(()=>{ const g=window.secondGrowth.game, w=g.world; let n=0; for(let i=w.w;i<w.n;i++){ if(!w.tree[i]) continue; const x=i%w.w,y=(i/w.w)|0; let c=false; for(let dy=-2;dy<=2;dy++) for(let dx=-2;dx<=2;dx++) if(w.inb(x+dx,y+dy)&&w.terrain[w.idx(x+dx,y+dy)]===7) c=true; if(c) n++; } return n; })()`;
-    const trees0 = await b.evaluate(bankTrees);
-    await b.evaluate(act('/^Plant trees along the creek/'));
-    const trees1 = await b.evaluate(bankTrees);
-    assert.ok(trees1 - trees0 >= 50, `one click plants trees along the creek (${trees0} → ${trees1})`);
-    await b.waitFor(`[...document.querySelectorAll('#toasts .toast-act')].some(x=>/^Sow it here/.test(x.textContent))`, 'the meadow prompt', 8000);
-    const meadow = await b.evaluate(`(()=>{ const {game:g,ui}=window.secondGrowth, tool=ui.state.tool, panel=!document.getElementById('toolpanel').classList.contains('hidden');
-      const p0=g.stats.planted, d0=g.day; ${act('/^Sow it here/')};
-      window.sprout=null; const t=setInterval(()=>{ if(g.goalsDone.sprout){ window.sprout=g.day-d0; clearInterval(t); } },20);
-      return { tool, panel, planted:g.stats.planted-p0 }; })()`);
-    assert.equal(meadow.tool, 'mix_meadow', 'the meadow step has the meadow mix chosen, to drag');
-    assert.ok(meadow.panel, 'with the Plant panel open');
-    assert.ok(meadow.planted >= 20, `one click sows a meadow patch (${meadow.planted})`);
+    // the trees and the meadow are the player's own strokes (Cole, 2026-11-22): the mix in hand, the
+    // ground to plant glowing, a count toward done; real drags here, a finger at phone size, the mouse on desktop
+    const touch = width < 1000;
+    const guideNow = `(()=>{ const {ui}=window.secondGrowth, G=ui.state.guide; return G ? { step:G.step, need:G.need, got:G.got, n:G.list.length, tool:ui.state.tool,
+      panel:!document.getElementById('toolpanel').classList.contains('hidden'), text:ui.opening.prompt?.querySelector('.toast-text')?.textContent||'',
+      button:!!ui.opening.prompt?.querySelector('.toast-act') } : null; })()`;
+    // one stroke along the visible part of the guide's line, as a finger or the mouse does it
+    let lastPts = 0;
+    const dragAlong = async () => {
+      const pts = await b.evaluate(`(()=>{ const {ui,renderer:R}=window.secondGrowth, G=ui.state.guide; if(!G) return [];
+        const cv=R.canvas, rc=cv.getBoundingClientRect();
+        return G.path.map(p=>{ const q=R.project(p.x,R.heightAtScene(p.x,p.y),p.y); const x=rc.left+q.x*rc.width/R.vw, y=rc.top+q.y*rc.height/R.vh;
+          const el=document.elementFromPoint(x,y); return el&&(el===cv||cv.contains(el)) && x>8 && y>8 && x<innerWidth-8 && y<innerHeight-8 ? {x,y} : null; }).filter(Boolean); })()`);
+      lastPts = pts.length;
+      if (pts.length < 2) return false;
+      const wait = ms => new Promise(r => setTimeout(r, ms));
+      if (touch) {
+        await b.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: pts[0].x, y: pts[0].y }] });
+        await wait(180); // (a finger waits a moment before painting, in case a second one comes for the camera)
+        for (const p of pts.slice(1)) { await b.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: p.x, y: p.y }] }); await wait(30); }
+        await b.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      } else {
+        await b.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: pts[0].x, y: pts[0].y });
+        await b.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: pts[0].x, y: pts[0].y, button: 'left', buttons: 1, clickCount: 1 });
+        for (const p of pts.slice(1)) { await b.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p.x, y: p.y, button: 'left', buttons: 1 }); await wait(30); }
+        await b.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: pts.at(-1).x, y: pts.at(-1).y, button: 'left', buttons: 0, clickCount: 1 });
+      }
+      await wait(300);
+      return true;
+    };
+    const plantStep = async (step, tool) => {
+      await b.waitFor(`window.secondGrowth.ui.state.guide?.step==='${step}' && !window.secondGrowth.renderer.fly`, `the ${step} step`, 15000);
+      const g0 = await b.evaluate(guideNow);
+      assert.equal(g0.tool, tool, `the ${step} step puts ${tool} in hand`);
+      assert.ok(touch || g0.panel, 'with the Plant panel open');
+      assert.ok(g0.n >= 30 && g0.need > 0 && /0 of \d+/.test(g0.text), `the ground to plant glows, with a count (${g0.n} tiles, "${g0.text.slice(-12)}")`);
+      assert.equal(g0.button, false, 'no button plants it for the player');
+      let strokes = 0;
+      while (strokes < 12 && await b.evaluate(`window.secondGrowth.ui.state.guide?.step==='${step}'`)) { assert.ok(await dragAlong(), `the ${step} line is on screen to drag along`); strokes++; }
+      assert.equal(await b.evaluate(`window.secondGrowth.ui.state.guide?.step==='${step}'`), false, `${strokes} strokes finish the ${step} step (${JSON.stringify(await b.evaluate(guideNow))}, last stroke over ${lastPts} points)`);
+      return strokes;
+    };
+    const treeStrokes = await plantStep('trees', 'mix_pioneer');
+    // stuck in the meadow step: after 20 s without a stroke, a finger shows the drag
+    await b.waitFor(`window.secondGrowth.ui.state.guide?.step==='meadow'`, 'the meadow step', 15000);
+    const hint = await b.evaluate(`(async()=>{ const G=window.secondGrowth.ui.state.guide; const before=G.hint; G.last-=21000; await new Promise(r=>setTimeout(r,300)); return { before, after:G.hint }; })()`);
+    assert.ok(!hint.before && hint.after, 'after 20 s without a stroke, the drag hint shows');
+    const d0 = await b.evaluate(`window.secondGrowth.game.day`);
+    await b.evaluate(`(()=>{ const g=window.secondGrowth.game; window.sprout=null; const d0=g.day; const t=setInterval(()=>{ if(g.goalsDone.sprout){ window.sprout=g.day-d0; clearInterval(t); } },20); })()`);
+    const meadowStrokes = await plantStep('meadow', 'mix_meadow');
+    console.log(`  guided planting: ${treeStrokes} strokes of trees, ${meadowStrokes} of meadow (${touch ? 'touch' : 'mouse'}), from day ${d0}`);
     const steps = await b.evaluate(`window.events.filter(e=>e.event==='opening_step').map(e=>e.props.step+':'+e.props.how).join(' ')`);
-    assert.equal(steps, 'pull:button trees:button meadow:button', 'opening_step for each step');
+    assert.equal(steps, 'pull:button trees:drag meadow:drag', 'opening_step for each step');
     const after = await b.evaluate(`(()=>{ const g=window.secondGrowth.game; let c=0; for(let i=0;i<g.world.n;i++) if(g.world.feature[i]===7) c++; return { money:g.money, culverts:c, stage:g.flags.opening?.stage, tip:[...document.querySelectorAll('#toasts .toast-text')].some(t=>/^Try it: open Plant/.test(t.textContent)) }; })()`);
     assert.equal(after.culverts, 0, 'the culvert is out');
     assert.equal(after.stage, 'done');
@@ -285,6 +323,6 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
     assert.equal(await b.evaluate(`!!document.getElementById('intro')`), false, 'and no intro film');
     assert.equal(back.start, false, 'nothing starts before a returning player chooses');
     b.assertHealthy();
-    console.log(`PASS ${width}x${height}: first visit in Free Play with a tip, guided planting (blackberry out, creek trees, meadow), first goal in ${sown.days} day(s), alarms held (${quiet.held}), refusal says where, followed a deer at eye level, time-lapse on its own (newcomer, line; from the menu ends on a key, on low money), story offered on ${offer.offered.from} and taken in place, returning player gets the start menu`);
+    console.log(`PASS ${width}x${height}: first visit in Free Play with a tip, guided planting (blackberry out, creek trees and meadow dragged), first goal in ${sown.days} day(s), alarms held (${quiet.held}), refusal says where, followed a deer at eye level, time-lapse on its own (newcomer, line; from the menu ends on a key, on low money), story offered on ${offer.offered.from} and taken in place, returning player gets the start menu`);
   } finally { await b.close(); }
 }
