@@ -75,7 +75,7 @@ for (const clip of videoProvenance.clips) {
   for (const file of film.outputs.filter(out => out.id === 'site').flatMap(out => out.files).filter(f => !f.game)) { // (game: the game's copy in assets/intro/, held by intro-film-check)
     const bytes = await readFile(join(root, file.file));
     assert.equal(createHash('sha256').update(bytes).digest('hex'), file.sha256, `${file.file} must match the intro film's provenance`);
-    assert.ok(bytes.length <= 10_000_000 && file.checked?.duration, `${file.file}: 10 MB or less, played back when filmed`);
+    assert.ok(bytes.length <= 30_000_000 && file.checked?.duration, `${file.file}: 30 MB or less, played back when filmed`); // (constant quality: docs/ideas/2026-11-21-first-minutes/film-playback.md)
     freshFiles.add(file.file.replace(/^website\/review-media\//, ''));
   }
 }

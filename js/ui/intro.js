@@ -17,7 +17,7 @@ import { music } from '../audio/music.js';
 
 export const INTRO_SEEN = 'second-growth-intro-seen';
 const FILM = 'assets/intro/intro-film';
-const FILM_1080 = 'assets/intro/intro-film-1080'; // (7.5 MB to the 720p's 3.8: big screens on good connections only)
+const FILM_1080 = 'assets/intro/intro-film-1080'; // (about 28 MB to the 720p's 15: big screens on fast connections only)
 const FILM_MAP = 'pnw';   // (the film is of the PNW farm, and ends at its first view)
 const FADE_MS = 900;
 const START_GRACE_MS = 4000; // (the game is ready but the film hasn't started: how long it may still take)
@@ -28,11 +28,22 @@ const START_GRACE_MS = 4000; // (the game is ready but the film hasn't started: 
 // holds these to the cut.
 export const TITLE_IN = 23.4, TITLE_OUT = 28.4;
 // When the film may start (film-playback.md): never on a few frames that then freeze. It starts once
-// it is all here, or once its download, measured over MEASURE_MS, outruns playback by MARGIN with
-// MIN_AHEAD seconds in hand, or once the browser stops fetching by its own choice (it has plenty).
-// Until then the loading screen stays up. A 1080p coming in slower than SLOW_1080 film seconds a
-// second gives way to the 720p.
-const MIN_AHEAD = 2, MARGIN = 1.3, MEASURE_MS = 1000, SLOW_1080 = 1.6;
+// it is all here, or once its download, measured over MEASURE_MS while arriving, will stay ahead of
+// playback to the end with MARGIN to spare and MIN_AHEAD seconds in hand, or once the browser stops
+// fetching by its own choice (it has plenty). Until then the loading screen stays up. A 1080p that
+// wouldn't keep up gives way to the 720p. The film is encoded at constant quality, so its bytes sit
+// unevenly in time (the forest overviews in the last 6 s are about two thirds of them): the download
+// is judged in bytes, by where they sit (kbBySecond in intro-film.json, written by film-intro.mjs).
+// Without that record it is judged in film seconds with FALLBACK_MARGIN.
+const MIN_AHEAD = 2, MARGIN = 1.25, FALLBACK_MARGIN = 3, MEASURE_MS = 1000;
+const RECORD = 'assets/intro/intro-film.json';
+// KB needed to play to film time x (the record's cumulative KB per whole second, interpolated), and back
+const kbAt = (p, x) => { const i = Math.max(0, Math.min(p.length - 2, Math.floor(x))); return p[i] + (p[i + 1] - p[i]) * Math.max(0, Math.min(1, x - i)); };
+const timeAt = (p, kb) => { let i = 0; while (i < p.length - 2 && p[i + 1] < kb) i++; return i + Math.max(0, Math.min(1, (kb - p[i]) / ((p[i + 1] - p[i]) || 1))); };
+// Chromium reports a paused film's buffered time as its bytes spread evenly over its length (1.45 MB of
+// 15.5 MB reads as 3.0 s of 31.9, measured), not where they sit in time; Safari and Firefox report the
+// film time. (navigator.userAgentData: Chromium's alone)
+const evenBuffered = typeof navigator !== 'undefined' && !!navigator.userAgentData;
 const bufferedEnd = v => { const b = v.buffered; for (let i = b.length - 1; i >= 0; i--) if (b.start(i) <= v.currentTime + 0.1) return b.end(i); return 0; };
 
 // Does this first visit get the film? Automated browsers (navigator.webdriver: every headless check
@@ -85,11 +96,11 @@ export class IntroFilm {
       <p class="intro-hint" hidden>Tap to skip</p>
       <p class="intro-title" aria-hidden="true">Sec<i class="intro-o"></i>nd Growth</p>`;
     const v = this.video = el.querySelector('video');
-    // WebM (VP9 + Opus) where the browser plays it, MP4 (H.264 + AAC) otherwise: Safari mostly. On a
-    // big screen (filmSize) the 1080p MP4 first (no 1080p WebM: it saved 2%, and every browser this
-    // picks plays H.264); the 720p after it, so a 1080p that fails or can't play falls through.
+    // H.264 + AAC MP4 (every browser plays it; the VP9 WebM was dropped: at the same quality it was 2-3x
+    // the size, film-playback.md). On a big screen (filmSize) the 1080p first; the 720p after it, so a
+    // 1080p that fails, can't play or comes in too slowly (whenBuffered) falls through.
     this.size = filmSize();
-    const sources = [['webm', 'video/webm; codecs="vp9, opus"'], ['mp4', 'video/mp4; codecs="avc1.64001f, mp4a.40.2"']].map(([ext, type]) => [`${FILM}.${ext}`, type]);
+    const sources = [[`${FILM}.mp4`, 'video/mp4; codecs="avc1.64001f, mp4a.40.2"']];
     if (this.size === 1080) sources.unshift([`${FILM_1080}.mp4`, 'video/mp4; codecs="avc1.640028, mp4a.40.2"']);
     for (const [src, type] of sources) {
       if (!v.canPlayType(type)) continue;
@@ -121,9 +132,24 @@ export class IntroFilm {
   whenBuffered() {
     const v = this.video;
     if (this.closed || !v.querySelector('source')) return;
+    // (the record of where each file's bytes sit; small, and fetched beside the film)
+    fetch(RECORD).then(r => r.json()).then(j => {
+      this.profiles = Object.fromEntries(j.outputs.flatMap(o => o.files).filter(f => f.kbBySecond).map(f => [f.file.split('/').pop(), f.kbBySecond]));
+    }).catch(() => {});
     let from = 0, fromEnd = 0, lastEnd = 0, grew = 0;
     const reset = () => { from = 0; lastEnd = 0; };
     v.addEventListener('loadstart', reset);
+    // What has arrived, as KB and as playable film time, from the buffered end (see evenBuffered)
+    const profile = () => this.profiles?.[(v.currentSrc || '').split('/').pop()];
+    const kbOf = (p, end, d) => evenBuffered ? end / d * p[p.length - 1] : kbAt(p, end);
+    // Will a download at this speed stay ahead of playback started now, to the end?
+    const keepsUp = (end, secs, d) => {
+      const p = profile();
+      if (!p) { const rate = (end - fromEnd) / secs; return rate / FALLBACK_MARGIN >= 1 || end >= d * (1 - rate / FALLBACK_MARGIN); }
+      const have = kbOf(p, end, d), kbs = (have - kbOf(p, fromEnd, d)) / secs / MARGIN;
+      for (let t = 1; t <= Math.ceil(d); t++) if (kbAt(p, Math.min(d, t + 1)) > have + kbs * t) return false; // (a second ahead of the playhead)
+      return true;
+    };
     const look = () => {
       if (this.closed || this.playCalled) { clearInterval(this.buffering); return; }
       const d = v.duration, end = bufferedEnd(v), now = performance.now();
@@ -132,21 +158,24 @@ export class IntroFilm {
       if (end > lastEnd) { lastEnd = end; grew = now; }
       // (measured while it was still arriving: a paused video's download is capped by the browser,
       // about 4 MB in Chrome, and a pause there isn't a slow connection)
-      const span = grew - from, rate = span >= MEASURE_MS ? (end - fromEnd) / (span / 1000) : null;
-      // (the download outrunning playback by MARGIN, or a start far enough ahead that a slower one never catches up)
-      const fits = rate !== null && end >= MIN_AHEAD && (rate / MARGIN >= 1 || end >= d * (1 - rate / MARGIN));
+      const span = (grew - from) / 1000, measured = span * 1000 >= MEASURE_MS && end > fromEnd;
+      const p = profile(), ahead = p ? timeAt(p, kbOf(p, end, d)) : end; // (film seconds really here)
+      const fast = measured && keepsUp(end, span, d), fits = fast && ahead >= MIN_AHEAD;
       // (plenty: the browser has stopped fetching by its own choice, its paused-video cap, or all it
-      // will take from a server without byte ranges, about 2 s in Chrome; waiting longer gets no more)
-      const all = end >= d - 0.3, plenty = v.readyState >= 3 && v.networkState === v.NETWORK_IDLE && end >= MIN_AHEAD && now - grew > 600;
+      // will take from a server without byte ranges, about 2 s in Chrome; waiting longer gets no more,
+      // so it starts unless what was measured says it can't keep up)
+      const idle = v.readyState >= 3 && v.networkState === v.NETWORK_IDLE && ahead >= MIN_AHEAD && now - grew > 600;
+      const all = end >= d - 0.3, plenty = idle && (!measured || fits);
       if (all || fits || plenty) { clearInterval(this.buffering); this.play(); return; }
-      if (rate !== null && now - grew < 400 && rate < SLOW_1080 && /-1080\./.test(v.currentSrc) && !this.downsized) {
-        this.downsized = true; // (the 1080p is too slow for this connection: the 720p instead)
+      if (measured && !fast && /-1080\./.test(v.currentSrc) && !this.downsized && (now - grew < 400 || idle)) {
+        this.downsized = true; // (the 1080p wouldn't keep up on this connection: the 720p instead)
         v.querySelector('source')?.remove(); v.load();
       }
     };
     this.buffering = setInterval(look, 200);
     v.addEventListener('progress', look);
   }
+
 
   // Sound first; muted where the browser refuses (autoplay rules), with the sound button showing.
   async play() {

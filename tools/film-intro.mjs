@@ -18,12 +18,11 @@
 // http://localhost:8347/tools/film-review.html (?cut=<path to the video>).
 //
 // Writes (assets/intro/ is the game's, the 1080p is the website's and itch.io's):
-//   assets/intro/intro-film.mp4 (.webm when it fits)  1280×720, for the game (target 3–5 MB)
+//   assets/intro/intro-film.mp4               1280×720, for the game (about 15 MB: film-playback.md)
 //   assets/intro/intro-film-last.jpg          the exact last frame (1920×1080), what the game's first view must match
 //   assets/intro/intro-film.json              the last frame's camera, the beats, sizes, credits, how it was made
-//   website/review-media/video/intro-film-1080.mp4 (.webm when it is small enough)   1920×1080
-//   assets/intro/intro-film-1080.mp4          the same 1080p MP4, for the game on big screens (js/ui/intro.js filmSize;
-//                                             no WebM copy: 2% smaller, and every browser that picks it plays H.264)
+//   website/review-media/video/intro-film-1080.mp4   1920×1080 (about 28 MB)
+//   assets/intro/intro-film-1080.mp4          the same 1080p MP4, for the game on big screens (js/ui/intro.js filmSize)
 //   dist/intro-film/contact/intro-film.jpg    the game copy's contact sheet (for tools/film-review.html)
 //   dist/intro-film/samples/                  a frame each second of each output, to look at
 import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
@@ -32,6 +31,7 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { openBrowser, projectRoot } from './browser-session.mjs';
 import { LAYERS, FPS, SECONDS, SOUND, BEATS } from './intro-film-shots.mjs';
+import { bytesBySecond } from './remux-mp4.mjs';
 
 const path = rel => fileURLToPath(new URL('../' + rel, import.meta.url));
 const arg = name => process.argv.find(a => a.startsWith(`--${name}=`))?.slice(name.length + 3);
@@ -44,13 +44,18 @@ const roughDir = path('dist/intro-film/rough/'), contactDir = path('dist/intro-f
 const gameOut = path('assets/intro/'), siteOut = path('website/review-media/video/');
 const hash = b => createHash('sha256').update(b).digest('hex');
 const git = (...a) => execFileSync('git', a, { cwd: projectRoot, encoding: 'utf8' }).trim();
-// The outputs: the game's 720p must stay small (it downloads while the game loads); the 1080p is
-// for the website and itch.io, and the game plays it on big screens on good connections (`copies`:
-// the same MP4 bytes written there too). The encoders overshoot on busy footage, so a file over its budget is
-// encoded again at a lower rate (the frames are already filmed).
+// The outputs (film-playback.md has the measurements): H.264 only, at constant quality (a quantizer
+// per frame, not a target bitrate: the bitrate-targeted encodes smeared the busy shots and pulsed at
+// each keyframe), finer on the wide forest overviews (`shots`), which are the busiest picture and
+// most of the bytes; a keyframe every 10 s (nothing seeks it but the review page). No WebM: VP9 at a
+// matching quality came out 2-3x the size. tools/intro-film-quality.mjs measures each against its
+// frames. The game's 720p plays everywhere; the 1080p is the website's and itch.io's, and the game
+// plays it on big screens when the connection carries it (js/ui/intro.js; `copies`: the same bytes).
+// A file over its budget is encoded again one quantizer step coarser (the frames are already filmed).
+const OVERVIEWS = { rise: -2, rise30: -4, start: -6 };
 const OUTPUTS = [
-  { id: 'game', width: 1280, height: 720, bitrate: { mp4: 850e3, webm: 760e3 }, audio: 96e3, budget: 4.9e6, webmOptional: 4.9e6, files: { mp4: gameOut + 'intro-film.mp4', webm: gameOut + 'intro-film.webm' } },
-  { id: 'site', width: 1920, height: 1080, bitrate: { mp4: 1.75e6, webm: 1.7e6 }, audio: 128e3, budget: 9.4e6, webmOptional: 9.4e6, files: { mp4: siteOut + 'intro-film-1080.mp4', webm: siteOut + 'intro-film-1080.webm' }, copies: { mp4: gameOut + 'intro-film-1080.mp4' } },
+  { id: 'game', width: 1280, height: 720, quantizer: { mp4: 27, shots: OVERVIEWS }, gop: 300, audio: 96e3, budget: 16.5e6, files: { mp4: gameOut + 'intro-film.mp4' }, drop: [gameOut + 'intro-film.webm'] },
+  { id: 'site', width: 1920, height: 1080, quantizer: { mp4: 29, shots: { rise: -1, rise30: -3, start: -5 } }, gop: 300, audio: 128e3, budget: 29e6, files: { mp4: siteOut + 'intro-film-1080.mp4' }, copies: { mp4: gameOut + 'intro-film-1080.mp4' }, drop: [siteOut + 'intro-film-1080.webm'] },
 ];
 
 const browser = await openBrowser({ label: 'intro-film', software: false, width: 1920, height: 1080 });
@@ -122,30 +127,31 @@ try {
     for (const out of OUTPUTS) {
       await mkdir(out.id === 'game' ? gameOut : siteOut, { recursive: true });
       const samples = Array.from({ length: SECONDS }, (_, s) => s * FPS).concat(SECONDS * FPS - 1);
-      let bitrate = { ...out.bitrate }, result;
+      let quantizer = { ...out.quantizer }, result;
+      for (const f of out.drop || []) await rm(f, { force: true });
       for (let attempt = 0; ; attempt++) {
         await browser.navigate('/tools/intro-film.html?assemble=1');
         await browser.waitFor('window.introFilm?.ready', 'Intro film assembly', 60000);
         const error = await browser.evaluate('window.introFilm.error'); if (error) throw Error(error);
         const started = Date.now();
-        result = await browser.evaluate(`introFilm.assemble(${JSON.stringify({ width: out.width, height: out.height, mp4Bitrate: bitrate.mp4, webmBitrate: bitrate.webm, audioBitrate: out.audio, samples })})`, 1800000);
-        console.log(`Assembled ${out.id} ${out.width}×${out.height} in ${Math.round((Date.now() - started) / 1000)} s: mp4 ${(result.sizes.mp4 / 1e6).toFixed(2)} MB, webm ${(result.sizes.webm / 1e6).toFixed(2)} MB, sound peak ${result.audio.peak}`);
-        const over = ['mp4', 'webm'].filter(k => result.sizes[k] > (k === 'webm' && out.webmOptional ? Infinity : out.budget));
-        if (!over.length) break;
-        if (attempt === 2) throw Error(`${out.id}: ${over.join(' and ')} still over ${out.budget / 1e6} MB`);
-        for (const k of over) bitrate[k] = Math.round(bitrate[k] * out.budget * .9 / result.sizes[k]);
-        console.log(`  over budget; again at ${over.map(k => `${k} ${(bitrate[k] / 1e6).toFixed(2)} Mbit/s`).join(', ')}`);
+        result = await browser.evaluate(`introFilm.assemble(${JSON.stringify({ width: out.width, height: out.height, quantizer, gop: out.gop, webm: false, audioBitrate: out.audio, samples })})`, 1800000);
+        console.log(`Assembled ${out.id} ${out.width}×${out.height} in ${Math.round((Date.now() - started) / 1000)} s: mp4 ${(result.sizes.mp4 / 1e6).toFixed(2)} MB at quantizer ${quantizer.mp4}, sound peak ${result.audio.peak}`);
+        if (result.sizes.mp4 <= out.budget) break;
+        if (attempt === 2) throw Error(`${out.id}: still over ${out.budget / 1e6} MB`);
+        quantizer.mp4++;
+        console.log(`  over budget; again at quantizer ${quantizer.mp4}`);
       }
       const files = [];
-      for (const kind of ['mp4', 'webm']) {
-        if (kind === 'webm' && out.webmOptional && result.sizes.webm > out.webmOptional) { console.log(`  (no ${out.id} WebM: ${(result.sizes.webm / 1e6).toFixed(2)} MB is over ${out.webmOptional / 1e6} MB)`); await rm(out.files.webm, { force: true }); continue; }
+      for (const kind of Object.keys(out.files)) {
         const parts = [];
         for (let at = 0; at < result.sizes[kind]; at += 1.5e6) parts.push(Buffer.from(await browser.evaluate(`introFilm.slice(${JSON.stringify(kind)},${at},1500000)`), 'base64'));
         const bytes = Buffer.concat(parts);
         if (bytes.length !== result.sizes[kind]) throw Error(`${kind}: read back ${bytes.length} of ${result.sizes[kind]} bytes`);
         await writeFile(out.files[kind], bytes);
-        files.push({ file: out.files[kind].slice(projectRoot.length), kind, bytes: bytes.length, sha256: hash(bytes) });
-        if (out.copies?.[kind]) { await writeFile(out.copies[kind], bytes); files.push({ file: out.copies[kind].slice(projectRoot.length), kind, bytes: bytes.length, sha256: hash(bytes), game: true }); }
+        // (kbBySecond: where the bytes sit in time, for the game's start rule, js/ui/intro.js)
+        const kbBySecond = bytesBySecond(new Uint8Array(bytes));
+        files.push({ file: out.files[kind].slice(projectRoot.length), kind, bytes: bytes.length, sha256: hash(bytes), kbBySecond });
+        if (out.copies?.[kind]) { await writeFile(out.copies[kind], bytes); files.push({ file: out.copies[kind].slice(projectRoot.length), kind, bytes: bytes.length, sha256: hash(bytes), kbBySecond, game: true }); }
       }
       if (out.id === 'game') {
         const parts = [];
@@ -176,7 +182,7 @@ try {
         f.checked = { duration: +played.duration.toFixed(3), width: played.width, height: played.height, soundSeconds: +heard.seconds.toFixed(2), soundRms: +heard.rms.toFixed(4) };
         console.log(`  ${f.file} ${(f.bytes / 1e6).toFixed(2)} MB plays: ${JSON.stringify(f.checked)}`);
       }
-      outputs.push({ id: out.id, width: out.width, height: out.height, bitrate, audioBitrate: out.audio, codecs: result.codecs, files });
+      outputs.push({ id: out.id, width: out.width, height: out.height, quantizer, keyframeEvery: out.gop, audioBitrate: out.audio, codecs: { mp4: result.codecs.mp4 }, files });
     }
     // The hand-over for the game: the last frame's camera (session 9 starts the live view from it)
     const camera = JSON.parse(await readFile(framesDir + 'start-camera.json', 'utf8'));

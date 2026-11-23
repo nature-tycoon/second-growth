@@ -4,10 +4,10 @@
   "seed": 1987,
   "seconds": 31.8,
   "fps": 30,
-  "sourceRevision": "c9cc9e8dd76bb118aba56229ca061e119149fa16",
+  "sourceRevision": "00d648b09d9e27a4dc584fabafd2e38fe5bfbea5",
   "sourceDate": "2026-11-22",
   "uncommittedGameChanges": true,
-  "madeAt": "2026-11-22T18:47:29.029Z",
+  "madeAt": "2026-11-22T23:52:55.429Z",
   "madeWith": "node tools/film-intro.mjs (tools/intro-film.mjs, tools/intro-film-shots.mjs)",
   "lastFrame": {
     "image": "assets/intro/intro-film-last.jpg",
@@ -272,41 +272,67 @@
       "id": "game",
       "width": 1280,
       "height": 720,
-      "bitrate": {
-        "mp4": 850000,
-        "webm": 760000
+      "quantizer": {
+        "mp4": 27,
+        "shots": {
+          "rise": -2,
+          "rise30": -4,
+          "start": -6
+        }
       },
+      "keyframeEvery": 300,
       "audioBitrate": 96000,
       "codecs": {
-        "mp4": "avc1.64001f",
-        "webm": "vp09.00.31.08"
+        "mp4": "avc1.64001f"
       },
       "files": [
         {
           "file": "assets/intro/intro-film.mp4",
           "kind": "mp4",
-          "bytes": 3777568,
-          "sha256": "0fe4948ee54f584e8695cbef6dc5da722fc6534fce5ed09028bde2ad3010a429",
+          "bytes": 15521332,
+          "sha256": "7dbf3a27abced1f1f4f3e3a1e4a9cfdf50a3531276ce8c65563a39316f35407d",
           "checked": {
             "duration": 31.872,
             "width": 1280,
             "height": 720,
             "soundSeconds": 31.87,
             "soundRms": 0.0697
-          }
-        },
-        {
-          "file": "assets/intro/intro-film.webm",
-          "kind": "webm",
-          "bytes": 3473057,
-          "sha256": "bcdb4fab1032b6f9dfd134c8c4e18aa267f324919423166f7e9f6a31960961fc",
-          "checked": {
-            "duration": 31.8,
-            "width": 1280,
-            "height": 720,
-            "soundSeconds": 31.81,
-            "soundRms": 0.0703
-          }
+          },
+          "kbBySecond": [
+            11,
+            26,
+            354,
+            679,
+            941,
+            1104,
+            1172,
+            1228,
+            1325,
+            1480,
+            1657,
+            1848,
+            2001,
+            2077,
+            2200,
+            2334,
+            2634,
+            2923,
+            3270,
+            3526,
+            3586,
+            3675,
+            3774,
+            3867,
+            4198,
+            4799,
+            5658,
+            7507,
+            9623,
+            11624,
+            13520,
+            14824,
+            15158
+          ]
         }
       ]
     },
@@ -314,34 +340,25 @@
       "id": "site",
       "width": 1920,
       "height": 1080,
-      "bitrate": {
-        "mp4": 1750000,
-        "webm": 1700000
+      "quantizer": {
+        "mp4": 29,
+        "shots": {
+          "rise": -1,
+          "rise30": -3,
+          "start": -5
+        }
       },
+      "keyframeEvery": 300,
       "audioBitrate": 128000,
       "codecs": {
-        "mp4": "avc1.640028",
-        "webm": "vp09.00.40.08"
+        "mp4": "avc1.640028"
       },
       "files": [
         {
           "file": "website/review-media/video/intro-film-1080.mp4",
           "kind": "mp4",
-          "bytes": 7527775,
-          "sha256": "5b0b37a6c6742ba964c496b086092688859935048b8c1129235f3c435c1a6c3e",
-          "checked": {
-            "duration": 31.872,
-            "width": 1920,
-            "height": 1080,
-            "soundSeconds": 31.87,
-            "soundRms": 0.0698
-          }
-        },
-        {
-          "file": "assets/intro/intro-film-1080.mp4",
-          "kind": "mp4",
-          "bytes": 7527775,
-          "sha256": "5b0b37a6c6742ba964c496b086092688859935048b8c1129235f3c435c1a6c3e",
+          "bytes": 27958053,
+          "sha256": "738bbc1b775a440d3ac173bc6ec73ff24345963c097c3cb3bfa3157a7fa312ee",
           "checked": {
             "duration": 31.872,
             "width": 1920,
@@ -349,20 +366,90 @@
             "soundSeconds": 31.87,
             "soundRms": 0.0698
           },
-          "game": true
+          "kbBySecond": [
+            11,
+            33,
+            571,
+            1106,
+            1559,
+            1849,
+            1955,
+            2045,
+            2192,
+            2439,
+            2715,
+            3001,
+            3250,
+            3387,
+            3590,
+            3801,
+            4280,
+            4746,
+            5311,
+            5719,
+            5830,
+            5981,
+            6143,
+            6303,
+            6831,
+            7768,
+            9142,
+            12104,
+            15952,
+            19994,
+            24054,
+            26752,
+            27303
+          ]
         },
         {
-          "file": "website/review-media/video/intro-film-1080.webm",
-          "kind": "webm",
-          "bytes": 7379483,
-          "sha256": "a93f2d323b57c052ecc8e53e95c9b018f51c776a90282fa87fb5fb0ac0c67fef",
+          "file": "assets/intro/intro-film-1080.mp4",
+          "kind": "mp4",
+          "bytes": 27958053,
+          "sha256": "738bbc1b775a440d3ac173bc6ec73ff24345963c097c3cb3bfa3157a7fa312ee",
+          "game": true,
           "checked": {
-            "duration": 31.8,
+            "duration": 31.872,
             "width": 1920,
             "height": 1080,
-            "soundSeconds": 31.81,
-            "soundRms": 0.0703
-          }
+            "soundSeconds": 31.87,
+            "soundRms": 0.0698
+          },
+          "kbBySecond": [
+            11,
+            33,
+            571,
+            1106,
+            1559,
+            1849,
+            1955,
+            2045,
+            2192,
+            2439,
+            2715,
+            3001,
+            3250,
+            3387,
+            3590,
+            3801,
+            4280,
+            4746,
+            5311,
+            5719,
+            5830,
+            5981,
+            6143,
+            6303,
+            6831,
+            7768,
+            9142,
+            12104,
+            15952,
+            19994,
+            24054,
+            26752,
+            27303
+          ]
         }
       ]
     }

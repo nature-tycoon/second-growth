@@ -47,6 +47,8 @@ const INSTRUMENT = `(() => {
       if (hooked === v) v.requestVideoFrameCallback(tick);
     };
     v.requestVideoFrameCallback?.(tick);
+    // (until it plays: what the start rule sees, every 250 ms)
+    P.pre = []; const sample = setInterval(() => { if (!v.paused || !document.contains(v)) { clearInterval(sample); return; } P.pre.push([now(), (v.currentSrc || '').split('/').pop(), v.readyState, v.networkState, buf()]); }, 250);
   };
   new MutationObserver(() => {
     const v = document.querySelector('#intro video'); if (v && v !== hooked) hook(v);
@@ -142,7 +144,7 @@ try {
     if (!CONDITIONS[name]) { console.error(`unknown condition ${name}`); continue; }
     const r = await run(name, CONDITIONS[name], base);
     const row = summary(name, r); rows.push(row);
-    if (args.includes('--json')) console.log(JSON.stringify({ row, net: r.net, stages: r.stages, longTasks: byStage(r), gaps: r.gaps, events: r.ev }, null, 1));
+    if (args.includes('--json')) console.log(JSON.stringify({ row, pre: r.pre, net: r.net, stages: r.stages, longTasks: byStage(r), gaps: r.gaps, events: r.ev }, null, 1));
     else { console.log(JSON.stringify(row)); console.log('  network:', JSON.stringify(r.net)); console.log('  long tasks by step:', JSON.stringify(byStage(r))); console.log('  hitches:', JSON.stringify(r.gaps.slice(0, 12))); }
   }
 } finally { server.kill(); }

@@ -74,7 +74,6 @@ play-analytics-browser-check, intro-film-motion-browser-check, analytics-privacy
 ## Not done / uncertain
 
 - Safari and real phones not measured (headless Chrome only). The interleave should help Safari most.
-- Lowering the 1080p bitrate wasn't needed: at 9 Mbit/s it starts in ~1.2 s and never waits.
 - The website's 1080p copy got the same re-wrap; the website doesn't yet draw the title over it
   (it would need the same overlay in `website/`; the times are `TITLE_IN/OUT` in js/ui/intro.js).
 - Slow 3G: the game itself takes 130 s to load there; the film is skipped rather than stuttering.
@@ -88,4 +87,74 @@ play-analytics-browser-check, intro-film-motion-browser-check, analytics-privacy
    second.
 2. **The website's 1080p film**: add the same title overlay there? Recommended: yes, when the site's
    film player is next touched (small: one positioned element timed off `currentTime`).
-3. **A second 1080p at a lower bitrate?** Not needed by these numbers. Recommended: no.
+
+## Picture quality: the second pass (same day)
+
+Watched again in the app's browser pane, the film still looked like it was buffering and losing
+resolution, though that pane played the 720p WebM with no waits and no dropped frames. The cause was the
+encode: target bitrates far too low for moving foliage (720p 0.85 Mbit/s MP4, 0.76 WebM; 1080p 1.75),
+so busy shots smeared, and the VP9 WebM (what Chrome played at 720p) was much sharper on each keyframe
+than on the frames before it, a pulse every 2 s.
+
+Measured with `nice -n 15 node tools/intro-film-quality.mjs [files] [--gop=N]`: every frame decoded in
+Chrome and compared on luma with the frame the encoder was given (PSNR, and SSIM on 8×8 windows); the
+worst frames, each shot's minimum, and the keyframe pulse (the PSNR jump at each keyframe over the frame
+before it, within a shot). Source frames are the filmed 1920×1080 JPEGs at quality 0.93 (not 0.8);
+they were reused, not re-filmed, so the film's content is unchanged.
+
+| File | Size | PSNR mean / worst (dB) | SSIM mean / worst | Keyframe pulse median / max (dB) | Forest overviews (rise30, start) PSNR / SSIM | Stalk PSNR / SSIM |
+|---|---|---|---|---|---|---|
+| Before: 720p WebM (Chrome's) | 3.5 MB | 36.6 / 26.0 | 0.909 / 0.652 | **2.28 / 8.23** | 26.0 / 0.65, 28.2 / 0.76 | 32.9 / 0.88 |
+| Before: 720p MP4 | 3.8 MB | 37.1 / 25.7 | 0.917 / 0.648 | 1.02 / 1.54 | 25.7 / 0.65, 28.7 / 0.73 | 34.0 / 0.92 |
+| Before: 1080p MP4 | 7.5 MB | 37.4 / 25.8 | 0.917 / 0.655 | 0.92 / 1.90 | 25.8 / 0.66, 27.8 / 0.71 | 35.4 / 0.94 |
+| After: 720p MP4 | 15.5 MB | 41.5 / 37.3 | 0.973 / 0.943 | **0.08 / 0.69** | 37.3 / 0.96, 39.0 / 0.94 | 39.6 / 0.97 |
+| After: 1080p MP4 | 28.0 MB | 40.5 / 35.0 | 0.966 / 0.921 | 0.10 / 0.95 | 35.0 / 0.93, 36.6 / 0.92 | 39.0 / 0.96 |
+
+What changed:
+- **Constant quality, not a bitrate**: WebCodecs' `bitrateMode: 'quantizer'`, one H.264 quantizer for
+  every frame (720p 27, 1080p 29), finer on the wide forest overviews (rise −2/−1, rise30 −4/−3, start
+  −6/−5). Keyframes and the frames between them now look alike (pulse ≤ 1 dB everywhere, 0.1 median).
+- **A keyframe every 10 s**, not 2 (nothing but the review page seeks the film).
+- **No WebM**: VP9 in quantizer mode came out 34–50 MB at 720p for similar quality, and in its
+  bitrate mode it pulsed 8 dB. Every browser plays the H.264 MP4. The website's 1080p WebM was removed
+  too.
+- Budgets: 720p 16.5 MB, 1080p 29 MB (`film-intro.mjs`), caps 17 / 30 MB in `intro-film-check` and the
+  website check.
+- **The start rule judges by bytes**: the bytes now sit unevenly in time (the forest overviews, 26–31 s,
+  are ~60% of the file), so `intro-film.json` records each file's KB to every second (`kbBySecond`) and
+  the game checks a measured download keeps ahead of playback to the end with 25% to spare. Chromium
+  reports a paused film's `buffered` as its bytes spread evenly over its length (1.45 MB of 15.5 reads
+  as 3.0 s, measured), so there the buffered end is read as bytes; Safari and Firefox report film time.
+
+Targets against the request: no keyframe pulse (met: ≤ 1 dB). Worst-frame SSIM ≥ 0.95: met in every shot
+except the two wide forest overviews at the end (720p 0.94, 1080p 0.92–0.93). There, PSNR stays at 37–39 dB
+(720p) and 35–37 (1080p), where H.264 blocking is no longer visible to the eye (the old encode was 26 dB
+there). Even at quantizer 21 the final overview reached only 0.943 at 720p; going finer would push the
+720p well past 16 MB, since the overviews are already 60% of the bytes. SSIM is strict on sub-pixel conifer needles moving with the wind.
+
+Playback at the new sizes (`intro-playback-probe`, 1440×900):
+
+| Condition | Film | Start / ready (s) | Waits | Dropped |
+|---|---|---|---|---|
+| This Mac, unthrottled | 1080p, finished | 2.2 / 1.3 | 0 | 0 / 954 |
+| CPU ×4 | 1080p, finished | 3.9 / 3.0 | 0 | 0 / 954 |
+| 4G | 720p (1080p judged too slow), finished | 9.5 / 7.1 | 0 | 0 / 954 |
+| 4G + CPU ×4 | 1080p, finished | 10.2 / 9.0 | 0 | 0 / 954 |
+| Slow 3G | not played, loading screen held | – / 130.8 | – | – |
+
+Checks: intro-film-check, website-check, analytics-privacy, intro-browser-check, first-minutes (one
+failed run that didn't reproduce; it doesn't play the film), play-analytics, intro-film-motion: pass.
+
+More questions for Cole:
+
+3. **The wind in the overviews.** The forest overviews are 60% of the film's bytes and its lowest
+   quality, because every needle moves every frame. Filming those two shots with the wind calmer
+   would let them reach SSIM 0.95 in less space. It changes the look a little. Recommended: try it on
+   the next re-film and judge by eye.
+4. **Download size.** The game's film went from 3.8 to 15.5 MB (720p), and the 1080p from 7.5 to 28
+   MB, which only downloads where the connection carries it. Recommended: keep it. The start rule
+   skips the film on links that can't carry it, and the picture was the complaint. On metered phones
+   the 720p is about 4x what it was.
+5. **Git size.** Each re-encode adds ~70 MB of video to the repository (game copies plus the website's
+   1080p). Recommended: keep the website's 1080p only on the site build (not in git) the next time the
+   film is re-made.

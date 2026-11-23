@@ -2,8 +2,8 @@
 // hand over from the film's last frame to the live farm without a jump. This check (headless, CI)
 // fails when they drift apart: the PNW start view (Renderer.resetView, the map's startView), the
 // time of day the renderer starts at, the farm the film was made on, and the files themselves
-// (present, the hashes recorded, under their size caps: 5 MB for the 720p the game always may load,
-// 10 MB for the 1080p it plays on big screens and the website's copy of it). Re-film when it fails (s8.md).
+// (present, the hashes recorded, under their size caps: 17 MB for the 720p the game always may load,
+// 30 MB for the 1080p it plays on big screens and the website's copy of it; film-playback.md). Re-film when it fails (s8.md).
 //
 //   node tools/intro-film-check.mjs           headless
 //   node tools/intro-film-check.mjs --live    also boots the real game as a first visit in Chrome and
@@ -38,14 +38,14 @@ assert.equal(film.map, 'pnw'); assert.equal(film.seed, 1987);
 assert.equal(film.seconds, SECONDS, `the film's length is the script's (${film.seconds} s filmed, ${SECONDS} s in tools/intro-film-shots.mjs): re-film`);
 
 // the files: present, as recorded, and small enough (the game's film downloads while the game loads)
-const caps = { game: 5e6, site: 10e6 };
+const caps = { game: 17e6, site: 30e6 }; // (constant quality, film-playback.md: the 720p about 15 MB, the 1080p about 28)
 for (const out of film.outputs) for (const f of out.files) {
   const bytes = await readFile(root + f.file);
   assert.equal(bytes.length, f.bytes, `${f.file} is the file filmed`);
   assert.equal(createHash('sha256').update(bytes).digest('hex'), f.sha256, `${f.file} matches its recorded hash`);
   assert.ok(bytes.length <= caps[out.id], `${f.file} is under ${caps[out.id] / 1e6} MB`);
 }
-assert.ok(film.outputs.some(o => o.id === 'game' && o.files.some(f => f.kind === 'mp4') && o.files.some(f => f.kind === 'webm')), 'the game has the film as MP4 and WebM');
+assert.ok(film.outputs.some(o => o.id === 'game' && o.files.some(f => f.kind === 'mp4')), 'the game has the film as MP4');
 // the 1080p the game plays on big screens (js/ui/intro.js filmSize): assets/intro/intro-film-1080.*, the
 // site's bytes; the MP4 at least (Safari), and every copy the game names is one the film recorded
 const game1080 = film.outputs.find(o => o.id === 'site')?.files.filter(f => f.file.startsWith('assets/intro/intro-film-1080.')) || [];

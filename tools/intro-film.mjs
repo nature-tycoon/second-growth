@@ -337,16 +337,58 @@ function base64(b) { let s = ''; for (let i = 0; i < b.length; i += 32768) s += 
 // A rough cut (film-intro.mjs --rough): every `step`th frame from its own folder, MP4 only, no sound.
 // Either way a contact sheet: a frame each whole second in one row, thumbWidth wide each (the
 // review page, tools/film-review.html, shows it under the player).
-async function assemble({ width, height, mp4Bitrate, webmBitrate, audioBitrate = 96000, frames = SECONDS * FPS, samples = [], step = 1, dir = '/dist/intro-film/frames/', sound = true, webm: withWebm = true, thumbWidth = 160 }) {
+// One frame of the film as it goes to the encoder: the layers' frames over each other, faded, scaled.
+async function drawFrame(ctx, f, width, height, dir = '/dist/intro-film/frames/') {
+  const t = f / FPS;
+  ctx.globalAlpha = 1; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, width, height);
+  for (const L of LAYERS) {
+    if (t < L.from || t >= L.to) continue;
+    const a = L.fade ? smooth(L.from, L.from + L.fade, t + .5 / FPS) : 1;
+    if (a <= 0) continue;
+    const res = await fetch(`${dir}${L.name}/${String(f).padStart(4, '0')}.jpg`);
+    if (!res.ok) throw Error(`Missing frame ${L.name} ${f}: film that layer first`);
+    const img = await createImageBitmap(await res.blob());
+    ctx.globalAlpha = a; ctx.drawImage(img, 0, 0, width, height); img.close();
+  }
+  ctx.globalAlpha = 1;
+}
+
+// How close an encoded film is to the frames it was made from (tools/intro-film-quality.mjs): each
+// frame decoded (seeked to its middle, from a blob so it seeks) and compared on luma with the frame
+// drawFrame gave the encoder: PSNR (dB, capped at 60) and SSIM (8×8 windows, step 4).
+async function quality({ src, width, height, frames = SECONDS * FPS, every = 1 }) {
+  const v = document.createElementNS('http://www.w3.org/1999/xhtml', 'video'); v.muted = true;
+  v.src = URL.createObjectURL(await (await fetch(src, { cache: 'no-store' })).blob());
+  await new Promise((ok, fail) => { v.onloadeddata = ok; v.onerror = () => fail(Error('cannot play ' + src)); });
+  const a = new OffscreenCanvas(width, height), ac = a.getContext('2d', { willReadFrequently: true }); ac.imageSmoothingQuality = 'high';
+  const b = new OffscreenCanvas(width, height), bc = b.getContext('2d', { willReadFrequently: true });
+  const luma = d => { const y = new Float32Array(d.length / 4); for (let i = 0, j = 0; i < d.length; i += 4, j++) y[j] = .299 * d[i] + .587 * d[i + 1] + .114 * d[i + 2]; return y; };
+  const out = [];
+  for (let f = 0; f < frames; f += every) {
+    v.currentTime = (f + .5) / FPS; await new Promise(ok => { v.onseeked = ok; });
+    bc.drawImage(v, 0, 0, width, height);
+    await drawFrame(ac, f, width, height);
+    const x = luma(ac.getImageData(0, 0, width, height).data), y = luma(bc.getImageData(0, 0, width, height).data);
+    let se = 0; for (let i = 0; i < x.length; i++) { const e = x[i] - y[i]; se += e * e; }
+    const psnr = se ? Math.min(60, 10 * Math.log10(255 * 255 / (se / x.length))) : 60;
+    const C1 = (.01 * 255) ** 2, C2 = (.03 * 255) ** 2; let ssim = 0, n = 0;
+    for (let r = 0; r + 8 <= height; r += 4) for (let c = 0; c + 8 <= width; c += 4) {
+      let sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0;
+      for (let i = 0; i < 8; i++) { const o = (r + i) * width + c; for (let k = 0; k < 8; k++) { const p = x[o + k], q = y[o + k]; sx += p; sy += q; sxx += p * p; syy += q * q; sxy += p * q; } }
+      const mx = sx / 64, my = sy / 64, vx = sxx / 64 - mx * mx, vy = syy / 64 - my * my, cxy = sxy / 64 - mx * my;
+      ssim += ((2 * mx * my + C1) * (2 * cxy + C2)) / ((mx * mx + my * my + C1) * (vx + vy + C2)); n++;
+    }
+    out.push([f, +psnr.toFixed(2), +(ssim / n).toFixed(4)]);
+  }
+  URL.revokeObjectURL(v.src);
+  return out;
+}
+
+async function assemble({ width, height, mp4Bitrate, webmBitrate, quantizer = null, gop = 2 * FPS, audioBitrate = 96000, frames = SECONDS * FPS, samples = [], step = 1, dir = '/dist/intro-film/frames/', sound = true, webm: withWebm = true, thumbWidth = 160 }) {
   const fps = FPS / step;
   const sheet = new OffscreenCanvas(thumbWidth * SECONDS, Math.round(thumbWidth * height / width)), sheetCtx = sheet.getContext('2d');
   const canvas = new OffscreenCanvas(width, height), ctx = canvas.getContext('2d');
   ctx.imageSmoothingQuality = 'high';
-  const load = async (layer, f) => {
-    const res = await fetch(`${dir}${layer}/${String(f).padStart(4, '0')}.jpg`);
-    if (!res.ok) throw Error(`Missing frame ${layer} ${f}: film that layer first`);
-    return createImageBitmap(await res.blob());
-  };
   const chunks = { mp4: [], webm: [] }; let description = null, failed = null;
   const encoder = (key, config) => {
     const e = new VideoEncoder({ output: (chunk, meta) => {
@@ -358,25 +400,26 @@ async function assemble({ width, height, mp4Bitrate, webmBitrate, audioBitrate =
   };
   const big = width * height > 921600;
   const codecs = { mp4: big ? 'avc1.640028' : 'avc1.64001f', webm: big ? 'vp09.00.40.08' : 'vp09.00.31.08' };
-  const mp4 = encoder('mp4', { codec: codecs.mp4, bitrate: mp4Bitrate, avc: { format: 'avc' } });
+  // quantizer ({ mp4, webm }): constant quality, one quantizer for every frame (H.264 0-51, VP9 0-63),
+  // so keyframes and the frames between them look alike and the size follows the picture (busy
+  // foliage costs more); without it, a target bitrate, which starved the busy shots and made each
+  // keyframe sharper than the frames before it (film-playback.md)
+  const mp4 = encoder('mp4', quantizer ? { codec: codecs.mp4, bitrateMode: 'quantizer', avc: { format: 'avc' } } : { codec: codecs.mp4, bitrate: mp4Bitrate, avc: { format: 'avc' } });
   // (VP9 in variable mode overshot a low target by half again and more: constant holds it)
-  const webm = withWebm ? encoder('webm', { codec: codecs.webm, bitrate: webmBitrate, bitrateMode: 'constant' }) : null;
+  const webm = withWebm ? encoder('webm', quantizer ? { codec: codecs.webm, bitrateMode: 'quantizer' } : { codec: codecs.webm, bitrate: webmBitrate, bitrateMode: 'constant' }) : null;
   const encoders = [mp4, webm].filter(Boolean);
   const sampled = {};
   for (let f = 0; f < frames; f += step) {
     if (failed) throw failed;
-    const t = f / FPS;
-    ctx.globalAlpha = 1; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, width, height);
-    for (const L of LAYERS) {
-      if (t < L.from || t >= L.to) continue;
-      const a = L.fade ? smooth(L.from, L.from + L.fade, t + .5 / FPS) : 1;
-      if (a <= 0) continue;
-      const img = await load(L.name, f);
-      ctx.globalAlpha = a; ctx.drawImage(img, 0, 0, width, height); img.close();
-    }
-    ctx.globalAlpha = 1;
+    await drawFrame(ctx, f, width, height, dir);
     const frame = new VideoFrame(canvas, { timestamp: Math.round(f / step * 1e6 / fps), duration: Math.round(1e6 / fps) });
-    for (const e of encoders) e.encode(frame, { keyFrame: f % (2 * FPS) === 0 });
+    const keyFrame = f % gop === 0;
+    // (quantizer.shots: a per-shot change, by the top layer at this frame; the wide overviews of the
+    // forest are the busiest picture and get a finer quantizer)
+    let top = null; for (const L of LAYERS) if (f / FPS >= L.from && f / FPS < L.to) top = L.name;
+    const dq = quantizer?.shots?.[top] || 0;
+    mp4.encode(frame, { keyFrame, ...(quantizer ? { avc: { quantizer: quantizer.mp4 + dq } } : {}) });
+    webm?.encode(frame, { keyFrame, ...(quantizer ? { vp9: { quantizer: quantizer.webm + dq } } : {}) });
     frame.close();
     if (samples.includes(f)) sampled[f] = base64(await jpeg(canvas, .9));
     if (f % FPS === 0) sheetCtx.drawImage(canvas, f / FPS * thumbWidth, 0, thumbWidth, sheet.height);
@@ -458,7 +501,7 @@ async function encodeAudio(buffer, codec, bitrate) {
 
 try {
   if (params.get('assemble')) {
-    window.introFilm = { ready: true, assemble, slice: (name, start, length) => base64(window.introFilm.files[name].subarray(start, start + length)) };
+    window.introFilm = { ready: true, assemble, quality, slice: (name, start, length) => base64(window.introFilm.files[name].subarray(start, start + length)) };
   } else {
     const layer = await filmLayer(params.get('layer'));
     window.introFilm = { ready: true, layer: params.get('layer'), first: layer.first, last: layer.last, paths: window.introFilm.paths || null, beats: BEATS,

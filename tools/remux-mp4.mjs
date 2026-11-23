@@ -70,7 +70,20 @@ export function readMp4(d) {
   return { width, height, fps, description: Uint8Array.from(d.subarray(avcC.body, avcC.end)), chunks, audio };
 }
 
+// Bytes of the file needed to play to each whole second (cumulative, KB; [s] = up to second s): where
+// the bytes sit in time, for the game's start rule (js/ui/intro.js whenBuffered). The header plus
+// every sample, video and sound, that starts before each second.
+export function bytesBySecond(d) {
+  const { fps, chunks, audio } = readMp4(d);
+  const seconds = Math.ceil(chunks.length / fps), head = d.length - chunks.reduce((t, c) => t + c.data.length, 0) - (audio ? audio.chunks.reduce((t, c) => t + c.data.length, 0) : 0);
+  const at = new Array(seconds + 1).fill(0);
+  chunks.forEach((c, i) => { at[Math.floor(i / fps) + 1] += c.data.length; });
+  audio?.chunks.forEach((c, k) => { at[Math.min(seconds, Math.floor(k * audio.frame / audio.sampleRate) + 1)] += c.data.length; });
+  let sum = head; return at.map(b => Math.round((sum += b) / 1024));
+}
+
 const same = (a, b) => a.length === b.length && a.every((x, i) => Buffer.compare(Buffer.from(x.data), Buffer.from(b[i].data)) === 0);
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
 const recordPath = root + 'assets/intro/intro-film.json';
 const record = JSON.parse(await readFile(recordPath, 'utf8'));
 for (const file of process.argv.slice(2)) {
@@ -82,7 +95,8 @@ for (const file of process.argv.slice(2)) {
   await writeFile(file, after);
   const sha256 = createHash('sha256').update(after).digest('hex');
   const rel = file.startsWith(root) ? file.slice(root.length) : file.replace(/^\.\//, '');
-  for (const out of record.outputs) for (const f of out.files) if (f.file === rel) Object.assign(f, { bytes: after.length, sha256 });
+  for (const out of record.outputs) for (const f of out.files) if (f.file === rel) Object.assign(f, { bytes: after.length, sha256, kbBySecond: bytesBySecond(after) });
   console.log(`${rel}: ${before.length} -> ${after.length} bytes, ${parts.chunks.length} frames, ${parts.audio?.chunks.length ?? 0} sound packets, re-wrapped`);
 }
 await writeFile(recordPath, JSON.stringify(record, null, 2) + '\n');
+}
