@@ -25,7 +25,7 @@ Branch: `claude/ideas-creeks-fps` (cut from origin/main 2f26961). Sessions run o
 | 3 | Elevation view steady + map overlays modernized | a, b | opus | M | done b86d8a9, 52dd9d2 |
 | 4 | Meal visible through leaves while following | g | opus | S–M | done 681eba4 |
 | 5 | Creeks never bend sharply (terrain cause) | d | opus | L | done 9add1d3 |
-| 6 | Floods trim tight creek bends | e | opus | M | |
+| 6 | Floods trim tight creek bends | e | opus | M | done e642da6 |
 | 7 | Frame rate: measure, Fable design, first wins | f | opus | L | |
 | 8 | Frame rate: build the design's main pieces | f | opus | L | |
 | 9 | Starting creek off the north edge + refilm intro | h | opus | L | |
