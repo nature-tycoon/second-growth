@@ -863,11 +863,13 @@ body.quest-on #banner { top: 154px; }
 @keyframes fresh-pulse { 50% { transform: scale(1.35); opacity: .7; } }
 
 .modes { display: grid; gap: 10px; }
-/* (new-game menu: one slim line under Difficulty, so it stays on a short phone screen) */
-.sandbox-row { margin: 0 0 4px; padding: 5px 2px; border-bottom: 0; }
-.sandbox-row > span:first-child { flex-direction: row; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
+/* (new-game menu: Sandbox sits on the Mode heading's right, one slim line, on phones and desktop alike) */
+.mode-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.sandbox-row { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; cursor: pointer; }
+.sandbox-row > span { display: flex; align-items: baseline; gap: 6px; }
 .sandbox-row b { font-size: 13.5px; }
-.glass-menu .sandbox-row { padding: 5px 12px; margin-block: 0 4px; }
+.sandbox-row small { color: var(--ink-2, #6a6a58); font-size: 12px; }
+.sandbox-row input { width: 18px; height: 18px; accent-color: var(--moss); flex: none; }
 .mode-card { display: flex; flex-direction: column; gap: 4px; text-align: left; border: 1.5px solid var(--line); border-radius: 14px; background: var(--paper-2); padding: 14px 16px; cursor: pointer; font: inherit; color: var(--ink); }
 .mode-card b { font-family: var(--display); font-size: 18px; color: var(--moss-2); }
 .mode-card span { font-size: 13px; line-height: 1.45; color: var(--ink-2); }

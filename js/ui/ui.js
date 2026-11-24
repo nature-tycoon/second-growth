@@ -1553,7 +1553,7 @@ export class UI {
     // Español can read the choices right away
     const shownLang = () => (LANG_MAPS[map] ? langFor(map) : 'en');
     const savedYear = id => Math.floor((saves.summary(id)?.day || 0) / DAYS_PER_YEAR) + 1;
-    const m = this.modal('How do you want to play?', `<label class="set-row sandbox-row" title="Build anything with no budget, to try things out. Sandbox farms stay out of ratings and the numbers we share."><span><b>Sandbox</b><small>unlimited money, kept out of ratings</small></span><input type="checkbox" data-sandbox></label><div class="section-title" style="margin-top:0">Map</div>
+    const m = this.modal('How do you want to play?', `<div class="section-title" style="margin-top:0">Map</div>
       ${worldMap(BIOME_LIST, map)}<button class="btn map-resume" data-a="resume" hidden></button><div class="map-pick"></div>
       <div class="lang-pick" hidden><div class="section-title">Language · Idioma</div>
       <div class="seg" data-seg="lang"><button data-l="en">English</button><button data-l="es">Español</button></div></div>
@@ -1561,9 +1561,9 @@ export class UI {
       <div class="seg" data-seg="diff">${Object.entries(DIFFICULTY).map(([k, d]) => `<button data-d="${k}" class="${k === diff ? 'on' : ''}">${d.name}</button>`).join('')}</div>
       <p class="small diff-desc">${DIFFICULTY[diff].desc}</p>
       
-      <div class="section-title">Mode</div><div class="modes">
-      <button class="mode-card" data-m="campaign"><b>Campaign</b><span></span></button>
+      <div class="mode-head"><div class="section-title">Mode</div><label class="sandbox-row" title="Build anything with no budget, to try things out. Sandbox farms stay out of ratings and the numbers we share."><span><b>Sandbox</b><small>unlimited money</small></span><input type="checkbox" data-sandbox></label></div><div class="modes">
       <button class="mode-card" data-m="free"><b>Free play</b><span>Every tool from the start and no chapters, just the land, the grants and the milestone goals.</span></button>
+      <button class="mode-card" data-m="campaign"><b>Campaign</b><span></span></button>
       </div>
       <p class="small replace-note" style="margin:10px 2px 0" hidden>This replaces your saved farm.</p>`, { narrow: true, dismissible: !this.startPause });
     if (this.startPause) m.classList.add('startup-selector');
