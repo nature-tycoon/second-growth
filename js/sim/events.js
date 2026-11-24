@@ -549,7 +549,13 @@ export class Events {
       (cut ? ' It also cut a new channel across a tight bend of the creek, leaving the old loop as marsh.' : ''), 'flood',
       n ? { x: sx / n + 0.5, y: sy / n + 0.5 } : null);
     g.emit('event', 'flood');
-    if (cut) g.emit('event', 'creek-cut');
+    if (cut) {
+      // a quiet journal line and a short-lived minimap ring where it was cut (the notice points at the flooded ground's middle)
+      const mid = cut.course[(cut.course.length / 2) | 0], at = { x: (mid % w.w) + 0.5, y: ((mid / w.w) | 0) + 0.5 };
+      g.notify('A flood cut a new channel across a tight bend of the creek. The old loop is marsh now.', 'info', at, { journal: true });
+      g.emit('creek-cut', at);
+      g.emit('event', 'creek-cut');
+    }
   }
 
   updateFlood() {

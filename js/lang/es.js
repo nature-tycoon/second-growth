@@ -225,7 +225,7 @@ addStrings({
 
   // ---------------------------------------------------------------- menu and settings
   'Field journal': 'Diario de campo', 'See through trees': 'Ver a través de los árboles', 'Show trees normally': 'Ver los árboles normal', 'Photo mode': 'Modo foto',
-  'Send feedback': 'Enviar opinión', 'How to play': 'Cómo jugar', 'Save game': 'Guardar partida', 'Start a new game (campaign or free play)': 'Empezar una partida nueva (campaña o juego libre)',
+  'Send feedback': 'Enviar opinión', 'Contact': 'Contacto', 'How to play': 'Cómo jugar', 'Save game': 'Guardar partida', 'Start a new game (campaign or free play)': 'Empezar una partida nueva (campaña o juego libre)',
   'Story mode (guided chapters)': 'Modo historia (capítulos guiados)', 'Story mode': 'Modo historia',
   'Other places to restore': 'Otros lugares para restaurar', 'Start here →': 'Empezar aquí →', 'Continue there ': 'Seguir allá ', 'See them': 'Verlos', 'Your farm at ': 'Tu finca, ',
   'Your seeds are in. Watch the new shoots fill in over the coming weeks; animals come to the food and cover they make.': 'Tus semillas ya están en la tierra. Mirá cómo crecen los brotes en las próximas semanas; los animales vienen por la comida y el refugio que dan.',

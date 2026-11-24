@@ -38,8 +38,9 @@ for (let y = Y + 1; y <= HEAD; y++) L_CREEK.push([X, y]);
 const near = (b, x, y, r) => Math.abs(b.x - x) <= r && Math.abs(b.y - y) <= r;
 // Big floods until one cuts the bend (at most 20): what the flood said, and the cut.
 function floodUntilCut(g, intensity = 1.8, tries = 20) {
-  const notes = [];
-  g.on('notify', n => notes.push(n.text));
+  const notes = [], journal = [], cuts = [];
+  g.on('notify', n => { notes.push(n.text); if (n.journal) journal.push(n); });
+  g.on('creek-cut', at => cuts.push(at));
   for (let k = 0; k < tries; k++) {
     const before = g.world.terrain.slice();
     g.events.startFlood(intensity);
@@ -47,9 +48,9 @@ function floodUntilCut(g, intensity = 1.8, tries = 20) {
     g.world.flood.fill(0); g.events.floodTiles = 0;
     const add = [], loop = [];
     for (let i = 0; i < g.world.n; i++) if (g.world.terrain[i] !== before[i]) (g.world.terrain[i] === T.CREEK ? add : loop).push(i);
-    if (add.length || loop.length) return { add, loop, notes, floods: k + 1 };
+    if (add.length || loop.length) return { add, loop, notes, journal, cuts, floods: k + 1 };
   }
-  return { add: [], loop: [], notes, floods: tries };
+  return { add: [], loop: [], notes, journal, cuts, floods: tries };
 }
 
 check('A fresh farm on every map has no bend to cut, and its floods draw no more random numbers', () => {
@@ -79,6 +80,11 @@ check('PNW: big floods cut a right-angle creek bend round, and the old loop is l
   assert.ok(!sharpBends(w).some(b => near(b, X, Y, 9)), 'no sharp bend left there');
   assert.ok(r.loop.every(i => w.terrain[i] === T.MARSH), 'the old loop is marsh');
   assert.ok(r.notes.some(t => /new channel across a tight bend/.test(t)), 'the flood notice says so');
+  // a quiet journal line (no pop-up) and one map marker, both at the cut
+  assert.equal(r.cuts.length, 1, 'one creek-cut event for the minimap marker');
+  assert.ok(Math.abs(r.cuts[0].x - X) <= 9 && Math.abs(r.cuts[0].y - Y) <= 9, 'the marker is at the cut');
+  assert.equal(r.journal.length, 1, 'one journal-only line');
+  assert.ok(/new channel/.test(r.journal[0].text) && r.journal[0].loc && r.journal[0].loc.x === r.cuts[0].x, 'the journal line points at the cut');
   // (the creek still runs from its head to the ditch, through creek tiles)
   const seen = new Set([w.idx(X, HEAD)]), q = [w.idx(X, HEAD)];
   for (let h = 0; h < q.length; h++) { const i = q[h], x = i % w.w, y = (i / w.w) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const j = w.idx(x + dx, y + dy); if (w.inb(x + dx, y + dy) && !seen.has(j) && w.terrain[j] === T.CREEK) { seen.add(j); q.push(j); } } }
@@ -157,6 +163,19 @@ check('PNW: a creek dug with the creek tool (steered within the limit) is never 
   assert.equal(sharpBends(w).length, 0, 'no sharp bend after a steered stroke');
   const r = floodUntilCut(g, 1.8, 10);
   assert.equal(r.add.length + r.loop.length, 0);
+});
+
+check('The creek tool says when a stroke stops short (a turn too tight), and not when it runs on', () => {
+  const g = farm(), acts = new ToolActions(g);
+  let s = acts.begin('creek');
+  for (let x = 70; x <= 90; x++) acts.paint(s, x, 20);
+  acts.end(s);
+  assert.equal(s.stoppedShort, false, 'a straight stroke does not');
+  s = acts.begin('creek');
+  for (let x = 70; x <= 90; x++) acts.paint(s, x, 30);
+  for (let x = 90; x >= 80; x--) acts.paint(s, x, 31); // (turns straight back on itself)
+  acts.end(s);
+  assert.equal(s.stoppedShort, true, 'a stroke that doubles back does');
 });
 
 check('Save and load keep the new course, its heights, and know it as dug creek', () => {

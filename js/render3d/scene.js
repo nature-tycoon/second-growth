@@ -1311,7 +1311,8 @@ export class Renderer {
     const mode = ui.clean ? 'none' : ui.overlay || 'none';
     if (mode === 'none') { if (this.overlayMode !== 'none') this.terrain.setOverlay(null); this.overlayMode = 'none'; return; }
     // (elevation colours come from the ground's heights, so they're redone as soon as it's reshaped)
-    const reshaped = mode === 'elevation' && this.overlayHv !== game.world.hv;
+    // (flood risk reads the heights too: floodRisk costs about half a millisecond, so it follows an edit within 0.1 s, not up to 0.8)
+    const reshaped = (mode === 'elevation' || (mode === 'flood' && now - this.overlayAt > 100)) && this.overlayHv !== game.world.hv;
     if (!reshaped && mode === this.overlayMode && ui.overlaySpecies === this.overlaySpecies && ui.densitySpecies === this.densitySpecies && now - this.overlayAt < 800) return;
     this.overlayMode = mode; this.overlaySpecies = ui.overlaySpecies; this.densitySpecies = ui.densitySpecies; this.overlayAt = now; this.overlayHv = game.world.hv;
     const w = game.world, out = new Float32Array(w.n * 4);

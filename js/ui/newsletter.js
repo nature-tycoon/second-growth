@@ -84,11 +84,10 @@ export function watchForOffer(ui, game, inTutorial) {
   });
 }
 
-// "Get updates by email" in the menu, for returning players.
-export function openNewsletter(ui) {
-  const m = ui.modal('Get updates by email', `<div class="feedback"><p class="info-desc" style="margin-top:0">${tr(NOTE)}</p><div class="news-slot"></div></div>`, { narrow: true });
-  const slot = m.querySelector('.news-slot');
-  if (subscribed()) { slot.innerHTML = `<p><b>${tr('You\'re on the list. Thanks!')}</b></p>`; return; }
-  const input = form(slot, 'game', () => { slot.innerHTML = `<p><b>${tr('Thanks! You\'re on the list.')}</b></p>`; });
-  setTimeout(() => input.focus(), 30);
+// The same signup inside another panel (the Contact page): a heading and the form in `slot`.
+export function updatesInto(slot) {
+  slot.innerHTML = `<div class="section-title">${tr('Get updates by email')}</div><p class="small" style="margin:0 0 6px">${tr(NOTE)}</p><div class="news-slot"></div>`;
+  const inner = slot.querySelector('.news-slot'), thanks = () => { inner.innerHTML = `<p><b>${tr('Thanks! You\'re on the list.')}</b></p>`; };
+  if (subscribed()) { inner.innerHTML = `<p><b>${tr('You\'re on the list. Thanks!')}</b></p>`; return; }
+  form(inner, 'game', thanks);
 }

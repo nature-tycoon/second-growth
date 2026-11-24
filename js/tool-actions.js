@@ -114,6 +114,9 @@ export class ToolActions {
       stroke.course = r.head;
       const tiles = r.tiles.filter(([tx, ty]) => w.inb(tx, ty)).map(([tx, ty]) => w.idx(tx, ty));
       this.applyTiles(stroke, tiles);
+      // (it stopped short: the stroke's end was behind it or inside the tightest turn; the UI says so once)
+      const goal = r.head.trail.at(-1);
+      stroke.stoppedShort = Math.hypot(goal[0] - r.head.x, goal[1] - r.head.y) > 2;
     }
     stroke.finished = true;
     const tool = stroke.tool;

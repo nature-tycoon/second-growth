@@ -44,7 +44,7 @@ import { saves } from '../saves.js';
 import { CHALLENGE_TOOL_ADVICE, pressureTileNotes } from '../sim/ecological-pressure.js';
 import { openShare } from './share.js';
 import { track, setAnalyticsEnabled, sendFeedback, feedbackPossible, loadState } from '../analytics.js';
-import { watchForOffer, openNewsletter, newsletterAvailable } from './newsletter.js';
+import { watchForOffer, updatesInto, newsletterAvailable } from './newsletter.js';
 import { otherPlacesReady, otherPlacesShown, openOtherPlaces, watchOtherPlacesNote } from './other-places.js';
 
 export { animalThumb, plantThumb } from './thumbnails.js';
@@ -53,6 +53,8 @@ const $ = sel => document.querySelector(sel);
 // A phone or tablet (no mouse), and a screen too short for the full layout.
 const TOUCH = matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
 const COMPACT = () => innerHeight <= 520;
+const CREEK_HINT = 'sg-creek-bend-hint'; // (the creek tool's one-time "swing wider" hint, per device)
+const CUT_MARK_MS = 120000; // (how long a fresh flood cut shows on the minimap)
 const STORY_OFFERED = 'sg-story-offered'; // (offered once per device, after the first Free Play goal)
 // A first visit's opening minutes (docs/ideas/2026-11-21-first-minutes/s2.md): what the simulation
 // announces on its own is held back this long (alarms go to the journal only, good news one at a
@@ -133,7 +135,7 @@ export class UI {
       hover: null, previewTiles: null, inspect: null,
       clean: false, // a keystone moment or photo mode: no brush, previews, overlays or selection markers
     };
-    this.journal = [];
+    this.journal = []; this.cutMarks = [];
     this.lastTop = 0; this.lastInfo = 0; this.lastMini = 0;
     this.toastCount = 0;
     this.dismissedBanners = {};
@@ -166,7 +168,7 @@ export class UI {
     game.on('moment', m => this.playMoment(m));
     // (a time-lapse, and MOMENT_HOLD_MS after it, keep keystone moments waiting: they queue or retry, never drop, so the cinematic never lands on the lapse's hand-back)
     game.canPlayMoment = () => !this.moment && !this.modalOpen && !this.photo && !this.timelapse?.on && performance.now() >= (this.momentHoldUntil ?? 0) && performance.now() - (this.momentEnded ?? -1e9) >= 25000;
-    game.on('reset', () => { this.moment?.end(false); this.undo.clear(); this.journal = []; this.dismissedBanners = {}; this.bannerKey = null; this.closeInfo(); this.buildToolbar(); this.refreshTop(true); this.renderQuest(true); });
+    game.on('reset', () => { this.moment?.end(false); this.undo.clear(); this.journal = []; this.cutMarks = []; this.dismissedBanners = {}; this.bannerKey = null; this.closeInfo(); this.buildToolbar(); this.refreshTop(true); this.renderQuest(true); });
     game.on('chapter', e => this.onChapterDone(e));
     watchForOffer(this, game, () => !!currentChapter(game)); // (a guided chapter is on screen)
     watchOtherPlacesNote(this); // (once per device, at the first new year played through: ui/other-places.js)
@@ -178,6 +180,7 @@ export class UI {
       if (this.state.cat !== 'inspect') this.renderToolPanel();
       this.refreshWildlifeGuide?.();
     });
+    game.on('creek-cut', at => this.cutMarks.push({ ...at, until: performance.now() + CUT_MARK_MS })); // (a quiet ring on the minimap: 0054)
     game.on('event', kind => {
       // (a flood cut a creek's bend: undo puts the whole height grid back, which would take the new
       // channel's heights back from under it, so the strokes before it can't be undone: 0054)
@@ -209,6 +212,14 @@ export class UI {
     this.refreshUndo();
     this.renderInfo();
     if (stroke.tool.cat === 'visitors') this.renderToolPanel();
+    if (stroke.stoppedShort) this.creekBendHint();
+  }
+
+  // The creek tool stopped short of the cursor because the turn was too tight (0054): said once per device.
+  creekBendHint() {
+    try { if (localStorage.getItem(CREEK_HINT)) return; localStorage.setItem(CREEK_HINT, '1'); } catch { if (this.creekHinted) return; }
+    this.creekHinted = true;
+    this.toast({ text: 'Creeks bend gently: swing the stroke wider.', kind: 'info', date: this.game.dateString() });
   }
 
   // Render the field-guide portraits one at a time in idle moments, so the guide opens instantly.
@@ -997,6 +1008,12 @@ export class UI {
         ctx.fillRect((i % w.w) * sx, ((i / w.w) | 0) * sy, sx + 0.5, sy + 0.5);
       }
     }
+    const now = performance.now();
+    this.cutMarks = this.cutMarks.filter(m => m.until > now);
+    for (const m of this.cutMarks) { // (a fresh flood cut: a ring that breathes, then goes)
+      ctx.strokeStyle = `rgba(255,255,255,${(0.55 + 0.4 * Math.sin(now / 350)).toFixed(2)})`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(m.x * sx, m.y * sy, 7 + 2 * Math.sin(now / 350), 0, 7); ctx.stroke();
+    }
     const vp = this.renderer.viewportPolygon();
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath();
     vp.forEach(([x, z], k) => { const px = x * sx, py = z * sy; k ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
@@ -1303,10 +1320,9 @@ export class UI {
       <div class="menu-group"><div class="section-title">Help</div><div class="menu-list">
         ${item('help', 'How to play', 'Controls and a good first year')}
         ${item('settings', 'Settings', 'Sound, graphics, gameplay')}
-        ${item('feedback', 'Send feedback', 'Or email info@secondgrowth.earth')}
+        ${item('feedback', 'Contact', newsletterAvailable() ? 'Send feedback or get updates by email' : 'Send feedback, or email info@secondgrowth.earth')}
         <details class="menu-more"><summary>More</summary><div class="menu-list">
           ${item('intro', 'Watch the intro film')}
-          ${newsletterAvailable() ? item('news', 'Get updates by email') : ''}
         </div></details>
       </div></div></div>`, {});
     if (places) otherPlacesShown(this, 'menu');
@@ -1324,7 +1340,6 @@ export class UI {
     m.querySelector('[data-a=journal]').addEventListener('click', () => this.openJournal());
     m.querySelector('[data-a=trees]').addEventListener('click', () => { this.toggleTrees(); this.closeModal(); });
     m.querySelector('[data-a=feedback]').addEventListener('click', () => this.openFeedback());
-    m.querySelector('[data-a=news]')?.addEventListener('click', () => openNewsletter(this));
     m.querySelector('[data-a=share]').addEventListener('click', () => openShare(this));
     m.querySelector('[data-a=photo]').addEventListener('click', () => { this.closeModal(); this.togglePhoto(); });
     m.querySelector('[data-a=watch]').addEventListener('click', () => { this.closeModal(); this.watch.start(); });
@@ -1464,7 +1479,7 @@ export class UI {
 
   openFeedback() {
     const faces = ['😞', '😕', '😐', '🙂', '😍'];
-    const m = this.modal('Send feedback', `<div class="feedback">
+    const m = this.modal('Contact', `<div class="feedback">
       <p class="info-desc" style="margin-top:0">Second Growth is a work in progress, and every note gets read. What's fun, what's confusing, what broke?</p>
       <div class="section-title">How are you liking it?</div>
       <div class="fb-rate">${faces.map((f, k) => `<button type="button" data-r="${k + 1}" title="${k + 1} of 5">${f}</button>`).join('')}</div>
@@ -1472,7 +1487,8 @@ export class UI {
       <textarea class="ph-mask" rows="6" maxlength="4000" placeholder="I wish I could… / I got stuck when… / The best part was…"></textarea>
       <label class="fb-contact"><span class="small">Want a reply? Leave an email or Reddit username (optional)</span><input type="text" class="ph-mask" maxlength="200"></label>
       <div class="small fb-status"></div>
-      <div class="small" style="margin-top:6px">Prefer email? Write to <a href="mailto:info@secondgrowth.earth">info@secondgrowth.earth</a>. <a href="https://secondgrowth.earth/privacy/" target="_blank" rel="noopener">${tr('Privacy')}</a>.${newsletterAvailable() ? ' <a href="#" data-a="news">Get updates by email</a>' : ''}</div>
+      ${newsletterAvailable() ? '<div class="fb-updates" style="margin-top:14px"></div>' : ''}
+      <div class="small" style="margin-top:6px">Prefer email? Write to <a href="mailto:info@secondgrowth.earth">info@secondgrowth.earth</a>. <a href="https://secondgrowth.earth/privacy/" target="_blank" rel="noopener">${tr('Privacy')}</a>.</div>
       </div>`, { narrow: true, foot: '<button class="btn secondary" data-a="cancel">Cancel</button><button class="btn" data-a="send">Send</button>' });
     let rating = 0;
     m.querySelectorAll('[data-r]').forEach(b => b.addEventListener('click', () => {
@@ -1480,7 +1496,7 @@ export class UI {
       m.querySelectorAll('[data-r]').forEach(o => o.classList.toggle('on', o === b));
     }));
     const ta = m.querySelector('textarea'), status = m.querySelector('.fb-status');
-    m.querySelector('a[data-a=news]')?.addEventListener('click', e => { e.preventDefault(); openNewsletter(this); });
+    const upd = m.querySelector('.fb-updates'); if (upd) updatesInto(upd);
     setTimeout(() => ta.focus(), 30);
     m.querySelector('[data-a=cancel]').addEventListener('click', () => this.closeModal());
     const sendBtn = m.querySelector('[data-a=send]');
