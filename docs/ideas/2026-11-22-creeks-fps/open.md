@@ -12,6 +12,11 @@ All 9 sessions landed. Sessions 1–8 are on `claude/ideas-creeks-fps`; session 
   small, next batch).
 - Antialiasing off and fewer shadow redraws (s7 Q4–5): measured no gain on the Mac; not shipped.
 - Step down at 26 (s7 Q6, s8 item 5): after two weeks of the new telemetry.
+- Session 9 merged into the batch branch (0ac85de).
+- Floods spread along creeks above a culvert too (open Q1): yes, next batch.
+- PNW's steep run past the fence (open Q2): keep.
+- Phones and Sharp (open Q9): computers only count toward Sharp; phones judged by holding 30 on Fast.
+- The rest below: going with the recommended answer unless Cole says otherwise.
 
 ## Open, by area (recommended answer first)
 
