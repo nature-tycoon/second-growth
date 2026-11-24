@@ -1,11 +1,14 @@
 // Lightweight page guidance, independent of game loading or saved-farm state.
-// "Play upright anyway" on the turn-your-phone screen, remembered on this device.
+// "Play upright anyway" on the turn-your-phone screen, remembered for this tab only.
 (() => {
   const root = document.documentElement, KEY = 'second-growth-upright';
-  try { if (localStorage.getItem(KEY)) root.classList.add('upright-ok'); } catch (e) { /* storage blocked */ }
+  // Remembered for this tab only (sessionStorage), so the reminder is back on every new visit. It was
+  // saved in localStorage for good, so one tap of "Play upright anyway" hid it on that phone forever.
+  try { localStorage.removeItem(KEY); } catch (e) { /* storage blocked */ }
+  try { if (sessionStorage.getItem(KEY)) root.classList.add('upright-ok'); } catch (e) { /* storage blocked */ }
   document.getElementById('rotate-skip')?.addEventListener('click', () => {
     root.classList.add('upright-ok');
-    try { localStorage.setItem(KEY, '1'); } catch (e) { /* storage blocked */ }
+    try { sessionStorage.setItem(KEY, '1'); } catch (e) { /* storage blocked */ }
     window.dispatchEvent(new Event('upright-ok'));
   });
 })();

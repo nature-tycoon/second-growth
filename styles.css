@@ -170,8 +170,12 @@ html, body { margin: 0; height: 100%; overflow: hidden; font-family: var(--ui); 
    and showed a light strip below it. The canvases fill the window from CSS, so a size iOS reports
    late during the turn can't leave a gap either (scene.js only sets their pixel buffers). */
 body { position: fixed; inset: 0; }
+/* iOS (home-screen or Safari) can report the window shorter than the screen while a bar slides, which left
+   the page's green background showing as a strip at the bottom. The game layers run to the large
+   viewport's height (lvh, where supported) so they always reach the bottom edge; UI panels stay inside the safe area. */
 canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
 canvas#fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+@supports (height: 100lvh) { body, canvas#view, canvas#fx { height: 100lvh; } }
 #topbar, #toolbar, #toolpanel, #infopanel, #legend, #minimap-wrap, #banner, #toasts, #cursor-tip { user-select: none; -webkit-user-select: none; }
 body.painting #toolpanel, body.painting #infopanel { opacity: 0.25; pointer-events: none; transition: opacity 0.2s; }
 body.panels-hidden #toolpanel, body.panels-hidden #infopanel, body.panels-hidden #legend, body.panels-hidden #minimap-wrap { display: none !important; }
@@ -859,6 +863,11 @@ body.quest-on #banner { top: 154px; }
 @keyframes fresh-pulse { 50% { transform: scale(1.35); opacity: .7; } }
 
 .modes { display: grid; gap: 10px; }
+/* (new-game menu: one slim line under Difficulty, so it stays on a short phone screen) */
+.sandbox-row { margin: 0 0 4px; padding: 5px 2px; border-bottom: 0; }
+.sandbox-row > span:first-child { flex-direction: row; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
+.sandbox-row b { font-size: 13.5px; }
+.glass-menu .sandbox-row { padding: 5px 12px; margin-block: 0 4px; }
 .mode-card { display: flex; flex-direction: column; gap: 4px; text-align: left; border: 1.5px solid var(--line); border-radius: 14px; background: var(--paper-2); padding: 14px 16px; cursor: pointer; font: inherit; color: var(--ink); }
 .mode-card b { font-family: var(--display); font-size: 18px; color: var(--moss-2); }
 .mode-card span { font-size: 13px; line-height: 1.45; color: var(--ink-2); }
