@@ -283,24 +283,32 @@ vec4 tileTex(sampler2D atlas, vec4 t, vec2 p, vec2 gx, vec2 gy) {
   return mat;
 }
 
-// Gentle waves: the surface bobs and its normals ripple so highlights move.
+// Gentle waves: the surface bobs and its normals ripple so highlights move. Each wave is
+// [speed, kx, kz, height]: its phase is uTime * speed + k . wp, so it travels along -k. On still water
+// wp is the map position (the waves drift one way, like wind); waterLook lays wp out along the current
+// on moving water (WAVE_DOWNSTREAM), so every wave there travels downstream.
+export const WAVES = [[1.3, 2.1, 1.7, 0.012], [0.9, 1.0, 2.73, 0.008], [1.7, 3.58, 1.3, 0.004]];
+// (the waves' mean travel direction in wp: each travels within 25 degrees of it, so even where the
+// drawn current turns into a creek it joins every wave still runs downstream; one ran 71 off)
+export const WAVE_DOWNSTREAM = [-Math.SQRT1_2, -Math.SQRT1_2];
+const glf = v => { const r = +v.toFixed(5); return Number.isInteger(r) ? r.toFixed(1) : String(r); };
 export function waves(mat, time, amp) {
   mat.onBeforeCompile = shader => {
     shader.uniforms.uTime = time;
+    const ph = WAVES.map(([s, kx, kz], i) => `float w${i} = uTime * ${glf(s)} + wp.x * ${glf(kx)} + wp.y * ${glf(kz)};`).join('\n      ');
+    const sum = f => WAVES.map((w, i) => f(w, i)).join(' + ');
     const wave = `
-      float wa = uTime * 1.3 + position.x * 2.1 + position.z * 1.7;
-      float wb = uTime * 0.9 - position.x * 1.3 + position.z * 2.6;
-      float wc = uTime * 1.7 + position.x * 3.7 - position.z * 0.9;`;
+      vec2 wp = position.xz; mat2 wj = mat2(1.0); // (wave coordinates, and their slope turned back onto the map: see waterLook)
+      ${ph}`;
     shader.vertexShader = 'uniform float uTime;\n' + shader.vertexShader
       .replace('#include <beginnormal_vertex>', `${wave}
-      float wdx = (cos(wa) * 2.1 * 0.012 - cos(wb) * 1.3 * 0.008 + cos(wc) * 3.7 * 0.004) * ${amp.toFixed(2)};
-      float wdz = (cos(wa) * 1.7 * 0.012 + cos(wb) * 2.6 * 0.008 - cos(wc) * 0.9 * 0.004) * ${amp.toFixed(2)};
-      vec3 objectNormal = normalize(vec3(-wdx * 6.0, 1.0, -wdz * 6.0));
+      vec2 wg = wj * vec2(${sum(([, kx, , a], i) => `cos(w${i}) * ${glf(kx * a)}`)}, ${sum(([, , kz, a], i) => `cos(w${i}) * ${glf(kz * a)}`)}) * ${amp.toFixed(2)};
+      vec3 objectNormal = normalize(vec3(-wg.x * 6.0, 1.0, -wg.y * 6.0));
       #ifdef USE_TANGENT
         vec3 objectTangent = vec3(tangent.xyz);
       #endif`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
-      transformed.y += (sin(wa) * 0.012 + sin(wb) * 0.008 + sin(wc) * 0.004) * ${amp.toFixed(2)};`);
+      transformed.y += (${sum(([, , , a], i) => `sin(w${i}) * ${glf(a)}`)}) * ${amp.toFixed(2)};`)
   };
   mat.customProgramCacheKey = () => 'waves' + amp;
   return mat;
@@ -317,13 +325,23 @@ export function waterLook(mat, time, noise, rain, sky) {
     shader.vertexShader = 'attribute float aDepth;\nattribute vec2 aFlow;\nattribute vec2 aCurrent;\nvarying vec2 vCurrent;\nattribute float aBend;\nattribute float aQual;\nattribute float aRound;\nattribute float aWhite;\nvarying float vWhite;\nvarying float vRound;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vWXZ;\n' + shader.vertexShader
       // Fade wave displacement at the bank, while retaining signed bed depth for shading.
       .replace('#include <begin_vertex>', `#include <begin_vertex>
-      vDepth = aDepth; vFlow = aFlow; vCurrent = aCurrent; vBend = aBend; vQual = aQual; vRound = aRound; vWhite = aWhite; vWXZ = position.xz;`).replace('transformed.y +=', 'transformed.y += smoothstep(0.0, 0.16, aDepth) *');
+      vDepth = aDepth; vFlow = aFlow; vCurrent = aCurrent; vBend = aBend; vQual = aQual; vRound = aRound; vWhite = aWhite; vWXZ = position.xz;`).replace('transformed.y +=', 'transformed.y += smoothstep(0.0, 0.16, aDepth) *')
+      // On moving water the waves are laid out along the current (aCurrent: downstream, across), turned
+      // so their mean travel (WAVE_DOWNSTREAM) points downstream; they drifted one way over the whole
+      // map, so on a creek running the other way the shading ran upstream (Cole, 2026-11-23).
+      .replace('vec2 wp = position.xz; mat2 wj = mat2(1.0);', `vec2 wp = position.xz; mat2 wj = mat2(1.0);
+      if (dot(aFlow, aFlow) > 0.0001) {
+        vec2 wd = normalize(aFlow), m1 = vec2(${WAVE_DOWNSTREAM[0].toFixed(6)}, ${WAVE_DOWNSTREAM[1].toFixed(6)}), m2 = vec2(-m1.y, m1.x);
+        wp = mat2(m1, m2) * aCurrent;
+        wj = mat2(wd, vec2(-wd.y, wd.x)) * mat2(m1.x, m2.x, m1.y, m2.y);
+      }`);
     shader.fragmentShader = 'uniform float uTime;\nuniform sampler2D uNoiseW;\nuniform float uRain;\nuniform vec3 uSky;\nvarying float vWhite;\nvarying float vRound;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vCurrent;\nvarying vec2 vWXZ;\n' + shader.fragmentShader
       .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
       {
-        // drifting ripples: two layers of noise sliding past each other tilt the normal
-        vec2 r1 = vWXZ * 0.9 + vec2(uTime * 0.016, uTime * 0.01) + vFlow * uTime * 0.12;
-        vec2 r2 = vWXZ * 1.7 - vec2(uTime * 0.012, -uTime * 0.018) + vFlow * uTime * 0.18;
+        // drifting ripples: two layers of noise sliding past each other tilt the normal; on moving
+        // water they slide downstream (noise read at p - v t moves along +v: it read p + v t, upstream)
+        vec2 r1 = vWXZ * 0.9 + vec2(uTime * 0.016, uTime * 0.01) - vFlow * uTime * 0.12;
+        vec2 r2 = vWXZ * 1.7 - vec2(uTime * 0.012, -uTime * 0.018) - vFlow * uTime * 0.18;
         float n1 = texture2D(uNoiseW, r1).r, n2 = texture2D(uNoiseW, r2).r;
         float n1x = texture2D(uNoiseW, r1 + vec2(0.02, 0.0)).r, n1z = texture2D(uNoiseW, r1 + vec2(0.0, 0.02)).r;
         vec3 tilt = vec3(n1x - n1 + (n2 - 0.5) * 0.05, 0.0, n1z - n1 - (n2 - 0.5) * 0.05) * 0.9;
@@ -372,7 +390,7 @@ export function waterLook(mat, time, noise, rain, sky) {
           float phase = p.x * 13.0 + sin(p.y * 3.2 + uTime * 0.45) * 1.3 - uTime * 1.6;
           float width = max(fwidth(phase) * 0.65, 0.16);
           float ripple = 1.0 - smoothstep(0.12, 0.12 + width, abs(sin(phase)));
-          float broken = smoothstep(0.45, 0.7, texture2D(uNoiseW, vWXZ * 0.7 + d * uTime * 0.015).r);
+          float broken = smoothstep(0.45, 0.7, texture2D(uNoiseW, vWXZ * 0.7 - d * uTime * 0.015).r);
           diffuseColor.rgb += vec3(0.085, 0.11, 0.115) * ripple * broken
             * (0.15 + vBend * 0.85) * fl * smoothstep(0.008, 0.09, vDepth);
         }

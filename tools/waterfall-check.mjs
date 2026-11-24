@@ -8,6 +8,10 @@
 // - A river fish can't swim up the fall (no species leaps one); a beaver pond never drowns it.
 // - Drawn: a rock ledge, falling water off it (sheet, foam, mist), and the sheet at the fall's foot at
 //   the pool's level.
+// - Drawn water runs downhill round the fall, on the fresh map and one with creeks and a pond dug beside
+//   it: every corner's current (aFlow), the ripples and every wave the surface's shading is made of travel
+//   downstream. The waves drifted one way over the whole map and the ripples against the current, so
+//   PNW's creek looked to run upstream round its fall (Cole, 2026-11-23).
 import assert from 'node:assert/strict';
 import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
@@ -15,7 +19,7 @@ globalThis.localStorage ||= { getItem() { return null; }, setItem() {}, removeIt
 globalThis.document = { createElement: () => ({ getContext: () => ({ createImageData: (w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }), putImageData() {} }) }) };
 const THREE = await import('three');
 const { Terrain } = await import('../js/render3d/terrain.js');
-const { fallLook, FALL_ICE } = await import('../js/render3d/terrain-materials.js');
+const { fallLook, FALL_ICE, WAVES } = await import('../js/render3d/terrain-materials.js');
 const { snow } = await import('../js/render3d/snow.js');
 const { Game } = await import('../js/game.js');
 const { BIOME_LIST } = await import('../js/biome.js');
@@ -223,6 +227,77 @@ check('Drawn: a rock ledge and falling water off it (sheet, foam, mist), its foo
     // water where it's steep, outsideCreek, 0054; the fence row's outer corners are shared with it)
     const wp = ta.water.geometry.attributes.position, onFarm = k => wp.getZ(k) > 0 && wp.getX(k) >= 0 && wp.getX(k) <= a.world.w && wp.getZ(k) <= a.world.h;
     assert.ok(ta.water.geometry.attributes.aWhite.array.every((v, k) => v === 0 || !onFarm(k)), `no white water on ${id}`);
+  }
+});
+
+check('Drawn water runs downhill round the fall: its current, ripples and waves, fresh and with creeks dug beside it', () => {
+  const atlas = { tex: null, uv: {}, slot: {} };
+  for (let s = 0; s < 4; s++) { atlas.uv[T.PASTURE + '|' + s + '|0'] = [0, 0, 1, 1]; atlas.slot[T.PASTURE + '|' + s + '|0'] = 0; }
+  // (the shader: the ripple noise is read at p - v t, which moves it along +v, downstream; the streaks,
+  // wavelets and white water at p.x - t, along the current)
+  const t0 = new Terrain(new THREE.Scene(), atlas), sh = { uniforms: {}, vertexShader: '#include <common>\n#include <beginnormal_vertex>\n#include <begin_vertex>\n#include <project_vertex>', fragmentShader: '#include <common>\n#include <normal_fragment_begin>\n#include <emissivemap_fragment>\n#include <color_fragment>' };
+  t0.waterMat.onBeforeCompile(sh, {});
+  const advect = [...sh.fragmentShader.matchAll(/([+-])\s*(vFlow|d)\s*\*\s*uTime/g)].map(m => m[1]);
+  assert.ok(advect.length >= 4 && advect.every(x => x === '-'), `noise carried by the current: ${advect.join(' ')}`);
+  const along = [...sh.fragmentShader.matchAll(/p\.x \* [\d.]+ ([+-]) uTime/g)].map(m => m[1]);
+  assert.ok(along.length >= 3 && along.every(x => x === '-'), `streaks along the current: ${along.join(' ')}`);
+  assert.ok(sh.vertexShader.includes('wp = mat2(m1, m2) * aCurrent') && !sh.vertexShader.includes('mat2 wj = mat2(1.0);\n      float'), 'waves laid along the current on moving water');
+  // (the wave frame, as the vertex shader builds it: wj takes a velocity in wave coordinates onto the map)
+  const S = Math.SQRT1_2, m1 = [-S, -S], m2 = [S, -S];
+  const travel = (fx, fy) => {
+    const l = Math.hypot(fx, fy), d = [fx / l, fy / l], p = [-d[1], d[0]];
+    return WAVES.map(([sp, kx, kz]) => {
+      const k2 = kx * kx + kz * kz, v = [-sp * kx / k2, -sp * kz / k2], a = m1[0] * v[0] + m1[1] * v[1], c = m2[0] * v[0] + m2[1] * v[1];
+      return [a * d[0] + c * p[0], a * d[1] + c * p[1]];
+    });
+  };
+  const fresh = farm(), [Fa] = fallTiles(fresh.world), [ax, ay] = xy(fresh.world, Fa), Pa = pool(fresh.world, Fa);
+  // the edits, beside the fall: a creek alongside it, one joining below the pool and one above the lip,
+  // a pond by the pool (across the creek: (-dy, dx))
+  const cx = -Pa.dy, cy = Pa.dx, at = (s, c) => fresh.world.idx(ax + Pa.dx * s + cx * c, ay + Pa.dy * s + cy * c);
+  const edits = [
+    ['creek', [-3, -2, -1, 0, 1, 2, 3, 4].map(s => at(s, 1))],
+    ['creek', [1, 2, 3, 4, 5, 6].map(c => at(4, -c))],
+    ['creek', [1, 2, 3, 4, 5].map(c => at(-3, -c))],
+    ['pond', [at(1, 3), at(1, 4), at(2, 3), at(2, 4)]],
+  ];
+  const edited = farm();
+  for (const [key, tiles] of edits) new ToolActions(edited).apply(key, tiles);
+  edited.refreshEnvironment();
+  const dug = edits.flatMap(([, tiles]) => tiles).filter(i => isWater(edited.world.terrain[i])).length;
+  assert.ok(dug >= 20, `${dug} tiles dug beside the fall`);
+  for (const [name, gg] of [['fresh', fresh], ['edited', edited]]) {
+    const ww = gg.world, t = new Terrain(new THREE.Scene(), atlas); t.setWorld(ww, gg.border); t.updateSurface(gg);
+    const a = t.water.geometry.attributes, flowAt = new Map();
+    for (let k = 0; k < a.position.count; k++) flowAt.set(a.position.getX(k) + ',' + a.position.getZ(k), [a.aFlow.getX(k), a.aFlow.getY(k)]);
+    const moving = (x, y) => ww.inb(x, y) && (ww.terrain[ww.idx(x, y)] === T.CREEK || ww.terrain[ww.idx(x, y)] === T.RIVER);
+    const bed = (x, y) => Math.min(...ww.corners(x, y));
+    let tiles = 0, corners = 0, worst = 0;
+    // downhill on each channel tile: toward the lower beds of the channel tiles beside it (none on level
+    // water, a pool or a junction, nor on a dug bed's small humps under a creek that drains the other way
+    // as a whole: a reach drops 0.6 a tile, a fall's gorge 0.18 or more)
+    const down = new Map();
+    for (let y = ay - 9; y <= ay + 9; y++) for (let x = ax - 9; x <= ax + 9; x++) {
+      if (!moving(x, y)) continue;
+      let rx = 0, ry = 0;
+      for (const [dx, dy] of N4) if (moving(x + dx, y + dy)) { const d = bed(x, y) - bed(x + dx, y + dy); rx += dx * d; ry += dy * d; }
+      const l = Math.hypot(rx, ry);
+      if (l >= 0.1) { down.set(x + ',' + y, [rx / l, ry / l]); if (Math.abs(x - ax) <= 8 && Math.abs(y - ay) <= 8) tiles++; }
+    }
+    // ...and at each corner, the way the channel tiles round it run (as the drawing shares a corner's current)
+    for (let y = ay - 8; y <= ay + 9; y++) for (let x = ax - 8; x <= ax + 9; x++) {
+      let rx = 0, ry = 0;
+      for (const [dx, dy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) { const d = down.get((x + dx) + ',' + (y + dy)); if (d) { rx += d[0]; ry += d[1]; } }
+      const f = flowAt.get(x + ',' + y);
+      if (Math.hypot(rx, ry) < 0.5 || !f || Math.hypot(f[0], f[1]) < 0.01) continue;
+      corners++;
+      const off = Math.acos(Math.max(-1, Math.min(1, (f[0] * rx + f[1] * ry) / Math.hypot(...f) / Math.hypot(rx, ry)))) * 180 / Math.PI;
+      worst = Math.max(worst, off);
+      assert.ok(off < 60, `${name}: current at ${x},${y} runs ${off.toFixed(0)} degrees off downhill`);
+      for (const v of travel(f[0], f[1])) assert.ok(v[0] * rx + v[1] * ry > 0, `${name}: a wave at ${x},${y} runs uphill (downhill ${rx.toFixed(2)},${ry.toFixed(2)}, current ${f.map(q => q.toFixed(2))}, ${off.toFixed(0)} off)`);
+    }
+    console.log(`  ${name}: ${tiles} sloping channel tiles round the fall, ${corners} corners, all downhill (current at most ${worst.toFixed(0)} degrees off)`);
+    assert.ok(tiles >= 12 && corners >= tiles, `${name}: ${tiles} tiles, ${corners} corners measured`);
   }
 });
 
