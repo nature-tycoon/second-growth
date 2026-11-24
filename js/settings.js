@@ -11,6 +11,8 @@ export const DEFAULTS = {
   autoQualityAt: 0,    // when the game last changed Detail itself (Date.now), down or back up
   autoUpFailedAt: 0,   // when a step back up proved too much (no more tries for a day)
   fastHintAt: 0,       // when the game suggested Fast to a player whose chosen Detail ran slowly (said once)
+  softwareHintAt: 0,   // when the game said the browser draws without the graphics chip (said once: ui/perf-notices.js)
+  batteryHintAt: 0,    // when the game said plugging in would be smoother after a slow spell on battery (said once)
   wind: true,          // plants sway in the breeze
   weather: true,       // rain and snow drawn over the view
   dayCycle: true,      // the light moves through golden hour, dusk and dawn

@@ -322,3 +322,51 @@ checks (13 in all). No frame cost.
 - What does cost GPU is pixels. For weak chips the existing lever (the automatic resolution) already
   pulls it. A lower Sharp cap on a 2x screen (1.75 instead of 2: about −23% pixels) is a possible
   next cut. It's a sharpness trade, so it's for Cole.
+
+## 8. Follow-ups (batch 2026-11-23-creeks-fps-2, session 4)
+
+**Apple's GPU timer and the step-up test.** PostHog, `perf_sample` from Apple chips, 30 days to
+2026-11-23, release builds:
+
+| Apple chip, browser, Detail, cap | Players | Samples | FPS | GPU timer mean / p95 | Samples over 16 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Chrome, Sharp, held to 30 | 10 | 135 | 29.7 | 11.7 / 15.7 | 20 (15%) |
+| Chrome, Sharp, 60 | 7 | 45 | 52.9 | 11.6 / 18.0 | 6 |
+| Chrome, Fast, held to 30 | 1 | 6 | 28.4 | 8.2 / 14.2 | 0 |
+| Safari (any) | 25 | 454 | 16–43 | none | – |
+
+The synced timing on the M5 (section 7) puts the chip's own work at 5–8 ms on Sharp, so under
+Chrome the timer reads roughly 4–8 ms high. The 16 ms test takes the 75th percentile of about 6
+timer readings in each 3-second spell and needs 20 spells in a row: with one sample in seven
+over 16 on the mean, a minute in a row of passing spells is the exception, not the rule. So yes,
+it can block a step-up wrongly. How often it did is small and unprovable: in 45 days only 2
+Apple + Chrome players were moved down to Fast (`slow`), and one of them was later back on Sharp
+by the old 50 FPS rule; most Apple + Chrome players already sit on Sharp. (No `auto_quality` from
+Apple chips carries `gpu_ms` yet: session 7's telemetry isn't released.)
+
+**Changed:** on Apple chips `Renderer.autoQuality` ignores the GPU timer and the step-up for a frame
+rate held to 30 is judged by the processor's work alone (16 ms). That includes Safari on a Mac, which
+gives no timer and so could never step up while held to 30. The two-minute trial still undoes a
+step that proves too much. A step up decided this way sends `gpu_ignored: true` on `auto_quality`.
+`auto-quality-check` has 4 more checks (17): Apple with the timer over 16 steps up, Apple without a
+timer steps up, Apple with heavy processor work stays put, other chips still need the timer.
+
+**play-profile on Macs** now times synced draws for every view (12 bursts of 8, median) and prints
+`synced N ms (GPU timer M, unreliable here)` in place of the GPU timer; JSON rows carry `syncedMs`.
+`PLAY_SYNC=1` does it on any chip, `PLAY_SYNC=0` never. Synced is processor drawing plus the chip's
+whole frame, so it is the frame's real cost, not the chip's alone. First run (M5, Sharp, PNW, 1
+year): play 9.8 ms synced vs timer 10.7; wide 8.7 vs 10.0.
+
+**Two notices, once ever each** (`js/ui/perf-notices.js`, `tools/perf-notices-check.mjs`, 9 checks):
+
+- *Software drawing* (SwiftShader, llvmpipe, Microsoft Basic Render Driver): 4 s after the farm
+  shows, the steps to turn on graphics acceleration in Chrome, Edge or Firefox (others get a general
+  line), plus "updating your graphics driver can help". Event `software_render_notice` (`gpu`,
+  `browser`). In 60 days PostHog saw 2 such players (one Windows Basic Render Driver at 5.5 FPS, one
+  Linux SwiftShader at 1, probably a bot).
+- *On battery and slow*: on Fast, on battery (where the browser says), clock running, under 20 FPS
+  (75th-percentile frame gap) for two minutes of 3-second spells in a row: "The game is running at
+  about N frames a second on battery. Plugging in will make it smoother: computers slow themselves
+  down on battery." Event `battery_hint` (`fps`, `gpu`). Only on Fast, because Sharp and Balanced
+  already have the one notice suggesting Fast, and the automatic step to Fast comes long before two
+  minutes. Any chip, not only those named weak: the measured slowness is what counts.

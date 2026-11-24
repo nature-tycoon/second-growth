@@ -369,7 +369,10 @@ export class Renderer {
   //   drops it to Fast as usual and counts as a failed try too.)
   // - A frame rate held to 30 (Auto on a laptop running on battery, or the setting) can't show 50, so there room is judged by the work itself: the slower frames' processor work and
   //   the GPU's time both within 16 ms, half the 33 ms a frame has at 30, for the same minute.
-  //   Without a GPU timer (Safari) that can't be judged, so it stays put.
+  //   Without a GPU timer that can't be judged, so it stays put, except on Apple chips (Safari's
+  //   included), where the GPU timer is ignored and the processor's work alone decides: under Chrome it reads 3-9 ms with
+  //   nothing drawn, so 10-16 ms where the chip's own work is 5-8 (fps-plan section 8), and a
+  //   reading over 16 now and then broke the minute in a row. The two-minute trial still undoes it.
   // - On a screen of 1.5 pixels a point or less Sharp and Balanced draw the same picture, so the
   //   step up from Fast goes straight to Sharp there.
   // - A level the player chose is never changed. But if they chose Sharp or Balanced and it runs
@@ -412,7 +415,8 @@ export class Renderer {
     const up = { fast: flat ? 'high' : 'balanced', balanced: 'high' }[this.quality];
     const capped = (this.frameCap?.().target_fps ?? 60) <= 30;
     // (held to 30 and keeping up, with both sides of the frame done in half the time it has)
-    const roomy = fps >= 50 || (capped && fps >= 27 && workMs != null && gpuMs != null && Math.max(workMs, gpuMs) <= 16);
+    const apple = /\bApple\b/.test(this.gpuName() || '');
+    const roomy = fps >= 50 || (capped && fps >= 27 && workMs != null && workMs <= 16 && (apple || (gpuMs != null && gpuMs <= 16)));
     const room = up && game?.speed > 0 && roomy && this.resScale >= 0.999 && !this.shadowsDropped;
     this.qGood = room ? (this.qGood || 0) + 1 : 0;
     const wall = Date.now();
@@ -420,7 +424,7 @@ export class Renderer {
       this.qGood = 0; this.qStart = null;
       this.qTrial = { from: this.quality, at: now };
       this.qRaised = true;
-      this.onQuality(up, Math.round(fps), 'room', { ...this.qLast, capped, base_dpr: window.devicePixelRatio || 1 });
+      this.onQuality(up, Math.round(fps), 'room', { ...this.qLast, capped, base_dpr: window.devicePixelRatio || 1, ...(capped && apple ? { gpu_ignored: true } : null) });
     }
   }
   setRes(sc) {

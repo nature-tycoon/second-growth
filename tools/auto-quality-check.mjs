@@ -1,6 +1,6 @@
 // Renderer.autoQuality, the game's own Detail steps (docs/ideas/2026-11-22-creeks-fps/fps-plan.md):
 // a frame rate held to 30 steps up when the frame's work leaves half the frame free, never without
-// a GPU timer or with heavy work; 1x screens go Fast -> Sharp, 2x screens Fast -> Balanced; a step up
+// a GPU timer or with heavy work (on Apple chips the GPU timer is ignored: the work alone decides); 1x screens go Fast -> Sharp, 2x screens Fast -> Balanced; a step up
 // that proves too much is undone and not tried again for a day; a slow computer drops to Fast.
 // Driven on a stub with a fake clock, so no WebGL is needed.
 import assert from 'node:assert/strict';
@@ -14,14 +14,14 @@ function check(name, fn) { fn(); checks++; console.log('PASS ' + name); }
 let clock = 0;
 performance.now = () => clock;
 
-function renderer({ quality = 'fast', cap = 30, gpuTimer = true, dpr = 1 } = {}) {
+function renderer({ quality = 'fast', cap = 30, gpuTimer = true, dpr = 1, gpu = 'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics)' } = {}) {
   globalThis.window = { devicePixelRatio: dpr };
   const r = Object.create(Renderer.prototype);
   Object.assign(r, {
     quality, qualityChosen: false, resScale: 1, shadowsDropped: false, qualityAt: 0, upFailedAt: 0,
     frameCap: () => ({ target_fps: cap }),
     gpuTimer: { ext: gpuTimer ? {} : null, recent: [] },
-    moves: [],
+    moves: [], _gpu: gpu,
   });
   r.onQuality = (to, fps, reason, measured) => { r.moves.push({ from: r.quality, to, fps, reason, ...measured }); r.quality = to; };
   return r;
@@ -50,9 +50,32 @@ check('held to 30 on a 2x screen: Fast steps up to Balanced first', () => {
   play(r, 90, { work: 8, gpu: 9 });
   assert.deepEqual(r.moves.map(m => m.to), ['balanced']);
 });
-check('held to 30 without a GPU timer (Safari): stays put', () => {
+check('held to 30 without a GPU timer, not an Apple chip: stays put', () => {
   const r = renderer({ gpuTimer: false });
   play(r, 180, { work: 5, gpu: 5 });
+  assert.equal(r.moves.length, 0);
+});
+// (fps-plan section 8: the GPU timer on Apple chips under Chrome reads 10-16 ms where the chip's
+// work is 5-8, so there the processor's work alone decides)
+const APPLE = 'ANGLE (Apple, ANGLE Metal Renderer: Apple M2, Unspecified Version)';
+check('Apple chip held to 30, light work, GPU timer reading over 16: steps up on the work alone', () => {
+  const r = renderer({ gpu: APPLE, dpr: 2 });
+  play(r, 90, { work: 8, gpu: 18 });
+  assert.deepEqual(r.moves.map(m => [m.to, m.reason, m.gpu_ignored]), [['balanced', 'room', true]]);
+});
+check('Apple chip without a GPU timer (Safari), light work: steps up', () => {
+  const r = renderer({ gpu: 'Apple GPU', gpuTimer: false, dpr: 2 });
+  play(r, 90, { work: 8 });
+  assert.deepEqual(r.moves.map(m => m.to), ['balanced']);
+});
+check('Apple chip held to 30 with heavy processor work: stays put', () => {
+  const r = renderer({ gpu: APPLE });
+  play(r, 180, { work: 20, gpu: 5 });
+  assert.equal(r.moves.length, 0);
+});
+check('other chips still need the GPU timer within 16 ms', () => {
+  const r = renderer();
+  play(r, 180, { work: 8, gpu: 18 });
   assert.equal(r.moves.length, 0);
 });
 check('held to 30 with heavy work: stays put', () => {

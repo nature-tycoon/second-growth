@@ -15,8 +15,11 @@
 // and prints each one's GPU ms against the view as it is. PLAY_NO_AA=1 makes the page's WebGL contexts
 // without antialiasing (run once with and once without to compare; it needs a fresh page, so it's a run of its own;
 // PLAY_GPU_SPLIT=base times only the view as is, timer and synced, for that A/B).
-// Uses the hardware GPU at 1440x900, DPR 2 (a Retina laptop);
-// GPU time comes from the game's own timer queries. Writes tools/release-output/play-profile.json.
+// Uses the hardware GPU at 1440x900, DPR 2 (a Retina laptop). GPU time comes from the game's own timer
+// queries, except on Apple chips, where that timer reads 3-9 ms with nothing drawn (fps-plan.md section 7):
+// there each view also times synced draws (each waits for the chip to finish) and prints that, "synced",
+// in place of the timer (processor drawing plus the chip's whole frame, so it's the frame's real cost).
+// PLAY_SYNC=1 times synced draws on any chip too, PLAY_SYNC=0 never. Writes tools/release-output/play-profile.json.
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { openBrowser, projectRoot } from './browser-session.mjs';
@@ -53,6 +56,7 @@ try {
     await browser.waitFor('!!window.secondGrowth && (!document.getElementById("loading-screen") || document.getElementById("loading-screen").classList.contains("done"))', 'Game did not boot');
     const gpu = await browser.evaluate('window.secondGrowth.renderer.gpuName()');
     if (/SwiftShader|llvmpipe|software/i.test(gpu || '')) throw new Error('Hardware graphics unavailable');
+    const SYNC = process.env.PLAY_SYNC ? process.env.PLAY_SYNC === '1' : /\bApple\b/.test(gpu || ''); // (see the top)
     // (the years pass headless, a day and ten wildlife steps at a time, as in balance-sim)
     const center = await browser.evaluate(`(async()=>{
       const {game,renderer,ui}=window.secondGrowth;
@@ -75,19 +79,23 @@ try {
         ${SPLIT ? 'R.autoRes=false; R.setRes(1);' : ''}
         await new Promise(r=>setTimeout(r,3000));
         const split={};
+        // Synced: each draw waits for the chip to finish (read back by one pixel), so its time is the processor's
+        // drawing plus the chip's whole frame (the Mac's timer query read 3-9 ms with nothing drawn). The chip's
+        // clock wanders, so bursts of 8 come many times over and the median is kept.
+        const gl=R.gl.getContext(), px=new Uint8Array(4);
+        const burst=(n,out)=>{for(let i=0;i<n;i++){const t=performance.now(); R.draw(game,ui.state,0); gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,px); if(out&&i>=2) out.push(performance.now()-t);}};
+        const synced=[];
+        ${SYNC && !SPLIT ? `burst(4); for(let round=0;round<12;round++){ burst(8,synced); await new Promise(r=>setTimeout(r,50)); }` : ''}
         ${SPLIT ? `const variants=[['as is',()=>{},()=>{}],${VARIANTS.map(([n, on, off]) => `[${JSON.stringify(n)},()=>{${on}},()=>{${off}}]`).join(',')}];
         for(let round=0;round<2;round++) for(const [name,on,off] of variants){
           on(); await new Promise(r=>setTimeout(r,1000)); R.perfSample(true);
           await new Promise(r=>setTimeout(r,4000)); const s=R.perfSample(false); off();
           (split[name] ||= {timer:[]}).timer.push({gpu:s.gpu_frame_ms, draw:s.cpu_render_ms, fps:s.fps, redraws:s.shadow_redraws/Math.max(.1,s.sample_s)});
         }
-        // Synced: each draw waits for the chip to finish (read back by one pixel), so its time is the processor's
-        // drawing plus the chip's whole frame (the Mac's timer query read 3-9 ms with nothing drawn). The chip's
-        // clock wanders, so the variants take turns in short bursts, many times over, and each keeps its median.
-        const gl=R.gl.getContext(), px=new Uint8Array(4);
-        const burst=(n,out)=>{for(let i=0;i<n;i++){const t=performance.now(); R.draw(game,ui.state,0); gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,px); if(out&&i>=2) out.push(performance.now()-t);}};
+        // (synced, as above: the variants take turns in short bursts, many times over, and each keeps its median)
         for(const [,on,off] of variants){on(); burst(4); off();} // (every variant's shaders built first)
         for(let round=0;round<14;round++){ for(const [name,on,off] of variants){on(); burst(8,split[name].sync ||= []); off();} await new Promise(r=>setTimeout(r,50)); }
+        synced.push(...split['as is'].sync);
         R.perfSample(true);` : ''}
         const probes=new PerformancePhases(game,R), total={}, frames=[], frame=ui.frame;
         ui.frame=function(...a){const r=frame.apply(this,a); let sum=0; for(const k in probes.times){total[k]=(total[k]||0)+probes.times[k]; sum+=probes.times[k];} frames.push(sum); probes.reset(); return r;};
@@ -104,7 +112,7 @@ try {
         gaps.sort((a,b)=>a-b);
         const s=R.perfSample(false), n=frames.length; frames.sort((a,b)=>a-b);
         return {fps:s.fps, simulationMs:s.cpu_simulation_ms, simulationP95Ms:s.cpu_simulation_p95_ms, drawingCpuMs:s.cpu_render_ms, drawingCpuP95Ms:s.cpu_render_p95_ms,
-          gpuMs:s.gpu_frame_ms, gpuP95Ms:s.gpu_frame_p95_ms, slowestFrameMs:+frames[n-1].toFixed(1),
+          gpuMs:s.gpu_frame_ms, gpuP95Ms:s.gpu_frame_p95_ms, syncedMs:synced.length?+[...synced].sort((a,b)=>a-b)[synced.length>>1].toFixed(1):null, slowestFrameMs:+frames[n-1].toFixed(1),
           frameP95Ms:+gaps[Math.floor(gaps.length*.95)].toFixed(1), longestGapMs:+gaps[gaps.length-1].toFixed(1), gapsOver50:gaps.filter(g=>g>50).length,
           plantInstances:R.flora.plantView.stats.candidates, plantVisible:R.flora.plantView.stats.visible,
           phasesPerFrameMs:Object.fromEntries(Object.entries(total).map(([k,v])=>[k,+(v/n).toFixed(2)])),
@@ -115,7 +123,7 @@ try {
       browser.assertHealthy();
       rows.push({ map, view, speed, zoom, ...row });
       const p = row.phasesPerFrameMs;
-      console.log(`${map} ${view}: ${row.fps} fps | sim ${row.simulationMs} ms, drawing ${row.drawingCpuMs} ms (plants ${p.plants ?? 0}, plant culling ${((p.visibility ?? 0) + (p.shadowSelection ?? 0)).toFixed(2)}, animals ${p.actors ?? 0}), GPU ${row.gpuMs} ms | slowest ${row.slowestFrameMs} ms, frame p95 ${row.frameP95Ms} ms, longest gap ${row.longestGapMs} ms (${row.gapsOver50} over 50) | plants ${row.plantVisible}/${row.plantInstances} drawn | ${(row.triangles / 1e6).toFixed(1)}M triangles, ${row.animals} animals${row.closeUp ? ` (${row.closeUp} drawn close up)` : ''}`);
+      console.log(`${map} ${view}: ${row.fps} fps | sim ${row.simulationMs} ms, drawing ${row.drawingCpuMs} ms (plants ${p.plants ?? 0}, plant culling ${((p.visibility ?? 0) + (p.shadowSelection ?? 0)).toFixed(2)}, animals ${p.actors ?? 0}), ${row.syncedMs != null && SYNC ? `synced ${row.syncedMs} ms (GPU timer ${row.gpuMs}, unreliable here)` : `GPU ${row.gpuMs} ms`} | slowest ${row.slowestFrameMs} ms, frame p95 ${row.frameP95Ms} ms, longest gap ${row.longestGapMs} ms (${row.gapsOver50} over 50) | plants ${row.plantVisible}/${row.plantInstances} drawn | ${(row.triangles / 1e6).toFixed(1)}M triangles, ${row.animals} animals${row.closeUp ? ` (${row.closeUp} drawn close up)` : ''}`);
       if (SPLIT) {
         const base = row.split['as is'];
         const d = (v, f) => `${v[f] - base[f] >= 0 ? '+' : ''}${(v[f] - base[f]).toFixed(1)}`;
