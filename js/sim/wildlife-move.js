@@ -19,7 +19,7 @@ import { clearSpot, resolveStep, steerAround } from './ground-obstacles.js';
 import { turnRate, reefStep } from './steering.js';
 import { shapeCourse, pathPoint } from './animal-course.js';
 import { swimDepth, deepWaterNear, fishDepth } from './waterline.js';
-import { blockSwim } from './swim-routes.js';
+import { blockSwim, runDepth } from './swim-routes.js';
 import { drinkEvery } from './home-range.js';
 import { passable, reefMoveSafe } from './animal-terrain.js';
 import { simRandom } from './sim-random.js';
@@ -283,7 +283,8 @@ function reefToward(w, a, tx, ty, dx, dy, sp) {
 // River fish: where its step (nx, ny) lands, in TO; false when there's no way on.
 const TO = { x: 0, y: 0 };
 function riverFishStep(w, a, def, nx, ny, dx, dy, step, was) {
-  const here = swimDepth(w, a.x, a.y), need = fishDepth(def), swims = (x, y) => { const t = swimDepth(w, x, y); return t >= need || t > here || here < need && t >= here; };
+  // (runDepth: the water it can swim through, a creek's riffles too, swim-routes.js)
+  const here = runDepth(w, a.x, a.y), need = fishDepth(def), swims = (x, y) => { const t = runDepth(w, x, y); return t >= need || t > here || here < need && t >= here; };
   if (!swims(nx, ny)) {
     // it follows the channel round a shallow bar: the nearest heading either side that keeps to
     // swimmable water. Held up half a day all the same (a creek running downhill is a staircase
@@ -295,7 +296,7 @@ function riverFishStep(w, a, def, nx, ny, dx, dy, step, was) {
     const h0 = Math.atan2(dy, dx), ux = Math.cos(h0), uy = Math.sin(h0);
     let found = false;
     if (a.leaving || a.moveProgress?.stalled > 0.5) for (let t = step; !found && t <= Math.max(step, 0.35); t += 0.05) {
-      if (swimDepth(w, a.x + ux * t, a.y + uy * t) >= need) { nx = a.x + ux * t; ny = a.y + uy * t; found = true; }
+      if (runDepth(w, a.x + ux * t, a.y + uy * t) >= need) { nx = a.x + ux * t; ny = a.y + uy * t; found = true; }
     }
     // (the side it went round last time first: trying left then right afresh each step, a fish
     // along a lip went left one step and right the next, its heading flipping half round a frame)

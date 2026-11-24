@@ -492,7 +492,9 @@ export class WildlifeIntent {
         a.patrolDir = [a.patrolDir[0] * c - a.patrolDir[1] * sn, a.patrolDir[0] * sn + a.patrolDir[1] * c];
       }
     }
-    if (best === start) { a.wait = riverFish ? 0.15 + simRandom() * 0.35 : 1 + simRandom() * 3; return; }
+    // (a river fish holding where it now and then lets the oldest of its recent places go: with every
+    // pool it can reach among its last four, a trout in a plunge pool held there for good, 2026-11-23)
+    if (best === start) { if (riverFish && simRandom() < 0.1) recent.shift(); a.wait = riverFish ? 0.15 + simRandom() * 0.35 : 1 + simRandom() * 3; return; }
     const path = [];
     for (let i = best; i !== start && i >= 0; i = parent[i]) path.push(i);
     a.path = path; a.state = 'walk';

@@ -4,6 +4,7 @@
 import { groundAt } from '../sim/waterline.js';
 import { LEVEL, clamp } from '../config.js';
 import { trait } from '../data/animal-kinds.js';
+import { runLevel } from '../sim/swim-routes.js';
 import { fishSnap } from './eating-pose.js';
 import { salmonLeap } from './actors-common.js';
 
@@ -12,7 +13,9 @@ const SWIM_STRIDE = 0.7; // (body lengths a fish moves per beat of its tail at a
 // (in its tile's water, the same depth the simulation keeps it in (swimDepth): down to
 // half way in the shallows, so it never sinks into the bank where the water thins out)
 export function riverFishHeight(c) {
-  const { w, a, def, st, mo, sc, k, frameDt, time, surf, ground } = c;
+  const { w, a, def, st, mo, sc, k, frameDt, time, ground } = c;
+  // (crossing a creek's riffle, in the running water the drawn sheet shows there, not on the bed)
+  const run = c.surf != null ? runLevel(w, a.x, a.y) : null, surf = run != null ? Math.max(c.surf, run * LEVEL) : c.surf;
   let y;
   const room = surf != null ? surf - groundAt(w, a.x, a.y) * LEVEL : 0; // (the ground on the drawn triangles)
   y = surf != null ? surf - Math.max(0, Math.min(0.05 + mo.sink * sc, room * 0.5)) : ground;

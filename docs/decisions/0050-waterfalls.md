@@ -18,7 +18,9 @@ steep steps, no player tool.
   below (`FALL_MIN_DROP` > `POOL_RISE`). Edits can't change it: Raise, Lower and Fill never move a creek's
   corners (0048). A pond dug beside the pool joins it and takes it down 0.08.
 - Fish: the fall's upper part stands far over its own water, so `swimRoute`'s depth test refuses the lip
-  both ways (no species leaps; don't add one here). Beavers: `damCrest` passes over a head whose pond
+  both ways (no species leaps; don't add one here). A fall keeps its own flat sheet in `runDepth` and lends
+  its level to no tile, while the steep reach below the pool is passable riffle both ways (0034), so the
+  pool holds a few fish, not all: `fish-falls-marsh-check`. Beavers: `damCrest` passes over a head whose pond
   would stand more than 0.12 over a fall's foot (it would stand flat up the face).
 - Drawing (`terrain.js`): the bank ring takes the water beside it before the water at its corner (it took
   the highest of all eight, so beside any steep creek the drawn water stood up to 0.6 over the creek's own,

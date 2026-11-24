@@ -44,6 +44,6 @@ Fish (0050, 0034) — came back ("again")
 | 1 | Phone layout fixes | 1, 2, 3 | sonnet | small | [x] 4717ad6, 4f82c99 |
 | 2 | Creek brush lag and S-curves | 4, 5 | opus | medium | [x] 024b26b (lag fixed; S-curve still stepped, logged) |
 | 3 | Waterfall water flow direction | 6 | opus | small–medium | [x] d16bee0 |
-| 4 | Fish clumping at falls and marsh | 7, 8 | opus | medium | [ ] |
+| 4 | Fish clumping at falls and marsh | 7, 8 | opus | medium | [x] (riffles open below the fall; 3 open questions) |
 
 Sequential in this checkout. Sessions 2 and 4 run `regression-reviewer` (water, movement).
