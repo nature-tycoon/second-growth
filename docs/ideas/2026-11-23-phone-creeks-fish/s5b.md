@@ -13,7 +13,7 @@
 - **Dipper (`dipper-check`), found by the full suite: a real flight glitch.** My changes shift the random stream, and that exposed it. When a hawk came near, `bolt` sent the dipper in a straight escape line, and on this seed that line crossed about 6 tiles of land. When no landing was in reach, the bird was also left hovering, and it then cut across land to another reach. A real dipper escapes along its stream or ducks under.
   - Fix (`bolt` in `js/sim/animal-life.js`; `overWater` moved into `animal-terrain.js` and shared with `alongCreek`; a rule line in 0030): a `fastWater` bird lands only where the flight stays over water, and with no such landing it stays on its creek.
   - Over-land flight went from 12.9% to 0.0% on the default seed, and run seeds 1 and 2 also show 0.0%. Run seed 3 fails earlier, on setup (K 0.81 < 1: that seed's creek isn't clean enough for dippers after 5 years). It's unrelated, see the new ideas.
-- **Full headless suite:** passed (147 of 147) with the flood odds at 1/25; rerun at 1/8 in progress at commit time, result in the next commit if anything fails. The motion sweep passed (only `KNOWN` lines) after the dipper fix. `home-range-check`, `animal-positioning-check` and `dipper-check` pass.
+- **Full headless suite:** passed, 147 of 147, at the shipped flood odds (1/8), as it did at 1/25. The motion sweep passed (only `KNOWN` lines) after the dipper fix. `home-range-check`, `animal-positioning-check` and `dipper-check` pass.
 
 ## Open questions for Cole
 
