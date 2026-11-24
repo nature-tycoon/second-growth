@@ -6,7 +6,7 @@
 import { clamp, isWater, DAYS_PER_YEAR, lifeAge, F } from '../config.js';
 import { preyFor, isMale, isMaleVariant } from '../data/animals.js';
 import { facePoint, animalRadius } from './animal-positioning.js';
-import { passable, canLand } from './animal-terrain.js';
+import { passable, canLand, overWater } from './animal-terrain.js';
 import { inRiver } from './animals.js';
 import { followCervid } from './cervid-groups.js';
 import { travelSpeed } from './climb-pace.js';
@@ -506,16 +506,22 @@ export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
     // Take off immediately, then prefer a safe landing farther from the threat.
     // If enclosed by unsuitable landing terrain, remain airborne and try again later.
     let best = null, score = -Infinity;
+    const creekFlyer = trait(def, 'fastWater');
     for (let k = 0; k < 12; k++) {
       const ang = Math.atan2(fy, fx) + (simRandom() - 0.5) * 1.4, r = range + simRandom() * range;
       const x = clamp(a.x + Math.cos(ang) * r, 0.5, w.w - 0.5), y = clamp(a.y + Math.sin(ang) * r, 0.5, w.h - 0.5);
       const j = w.idx(Math.floor(x), Math.floor(y));
       if (!canLand(w, j, def) || w.fire[j]) continue;
+      // (a creek bird, fastWater, escapes along its creek, never across land: the dipper)
+      if (creekFlyer && !overWater(w, a.x, a.y, x, y)) continue;
       const d = Math.hypot(x - threat.x, y - threat.y);
       if (d <= l) continue;
       const value = d + preyCover(w, { sp: a.sp, x, y }, wl.game.catalog.animals[threat.sp]) * 2;
       if (value > score) { best = [x, y]; score = value; }
     }
+    // (a creek bird with no way off along the water stays on its creek, as a dipper ducks under,
+    // rather than hanging in the air and then cutting across land)
+    if (!best && creekFlyer && !a.flying) { a.threat = threat.id; a.state = 'idle'; a.wait = 0.2; a.path = null; return; }
     a.threat = threat.id; a.flying = true; a.alt = Math.max(0.3, a.alt || 0); a.path = null;
     if (best) { [a.tx, a.ty] = best; a.state = 'fly'; }
     else { a.state = 'idle'; a.wait = 0.2; }

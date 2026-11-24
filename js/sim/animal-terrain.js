@@ -5,6 +5,19 @@ import { trait } from '../data/animal-kinds.js';
 
 // Birds that stand and feed in the shallows (trait wades: herons, cranes, dippers).
 export const wader = def => !!trait(def, 'wades');
+// Every point of the straight line from (x0, y0) to (x1, y1) is over water or the bank beside it:
+// a dipper's flight follows the creek and never cuts across land.
+export function overWater(w, x0, y0, x1, y1) {
+  const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 0.4);
+  for (let s = 1; s < n; s++) {
+    const x = Math.floor(x0 + (x1 - x0) * s / n), y = Math.floor(y0 + (y1 - y0) * s / n);
+    if (!w.inb(x, y)) return false;
+    const j = w.idx(x, y);
+    if (!isWater(w.terrain[j]) && w.distWater[j] > 1) return false;
+  }
+  return true;
+}
+
 // Small land animals that keep out of the water altogether (0025): a vole or a rabbit doesn't wade
 // a marsh or a creek. Bigger ones may wade across, but don't stop in it (steering.js). The kinds
 // are drawn kinds, not species: raccoons, coatis and civets forage in the shallows and are left out.

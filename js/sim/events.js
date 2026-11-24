@@ -15,6 +15,7 @@ const CROWN_BARE = 0.3; // how well a crown fire carries through big trees with 
 const LADDER_FULL = 0.4; // ladder fuel that carries a crown fire fully
 const RX_TORCH = 0.08; // a controlled burn's chance, per tile, of climbing a shrub layer into a dry canopy (see rxTorch)
 const SHADE_DAMP = 0.5; // how much of a surface fire's dryness a full canopy in leaf takes away
+const FLOOD_SAPLING_ODDS = 1 / 8; // a flood-intolerant sapling's daily odds of drowning while the flood stands on it
 
 // A tree that sprouts back from the root (p.resprout: savanna trees, mesquite, broadleaves; not
 // conifers) is burned to the ground but not killed, once it's past seedling age (0035): it comes
@@ -574,7 +575,10 @@ export class Events {
       const gi = w.ground[i], si = w.shrub[i], ti = w.tree[i];
       if (gi) { const p = this.game.catalog.plants[gi]; if (!p.wetOK && !p.aquatic) { w.groundG[i] -= 0.05; if (w.groundG[i] <= 0) { w.ground[i] = 0; w.groundG[i] = 0; } } }
       if (si && !this.game.catalog.plants[si].wetOK && w.shrubG[i] < 0.35) { w.shrub[i] = 0; w.shrubG[i] = 0; }
-      if (ti && !this.game.catalog.plants[ti].wetOK && this.game.catalog.plants[ti].moist[1] < 0.95 && w.treeG[i] < 0.3) removeTree(w, i, 'flood', rng, { deadwood: false });
+      // a sapling that can't take wet feet may drown over the days the water stands, not on the first
+      // day: a young riparian tree may ride out a short winter flood (1/8 a day: an 8-day flood takes about
+      // two thirds; at 1/25 PNW's weedy floodplain cover rose against a control, ideas phone-creeks-fish s5b)
+      if (ti && !this.game.catalog.plants[ti].wetOK && this.game.catalog.plants[ti].moist[1] < 0.95 && w.treeG[i] < 0.3 && rng() < FLOOD_SAPLING_ODDS) removeTree(w, i, 'flood', rng, { deadwood: false });
       w.flood[i]--;
       if (!w.flood[i]) {
         // receding water leaves fresh silt and a scatter of floodplain seeds
