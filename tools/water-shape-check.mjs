@@ -15,7 +15,7 @@ const { BIOME_LIST } = await import('../js/biome.js');
 const { ToolActions } = await import('../js/tool-actions.js');
 const { T, F, isWater } = await import('../js/config.js');
 const { tileWaterLevel } = await import('../js/sim/waterline.js');
-const { sharpBends, COURSE_TURN, outsideCreek } = await import('../js/maps/water-shape.js');
+const { sharpBends, COURSE_TURN, outsideCreek, pendingCourse } = await import('../js/maps/water-shape.js');
 const { BORDER } = await import('../js/config.js');
 const { waitAtFence } = await import('../js/sim/fence-gate.js');
 const { shapeShoreNear } = await import('../js/terrain-edit.js');
@@ -295,6 +295,17 @@ for (const map of maps) {
     let moved = 0;
     for (const [i, l] of before) if (Math.abs((after.get(i) ?? NaN) - l) > 1e-6) moved++;
     assert.equal(moved, 0, `${moved} water tiles changed level`);
+  });
+  // the stroke shows under the brush at once (2026-11-23, batch phone-creeks-fish s2): the head runs
+  // a few tiles behind, so after every sample the brush's tile is dug or on the path shown ahead of it
+  check(`${map}: a creek stroke shows under the brush after every sample`, () => {
+    const s = actions.begin('creek'), path = [...line(X(1), Y(13), X(9), Y(13)), ...line(X(8), Y(13), X(5), Y(13))]; // (out, then doubling back)
+    for (const [x, y] of path) {
+      actions.paint(s, x, y);
+      const shown = new Set([...s.changed, ...pendingCourse(s.course).map(([a, b]) => w.idx(a, b))]);
+      assert.ok(shown.has(w.idx(x, y)), `brush at ${x},${y} shows nothing under it`);
+    }
+    actions.end(s);
   });
 }
 // Creek heads narrow into their end, generated (Chinandega's, Sumatra's canal ends) and dug, rather

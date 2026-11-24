@@ -5,6 +5,9 @@ import { T, money, clamp, WATCH_PACE } from './config.js';
 import { strokeTiles, toolCost, bestSuit, naturalFeature } from './tools.js';
 import { settings } from './settings.js';
 import { refusal } from './tool-actions.js';
+import { pendingCourse } from './maps/water-shape.js';
+
+const COURSE_TINT = 'rgba(70,150,205,0.5)'; // (a creek stroke under the brush: 0054)
 
 
 const SHIFTED = { '-': '_', '_': '-', '=': '+', '+': '=' };
@@ -377,6 +380,7 @@ export class Input {
     this.stroke = this.ui.actions.begin(tool);
     if (!this.stroke) return;
     if (tool.brush) document.body.classList.add('painting');
+    this.r.creekStroke = !!tool.course; // (its redraw is paced while dragging: Scene.refreshWorld)
     this.applyAt(t.x, t.y);
     if (!tool.brush) this.endStroke();
   }
@@ -425,7 +429,7 @@ export class Input {
   endStroke() {
     const s = this.stroke;
     this.stroke = null; this.hoverKey = null;
-    document.body.classList.remove('painting');
+    document.body.classList.remove('painting'); this.r.creekStroke = false;
     if (!s) return;
     const before = s.changed.length, w = this.game.world;
     this.ui.actions.end(s);
@@ -479,6 +483,17 @@ export class Input {
         color = toolCost(g, tool, i) !== 0 || w.struct[i] >= 0 ? 'rgba(230,120,70,0.45)' : 'rgba(255,250,230,0.1)';
       }
       prev.push({ i, color });
+    }
+    // a creek stroke shows at once: the tiles it has dug, and the stroke from the course's head (which
+    // runs a few tiles behind, cutting corners round: 0054) on to the brush. The dug ground and water
+    // are redrawn at the renderer's own pace while dragging (Scene.refreshWorld).
+    const s = this.stroke;
+    if (s?.tool.course && s.course) {
+      const seen = new Set(), course = [];
+      for (const i of [...s.changed, ...pendingCourse(s.course).filter(([x, y]) => w.inb(x, y)).map(([x, y]) => w.idx(x, y))]) {
+        if (!seen.has(i)) { seen.add(i); course.push({ i, color: COURSE_TINT }); }
+      }
+      prev.splice(0, prev.length, ...prev.filter(p => !seen.has(p.i)), ...course);
     }
     ui.state.previewTiles = prev;
     // cursor tip

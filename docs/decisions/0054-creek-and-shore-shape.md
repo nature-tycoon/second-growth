@@ -19,6 +19,17 @@ cause, not only the creek.
   A stroke that turns back or ends inside the tightest turn stops short of the cursor. A stroke
   starting at a creek's end carries on its heading (`creekEndHeading`); from mid-creek it's a
   tributary and may leave at any angle.
+  The stroke shows at once (2026-11-23, batch phone-creeks-fish s2): while dragging, the brush preview
+  tints the tiles dug so far and the stroke from the head on to the brush (`pendingCourse`, input.js),
+  and the whole-map ground and water rebuild is paced to a third of the time (`creekStroke`,
+  Scene.refreshWorld); the shore pass still runs once, at the stroke's end. Before, the first tiles
+  after the start showed nothing until the head was 5 tiles behind, and each dug tile cost a 50-90 ms
+  frame. Only the creek is paced: Raise/Lower aim at the world's heights, a held mesh slides the brush.
+  A tight brush-1 S still draws tile-stepped (pnw 12.9%, amazon 10.2%, serengeti 13.1% of its
+  waterline turning >60° within a tile): a creek's banks sit 0.03 over its water, so the waterline runs
+  out along the next tile's edge. Raising a *dug* creek's banks like a pond's was measured (serengeti
+  3.5%, amazon 6.5%, pnw unchanged: steep cross-slope, each tile's flat sheet) and not built: it breaks
+  the floodplain rule above for the creeks players dig for beavers.
 - **The shore pass** (`shoreHeights`): the water's tiles blurred (σ 0.9 tile), outline where it falls
   to 0.35. A water tile's corner outside the outline (the outer corner of a step or bend: touched by
   that one water tile only) is lifted at most 0.3 out of the water, never the only lowest corner of its

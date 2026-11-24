@@ -163,3 +163,16 @@ Jacob (RTX 5070 laptop, Windows, Chrome, Sharp) found Hollis steadily laggier as
 Still open: the GPU at play zoom over a full forest (16 ms on the M5 at Retina High, 4M triangles: mid-detail tree models at zoom 0.7), and zoom-out frames still pick every plant again.
 
 **Hybrid graphics.** The game can tell which chip it got (`renderer.gpuName()`, e.g. `ANGLE (Intel, Intel(R) Arc(TM) Graphics ...)` vs `ANGLE (NVIDIA, ... RTX 5070 Laptop GPU ...)`), but not that a faster one exists. The context already asks for `powerPreference: 'high-performance'`, which Chrome on Windows may ignore. A hint is worthwhile only when the frame rate is low and the renderer is Intel/AMD integrated on Windows: "if your laptop has a separate graphics card, set Chrome to High performance in Windows Graphics settings". `game_loaded` already records `gpu`, so PostHog can show how many players on Windows run on integrated chips before building it. Not built.
+
+## Land edits, 2026-11-23: every height change rebuilds the whole map
+
+Measured dragging the creek tool on PNW (fast Mac, headless Chrome with the GPU): each dug tile bumps
+`w.hv`, and `Scene.refreshWorld` then runs `Terrain.updateHeights` for the whole map (~30 ms JS:
+positions and normals of every drawn tile, skirt, line, `buildWater` ~20 ms, overlay) and a whole-map
+`updateSurface` (~12 ms; a patch is refused once the heights changed). That was 50-90 ms for every
+frame of the drag. Stopgap (ideas batch phone-creeks-fish s2): during a creek stroke the rebuild waits
+three times its last cost (`creekStroke`, scene.js); 11 rebuilds in a 14-tile drag fell to 4, and the
+stroke shows at once as the brush preview. Raise/Lower still rebuild every frame (the brush aims at
+the world's heights, so a held mesh would slide the brush off the cursor). **Open fix**: a patch-only
+`updateHeights` (positions and normals for the edited tiles and one ring) and an incremental water
+mesh, which would serve every land tool.

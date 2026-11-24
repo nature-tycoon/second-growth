@@ -1046,7 +1046,15 @@ export class Renderer {
   refreshWorld(game, swapped, now) {
     const w = this.world;
     let surface = false, flora = false;
-    if (w.hv !== this.terrain.hv) { this.terrain.updateHeights(); surface = flora = true; this.previewKey = null; } // (the brush preview sits on the new ground too)
+    // While a creek stroke is dragged, the whole-map ground and water rebuild (about 30 ms on a fast
+    // Mac for every tile dug) waits until three times its last cost has passed, so the drag stays
+    // smooth; the stroke shows at once as the brush preview (input.js), and the rebuild after the
+    // stroke is immediate. Only the creek: Raise and Lower move the ground the brush aims at (0054).
+    const t0 = performance.now(), held = this.creekStroke && t0 - (this.heavyAt || 0) < 3 * (this.heavyMs || 0);
+    let heavy = false; // (this frame rebuilt the whole map: timed to the end of the surface repaint below)
+    if (w.hv !== this.terrain.hv && !held) { this.terrain.updateHeights(); heavy = surface = flora = true; this.previewKey = null; } // (the brush preview sits on the new ground too; it rebuilds the water too)
+    else if (this.waterHeld && !held) { this.terrain.refreshWater(); heavy = true; }
+    if (!held) this.waterHeld = false;
     this.frameN = (this.frameN || 0) + 1;
     if (game.day !== this.lastDay) { this.lastDay = game.day; this.dayDirty = this.frameN; flora = true; this.terrain.refreshWater(); this.terrain.refreshFlood(); }
     else if (game.dayRun && this.dayDirty) this.dayDirty = this.frameN; // (and wait while the day is still being worked through: Game.update)
@@ -1068,13 +1076,15 @@ export class Renderer {
       // (just the edited patch, unless something else this frame needs the whole map)
       if (!surface && this.editArea && this.editArea !== 'all') patch = this.editArea;
       else if (surface) { patch = null; band = false; this.groundBands = null; }
-      surface = flora = true; this.editDirty = false; this.editArea = null; this.terrain.refreshWater();
+      surface = flora = true; this.editDirty = false; this.editArea = null;
+      if (held) this.waterHeld = true; else if (!heavy) this.terrain.refreshWater();
     }
     if (surface) {
       this.terrain.updateSurface(game, patch);
       if (!band || newDay) this.syncStructures(); // (buildings once a day, not once a band)
       this.lastSurface = now;
     }
+    if (heavy) { this.heavyAt = performance.now(); this.heavyMs = this.heavyAt - t0; }
     if (flora) this.floraPending = true;
     // Player edits must not wait for the growth cooldown or an idle surface frame: a continuous
     // stroke repaints ground every frame and used to prevent any plants from catching up.

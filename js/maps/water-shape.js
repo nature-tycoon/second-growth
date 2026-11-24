@@ -261,6 +261,18 @@ export function finishCourse(head, radius = COURSE_RADIUS) {
   }
   return { head, tiles };
 }
+// The tiles from a stroke's head on along the stroke to its last point (the brush), which the head
+// hasn't dug yet: what the creek tool shows under the brush while the head catches up (input.js).
+export function pendingCourse(head) {
+  if (!head) return [];
+  // (the stroke's points ahead of the head: back from the brush while they lie in front of it)
+  const t = head.trail, ahead = p => !(head.hx || head.hy) || (p[0] - head.x) * head.hx + (p[1] - head.y) * head.hy > 0;
+  let k = t.length;
+  while (k > 0 && ahead(t[k - 1])) k--;
+  // (the brush doubled back behind the head: its own tile, until the head comes round)
+  if (k === t.length) { const p = t.at(-1); return [[Math.floor(p[0]), Math.floor(p[1])]]; }
+  return rasterCourse([[head.x, head.y], ...t.slice(k)]).slice(1);
+}
 // One half-tile step of the head toward point p, turning at most for a bend of `radius`. Returns
 // false, without moving, when p lies behind the head (or, at the end, inside its tightest turn).
 function stepHead(head, p, radius, tiles) {
