@@ -45,7 +45,7 @@ smooth, creek heads taper). No rewrites needed.
 |---|---|---|---|---|
 | 1 | UI follow-ups: creek-tool hint, flood-cut note and marker, overlay recolour, Contact page, meal check | sonnet | M | done (not checked by eye) |
 | 2 | Floods spread above culverts | opus | M | done 85e1f78 |
-| 3 | Creek shape polish: beaver-pond shores, creek heads, creek beyond fence and its sound | opus | M–L | |
+| 3 | Creek shape polish: beaver-pond shores, creek heads, creek beyond fence and its sound | opus | M–L | done d7addd1 (fence-creek staircase left open) |
 | 4 | Frame-rate follow-ups: software-render and battery notices, Apple GPU timer, synced timing | opus | M | |
 
 Order: cheap UI first, water sim before the shape polish that draws on it, frame rate last so its
