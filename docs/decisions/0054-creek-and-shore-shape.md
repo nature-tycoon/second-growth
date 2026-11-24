@@ -34,9 +34,27 @@ cause, not only the creek.
   A land corner beside the water is set so the drawn waterline crosses each mesh edge where the outline
   does: lowered (never under the water: bank 0.15 by ponds and marsh, 0.03 by creeks), raised at most
   0.3 by ponds and marsh only (a creek's banks stay low: its floodplain is where a beaver pond and a
-  flood spread; raised, `beaver-dam-growth-check`'s pond never formed) and only where the land behind still drains (`drainsPast`, else a hollow: 0044), and lifted if
+  flood spread; raised, `beaver-dam-growth-check`'s pond never formed), except within two tiles of a
+  creek's head, and only where the land behind still drains (`drainsPast`, else a hollow: 0044), and lifted if
   it stood under the water (after an edit even where that closes a hollow: the player's Lower dug it;
   at generation not).
+- **Creek heads narrow into their end** (2026-11-23, batch creeks-fps-2 s3): a head is a creek tile
+  with water on one side only, two tiles or more inside the map (PNW's ditch is laid a row in at
+  generation, its fence-row tile after: at one tile it was taken for a head and the film's stage rose).
+  It counts `HEAD_WET` 0.5 of a water tile in the outline, and land corners within two tiles of it may be
+  raised like a pond's (`byHead`), so the water narrows into the end instead of stopping square
+  mid-tile. Sumatra's dead-end canals taper too (accepted: within their last tile). Generated maps
+  with heads change (Chinandega, Sumatra); the others are byte-identical. One side of an end stays
+  straighter than the other where the mesh's diagonal runs: corners alone can't draw a point.
+- **Beaver ponds get no shore pass**: a Hollis pond is drawn as one flat sheet over the sloping land,
+  so its shore follows the ground's contour, not the tiles (1.2% sharp, as the farm's shores). A
+  monthly pass over ponds whose dam rose was built and measured worse (13 sharp samples in 1,070 → 27),
+  then taken out. A drained pond leaves its creek exactly as it was. Don't add one without measuring.
+- **The creek beyond the fence is heard** from where the camera looks (`sampleSoundLand` reads the
+  border's creek tiles round the unclamped focus; silent there when the fence-row tile is Hollis-dry,
+  as the drawing). Its staircase where the course steps diagonally (PNW) comes from the drawing: each
+  row's water a flat sheet, a shared corner taking the higher row's level, PNW's west ground under it.
+  A lower-only carve can't fix that (tried: PNW better, Serengeti worse, the film's first shot moved).
 - **It runs last in `generateHeights`** (every map, after drains, ponds, `creekDownhill`, falls) and at
   the end of every land-tool stroke (`shapeShoreNear` in ToolActions.end, through `terrainEdit` with every
   tile its own: the pass keeps its own rules). Undo puts the whole height grid back.
@@ -99,7 +117,8 @@ cause, not only the creek.
   waterline's share of points turning over 60° within a tile under each map's ceiling; the creek
   beyond the north fence, full width, falling, carved again unchanged; a right-angle
   creek stroke, a zigzag, a filled tile, a pond dug in steps and Lower beside a creek, through
-  ToolActions; no water tile's level moved). Also run `terrain-relief-check` (no hollows),
+  ToolActions; no water tile's level moved; creek heads narrow into their end; PNW beaver ponds'
+  shores smooth, and a drained one leaves its creek as it was). Sound: `nature-audit-check`. Also run `terrain-relief-check` (no hollows),
   `terrain-edit-check`, `dug-creek-check`, `hollis-water-check`, `waterfall-check`.
 
 ## History

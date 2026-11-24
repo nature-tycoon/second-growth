@@ -11,6 +11,17 @@ export const FALL_EARSHOT = 8, FALL_ZOOM = [0.75, 1.8];
 export function sampleSoundLand(game, renderer, biome, animals) {
   const w = game.world, x0 = clamp(Math.floor(renderer.target.x), 0, w.w - 1), y0 = clamp(Math.floor(renderer.target.z), 0, w.h - 1);
   let wet = 0, wetNear = 0, bare = 0, canopy = 0, n = 0, creek = 0, river = 0, shore = 0, falls = 0;
+  // Running water is heard from where the camera looks, on the farm or off it: the starting creek runs
+  // on beyond the north fence (outsideCreek, 0054), where the intro film's first shot looks up it, so
+  // it's heard from the drawn land there too (dry when the ditch it feeds is: terrain.js buildWater).
+  const fx = Math.floor(renderer.target.x), fy = Math.floor(renderer.target.z), B = game.border, nc = game.catalog?.definition?.northCreek;
+  const ni = nc && w.inb(nc(0), 0) ? w.idx(nc(0), 0) : -1, outsideDry = ni >= 0 && !!w.waterManaged?.[ni] && !Number.isFinite(w.waterLevel?.[ni]);
+  if (B) for (let dy = -12; dy <= 12; dy++) for (let dx = -12; dx <= 12; dx++) {
+    const x = fx + dx, y = fy + dy; if (w.inb(x, y)) continue;
+    const bi = B.bi(x, y); if (bi < 0) continue;
+    const near = Math.max(0, 1 - Math.hypot(dx, dy) / 15);
+    if (B.terrain[bi] === T.CREEK && !(outsideDry && y < 0)) creek = Math.max(creek, near);
+  }
   // Visit every tile: a sparse grid can skip an entire one-tile-wide stream or small pond.
   for (let dy = -12; dy <= 12; dy++) for (let dx = -12; dx <= 12; dx++) {
     const x = x0 + dx, y = y0 + dy; if (!w.inb(x, y)) continue;

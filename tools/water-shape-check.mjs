@@ -19,6 +19,7 @@ const { sharpBends, COURSE_TURN, outsideCreek } = await import('../js/maps/water
 const { BORDER } = await import('../js/config.js');
 const { waitAtFence } = await import('../js/sim/fence-gate.js');
 const { shapeShoreNear } = await import('../js/terrain-edit.js');
+const { mulberry32 } = await import('../js/rng.js');
 
 let checks = 0, failed = 0;
 const check = (name, fn) => { try { fn(); checks++; console.log('PASS ' + name); } catch (e) { failed++; console.log('FAIL ' + name + ': ' + e.message); } };
@@ -37,7 +38,7 @@ const DUG_POND_CEILING = 0.1; // (a small pond: its few bends weigh more)
 // The drawn waterline as segments, worked out as the drawing does (terrain.js buildWater): each water
 // tile's level (the Hollis model's where it runs), carried one ring onto the banks, each corner taking
 // the highest level touching it, and the ground hiding the water where it rises above it.
-function waterline(w, box = [0, 0, w.w, w.h]) {
+function drawnWater(w) {
   const W = w.w, H = w.h, level = new Float64Array(W * H).fill(NaN), wet = new Uint8Array(W * H);
   for (let i = 0; i < W * H; i++) { const l = tileWaterLevel(w, i); if (l != null) { level[i] = l; wet[i] = 1; } }
   const ring = [];
@@ -65,7 +66,11 @@ function waterline(w, box = [0, 0, w.w, w.h]) {
     for (const [dx, dy] of R4) { const x = vx + dx, y = vy + dy; if (x < 0 || y < 0 || x >= W || y >= H) continue; const l = level[y * W + x]; if (l === l && l > L) L = l; }
     return L > -Infinity && !vWet(vx, vy) ? Math.min(L, w.vert(vx, vy)) : L;
   };
-  const f = (vx, vy) => w.vert(vx, vy) - lv(vx, vy), segs = [];
+  // (ground over the drawn water at a corner: under 0 is wet)
+  return { level, f: (vx, vy) => w.vert(vx, vy) - lv(vx, vy) };
+}
+function waterline(w, box = [0, 0, w.w, w.h]) {
+  const W = w.w, H = w.h, { level, f } = drawnWater(w), segs = [];
   for (let y = Math.max(0, box[1]); y < Math.min(H, box[3]); y++) for (let x = Math.max(0, box[0]); x < Math.min(W, box[2]); x++) {
     if (level[y * W + x] !== level[y * W + x]) continue;
     const A = [x, y], B = [x + 1, y], C = [x + 1, y + 1], D = [x, y + 1];
@@ -125,6 +130,38 @@ function shoreTurns(w, box) {
   }
   return [sharp, n];
 }
+// Is the drawn water over point (px, py)? (the mesh's two triangles a tile, split (0,0) to (1,1))
+function wetAt(w, dw = drawnWater(w)) {
+  const { level, f } = dw;
+  return (px, py) => {
+    const x = Math.floor(px), y = Math.floor(py);
+    if (!w.inb(x, y) || !(level[y * w.w + x] === level[y * w.w + x])) return false;
+    const u = px - x, v = py - y, a = f(x, y), b = f(x + 1, y), c = f(x + 1, y + 1), d = f(x, y + 1);
+    if (![a, b, c, d].every(Number.isFinite)) return false;
+    return (u >= v ? a + (b - a) * u + (c - b) * v : a + (c - d) * u + (d - a) * v) < 0;
+  };
+}
+// Creek heads (a creek tile with water on one side only, two tiles or more inside the map: 0054) and
+// how much the drawn water narrows into each: its width across the creek at the end tile's middle
+// over its width three tiles back. A square stub reads about 0.75 (the bank ring's water runs full
+// width to a cut mid-tile); tapered, about 0.5. Only ends whose water stops within the tile beyond.
+const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+function headNarrowing(w, only = null) {
+  const wet = wetAt(w), out = [];
+  for (let i = 0; i < w.n; i++) {
+    const x = i % w.w, y = (i / w.w) | 0;
+    if (w.terrain[i] !== T.CREEK || x < 2 || y < 2 || x >= w.w - 2 || y >= w.h - 2 || (only && !only(i))) continue;
+    const n = N4.filter(([dx, dy]) => isWater(w.terrain[w.idx(x + dx, y + dy)]));
+    if (n.length !== 1) continue;
+    const ax = -n[0][0], ay = -n[0][1], cx = x + 0.5 + ax * 0.5, cy = y + 0.5 + ay * 0.5;
+    const width = s => { let k = 0; for (let j = -30; j <= 30; j++) if (wet(cx + ax * s - ay * j / 20, cy + ay * s + ax * j / 20)) k++; return k / 20; };
+    const back = width(-3);
+    if (back > 0.5 && width(0.25) === 0) out.push({ x, y, r: width(-0.5) / back });
+  }
+  return out;
+}
+const HEAD_MEDIAN = 0.55, HEAD_MAX = 0.85; // (2026-11-23, the 7 heads here: median 0.60 -> 0.50, worst 1.13 -> 0.77)
+const heads = [];
 const fmtBends = b => b.slice(0, 6).map(t => `${t.x},${t.y} ${t.turn.toFixed(0)}°`).join('; ');
 
 for (const map of maps) {
@@ -141,6 +178,7 @@ for (const map of maps) {
     console.log(`  ${map}: waterline turning over 60° within a tile ${sharp} of ${n} (${(100 * sharp / Math.max(1, n)).toFixed(1)}%)`);
     assert.ok(sharp <= SHORE_CEILING[map] * n, `${sharp} of ${n}, ceiling ${SHORE_CEILING[map]}`);
   });
+  heads.push(...headNarrowing(w).map(h => ({ ...h, map })));
   // The starting creek runs on beyond the north fence (drawing only, outsideCreek, 2026-11-22): at
   // its full width by the fence, out to the border's far edge, its bed falling toward the farm, and
   // carving it again (every load) moves nothing. Maps without one (the reef) have no northCreek.
@@ -216,6 +254,7 @@ for (const map of maps) {
     const b = sharpBends(w);
     assert.equal(b.length, 0, fmtBends(b));
   });
+  heads.push(...headNarrowing(w, i => Number.isFinite(w.dugBed[i])).map(h => ({ ...h, map, dug: true })));
   check(`${map}: filling a tile of a dug creek leaves no sharp bend`, () => {
     const dug = []; for (let i = 0; i < w.n; i++) if (w.terrain[i] === T.CREEK && Number.isFinite(w.dugBed[i])) dug.push(i);
     const mid = dug[dug.length >> 1];
@@ -258,6 +297,44 @@ for (const map of maps) {
     assert.equal(moved, 0, `${moved} water tiles changed level`);
   });
 }
+// Creek heads narrow into their end, generated (Chinandega's, Sumatra's canal ends) and dug, rather
+// than stopping square mid-tile (HEAD_WET, byHead in shoreHeights, 2026-11-23)
+if (heads.length) check(`creek heads narrow into their end (${heads.length} heads)`, () => {
+  const r = heads.map(h => h.r).sort((a, b) => a - b), med = r[r.length >> 1], worst = heads.reduce((a, b) => b.r > a.r ? b : a);
+  console.log(`  end tile's width over the creek's three tiles back: median ${med.toFixed(2)}, worst ${worst.r.toFixed(2)} (${worst.map} ${worst.x},${worst.y})`);
+  assert.ok(med <= HEAD_MEDIAN, `median ${med.toFixed(2)} over ${HEAD_MEDIAN}`);
+  assert.ok(worst.r <= HEAD_MAX, `${worst.map} ${worst.x},${worst.y}: ${worst.r.toFixed(2)} over ${HEAD_MAX}`);
+});
+
+// Beaver ponds (the Hollis model, PNW) are drawn as one flat sheet over the sloping land, so their shore
+// follows the ground's contour, not the tiles: smooth as they grow, with no shore pass of their own
+// (one measured worse: 13 sharp samples in 1,070 before it, 27 after, batch creeks-fps-2 s3). And a
+// pond that drains leaves its creek as it was: no ground moved, no sharp bend, the same shore.
+if (maps.includes('pnw')) check('pnw: beaver ponds have smooth shores, and a drained one leaves its creek as it was', () => {
+  let sharp = 0, n = 0;
+  const random = Math.random;
+  try { for (const xy of [[60, 45], [54, 51], [54, 72], [69, 43]]) {
+    Math.random = mulberry32(1987);
+    const g = new Game(); g.newGame(1987, 'free', 'standard', 'pnw'); g.autosave = false;
+    const w = g.world, site = w.idx(...xy), box = [xy[0] - 10, xy[1] - 10, xy[0] + 11, xy[1] + 11];
+    const before = shoreTurns(w, box), vh = w.vh.slice();
+    g.wildlife.buildDam(site, 1);
+    g.weather = 'rain'; for (let k = 0; k < 40; k++) g.water.step(g); g.weather = 'clear';
+    const b = g.water.basins.find(b => b.kind === 'dam' && b.site === site);
+    assert.ok(b && b.cells.length >= 8, `no pond at ${xy}`);
+    const [s1, n1] = shoreTurns(w, box); sharp += s1; n += n1;
+    g.wildlife.breakDam(site);
+    for (let d = 0; d < 400 && g.water.basins.some(b => b.site === site); d++) g.water.step(g);
+    assert.ok(!g.water.basins.some(b => b.site === site), `the pool at ${xy} never drained`);
+    for (let k = 0; k < 3; k++) g.water.step(g);
+    assert.ok(w.vh.every((v, k) => v === vh[k]), `the ground moved at ${xy}`);
+    assert.deepEqual(shoreTurns(w, box), before, `the creek's shore at ${xy} isn't as it was`);
+    assert.equal(sharpBends(w).length, 0, `a sharp bend after the pond at ${xy}`);
+  } } finally { Math.random = random; }
+  console.log(`  beaver ponds' waterline turning over 60° within a tile ${sharp} of ${n}`);
+  assert.ok(sharp <= SHORE_CEILING.pnw * n, `${sharp} of ${n}, ceiling ${SHORE_CEILING.pnw}`);
+});
+
 if (!process.argv[2]) check('the edits were scripted on at least four maps', () => assert.ok(dugOn >= 4, `only ${dugOn}`));
 console.log(failed ? `${failed} of ${checks + failed} water shape checks failed.` : `All ${checks} water shape checks passed.`);
 if (failed) process.exit(1);

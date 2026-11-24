@@ -107,6 +107,23 @@ check('Camera sampling follows local cover and excludes remote/departing animals
   assert(smallWater.wet > 0.5, 'A tiny nearby frog pond does not vanish into the area average');
   for (const target of [{ x: -10, z: -10 }, { x: 130, z: 100 }]) assert(Number.isFinite(sampleSoundLand(g, { target }, biome, ANIMALS).wet));
 });
+// The starting creek runs on beyond the north fence (outsideCreek, 0054): looking up it there, its
+// water is heard (before 2026-11-23 only the farm's tiles were read: 0.6-0.8 from the ditch at the
+// fence), silent there when the ditch it feeds is dry, and a map without one samples as before.
+check('The creek beyond the north fence is heard where the camera looks', () => {
+  const at = (x, z) => sampleSoundLand(g, { target: { x, z } }, biome, ANIMALS).creek;
+  for (const map of ['pnw', 'amazon']) {
+    g.newGame(1987, 'free', 'standard', map);
+    const c = g.catalog.definition.northCreek;
+    for (const y of [-5, -12]) assert(at(c(y) + 0.5, y + 0.5) > 0.95, `${map}: the creek ${-y} rows beyond the fence is faint (${at(c(y) + 0.5, y + 0.5).toFixed(2)})`);
+  }
+  g.newGame(1987, 'free', 'standard', 'pnw');
+  const c = g.catalog.definition.northCreek, w = g.world, i = w.idx(c(0), 0), heard = at(c(-12) + 0.5, -11.5);
+  w.waterManaged[i] = 1; w.waterLevel[i] = NaN; // (the Hollis model has the ditch dry at the fence)
+  assert(at(c(-12) + 0.5, -11.5) < heard - 0.2, 'a dry creek beyond the fence is still heard');
+  g.newGame(1987, 'free', 'standard', 'reef');
+  assert(Number.isFinite(sampleSoundLand(g, { target: { x: 10, z: -5 } }, g.catalog.definition, ANIMALS).creek), 'the reef (no creek beyond its fence) samples');
+});
 check('Audio unlock preserves the scene provided before startup', () => {
   const m = new Music(); m.setScene('rain', 3); m.setLand(land('sumatra'));
   assert.equal(m.weather, 'rain'); assert.equal(m.season, 3); assert.equal(m.land.map, 'sumatra');

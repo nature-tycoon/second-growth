@@ -304,6 +304,8 @@ const DRY = 0.3;              // (most a water tile's outer corner is lifted ove
 const RAISE_ = 0.3;           // (most a land corner at the edge is raised, to steepen the bank where the
                               // outline hugs the water; more measured no smoother)
 
+const HEAD_WET = 0.5;          // (a creek head's share of a water tile in the outline)
+const N4S = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const ROUND = [[0, 0], [-1, 0], [0, -1], [-1, -1]];
 const C4 = [[0, 0], [1, 0], [1, 1], [0, 1]];
 // a corner's neighbours along the mesh's edges (its triangles split each tile corner (0,0) to (1,1))
@@ -330,6 +332,7 @@ export function shoreHeights(w, box = null, opt = {}) {
   if (X1 < X0 || Y1 < Y0) return [];
   const moved = new Map(), vert = (vx, vy) => moved.get(vy * (W + 1) + vx) ?? w.vert(vx, vy);
   const minOf = (x, y) => Math.min(...C4.map(([dx, dy]) => vert(x + dx, y + dy)));
+  const wetI = i => isWater(w.terrain[i]);
   // the water's surface on each water tile (the Hollis model's where it runs)
   const levelOf = (x, y) => {
     if (!w.inb(x, y)) return null;
@@ -340,8 +343,22 @@ export function shoreHeights(w, box = null, opt = {}) {
     const full = minOf(x, y) + WATER_FILL[t];
     return w.waterManaged?.[i] && Number.isFinite(w.waterLevel?.[i]) ? Math.max(full, w.waterLevel[i]) : full;
   };
+  // A creek's head: a creek tile with water on one side only, two tiles or more inside the map (a creek
+  // running off the map isn't an end, nor PNW's ditch a row in at generation: its fence-row tile is
+  // laid after, 0054). It counts HEAD_WET of a water tile in the outline, so the outline narrows into
+  // it and the drawn water narrows into its end instead of stopping square mid-tile.
+  const heads = new Map(), head = (x, y) => {
+    if (x < 2 || y < 2 || x >= W - 2 || y >= H - 2) return false;
+    const i = w.idx(x, y);
+    let v = heads.get(i);
+    if (v === undefined) heads.set(i, v = w.terrain[i] === T.CREEK && N4S.filter(([dx, dy]) => wetI(w.idx(x + dx, y + dy))).length === 1);
+    return v;
+  };
   // off the map the tiles carry on as the edge's (a creek running off the map isn't rounded off there)
-  const wetTile = (x, y) => { const cx = Math.min(W - 1, Math.max(0, x)), cy = Math.min(H - 1, Math.max(0, y)); return isWater(w.terrain[w.idx(cx, cy)]); };
+  const wetTile = (x, y) => { const cx = Math.min(W - 1, Math.max(0, x)), cy = Math.min(H - 1, Math.max(0, y)); return wetI(w.idx(cx, cy)) ? (head(cx, cy) ? HEAD_WET : 1) : 0; };
+  // (a land corner touching a tile beside a creek's head: its banks may be raised like a pond's, so the
+  // water narrows into the head; elsewhere a creek's banks stay low)
+  const byHead = (vx, vy) => { for (let y = vy - 2; y <= vy + 1; y++) for (let x = vx - 2; x <= vx + 1; x++) if (head(x, y)) return true; return false; };
   const Sc = new Map(), S = (vx, vy) => {
     const key = vy * (W + 1) + vx;
     let v = Sc.get(key);
@@ -349,7 +366,7 @@ export function shoreHeights(w, box = null, opt = {}) {
     let s = 0, g = 0;
     for (let ty = vy - REACH; ty < vy + REACH; ty++) for (let tx = vx - REACH; tx < vx + REACH; tx++) {
       const k = Math.exp(-((tx + 0.5 - vx) ** 2 + (ty + 0.5 - vy) ** 2) / (2 * SIGMA * SIGMA));
-      g += k; if (wetTile(tx, ty)) s += k;
+      g += k; s += k * wetTile(tx, ty);
     }
     Sc.set(key, v = s / g);
     return v;
@@ -385,7 +402,7 @@ export function shoreHeights(w, box = null, opt = {}) {
     if (round.length < 4 || building(vx, vy)) continue; // (the map's edge: the water runs on off it)
     // (only the outer corner of a step or a bend: touched by one water tile. A corner two water
     // bodies share, a pond's edge where a creek feeds it, stays: 0048)
-    const water = round.filter(([x, y]) => isWater(w.terrain[w.idx(x, y)]));
+    const water = round.filter(([x, y]) => wetI(w.idx(x, y)));
     if (water.length !== 1 || !near(vx, vy) || (opt.own && !opt.own.has(w.idx(...water[0])))) continue;
     const sc = S(vx, vy);
     if (sc >= TAU) continue;
@@ -406,7 +423,7 @@ export function shoreHeights(w, box = null, opt = {}) {
   // 2. land corners beside the water: where the outline crosses each edge to an underwater corner
   for (let vy = Y0; vy <= Y1; vy++) for (let vx = X0; vx <= X1; vx++) {
     const round = tilesRound(vx, vy);
-    if (round.length < 4 || !near(vx, vy) || building(vx, vy) || round.some(([x, y]) => isWater(w.terrain[w.idx(x, y)]))) continue;
+    if (round.length < 4 || !near(vx, vy) || building(vx, vy) || round.some(([x, y]) => wetI(w.idx(x, y)))) continue;
     const wet = [];
     let L = -Infinity, bank = BANK_MIN;
     for (const [dx, dy] of EDGES) {
@@ -431,7 +448,7 @@ export function shoreHeights(w, box = null, opt = {}) {
     let h = n ? L + Math.max(bank, sum / n) : Math.max(h0, L + bank);
     // (raised only by ponds and marsh: a creek's or the river's banks stay low, its floodplain is where
     // a beaver pond and a flood spread)
-    h = Math.min(h, Math.max(h0 + (bank > BANK_MIN ? RAISE : 0), L + bank));
+    h = Math.min(h, Math.max(h0 + (bank > BANK_MIN || byHead(vx, vy) ? RAISE : 0), L + bank));
     // (raised only where the land behind it still drains another way: a bank raised across the
     // only way down for the ground behind it would close a hollow there, 0044)
     // (after the player's edit, land they lowered under the water still comes out of it: Lower dug
