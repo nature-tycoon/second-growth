@@ -13,9 +13,11 @@ globalThis.localStorage ||= { getItem() { return null; }, setItem() {}, removeIt
 const { Game } = await import('../js/game.js');
 const { BIOME_LIST } = await import('../js/biome.js');
 const { ToolActions } = await import('../js/tool-actions.js');
-const { T, isWater } = await import('../js/config.js');
+const { T, F, isWater } = await import('../js/config.js');
 const { tileWaterLevel } = await import('../js/sim/waterline.js');
-const { sharpBends, COURSE_TURN } = await import('../js/maps/water-shape.js');
+const { sharpBends, COURSE_TURN, outsideCreek } = await import('../js/maps/water-shape.js');
+const { BORDER } = await import('../js/config.js');
+const { waitAtFence } = await import('../js/sim/fence-gate.js');
 const { shapeShoreNear } = await import('../js/terrain-edit.js');
 
 let checks = 0, failed = 0;
@@ -138,6 +140,40 @@ for (const map of maps) {
     const [sharp, n] = shoreTurns(w);
     console.log(`  ${map}: waterline turning over 60° within a tile ${sharp} of ${n} (${(100 * sharp / Math.max(1, n)).toFixed(1)}%)`);
     assert.ok(sharp <= SHORE_CEILING[map] * n, `${sharp} of ${n}, ceiling ${SHORE_CEILING[map]}`);
+  });
+  // The starting creek runs on beyond the north fence (drawing only, outsideCreek, 2026-11-22): at
+  // its full width by the fence, out to the border's far edge, its bed falling toward the farm, and
+  // carving it again (every load) moves nothing. Maps without one (the reef) have no northCreek.
+  const course = g.catalog.definition.northCreek;
+  if (course) check(`${map}: the starting creek runs on beyond the north fence, downhill to it`, () => {
+    const B = g.border, wetB = (x, y) => B.terrain[B.bi(x, y)] === T.CREEK;
+    for (let x = 0; x < w.w; x++) if (w.terrain[w.idx(x, 0)] === T.CREEK && Math.abs(x - course(0)) <= 2) assert.ok(wetB(x, -1), `row 0's creek at x ${x} stops at the fence`);
+    for (let y = -BORDER; y < 0; y++) assert.ok(wetB(course(y), y), `no creek beyond the fence on row ${y}`);
+    for (let vy = -1; vy >= -BORDER; vy--) assert.ok(w.vert(course(vy), vy) > w.vert(course(vy + 1), vy + 1), `the bed doesn't fall toward the farm at row ${vy}`);
+    const vh = w.vh.slice();
+    assert.equal(outsideCreek(w, B, course, BORDER, g.catalog.definition.northCreekKeep), 0, 'the land falls northward faster than the bed');
+    assert.ok(vh.every((v, i) => v === w.vh[i]), 'carving it again moved the land');
+  });
+  // (deer waiting at the fence by it stand on a bank, not its bed: offCreek in fence-gate.js)
+  const deer = g.catalog.animals.find(d => d.move === 'ground' && d.fenced);
+  if (course && deer) check(`${map}: animals waiting at the fence beside the creek stand on its banks`, () => {
+    const B = g.border;
+    for (const at of [course(-1) - 1, course(-1), course(-2)]) {
+      for (const a of waitAtFence(g.wildlife, deer, 4, 'N', at)) {
+        assert.notEqual(B.terrain[B.bi(Math.floor(a.x), Math.floor(a.y))], T.CREEK, `${deer.key} waiting at ${a.x.toFixed(2)}, ${a.y.toFixed(2)} stands in the creek`);
+        g.wildlife.agents.splice(g.wildlife.agents.indexOf(a), 1);
+      }
+    }
+  });
+  // PNW's ditch comes in through its north fence (fencedCreek: no fence on the water): until the
+  // opening tears the fence out, an arrival at the creek is held there like anywhere along it (0053; a
+  // plain gap let elk walk in on 12 of 40 seeded arrivals, regression review 2026-11-23)
+  if (map === 'pnw') check('pnw: the north fence holds arrivals at the creek too', () => {
+    const elk = g.catalog.animal.elk, before = g.wildlife.agents.length;
+    for (let x = 0; x < w.w; x++) if (w.terrain[w.idx(x, 0)] === T.CREEK) {
+      assert.equal(g.wildlife.immigrate(elk, 1, false, { edge: 'N', at: x }), 0, `an elk walked in at ${x}, 0`);
+    }
+    for (const a of g.wildlife.agents.slice(before)) g.wildlife.agents.splice(g.wildlife.agents.indexOf(a), 1);
   });
   if (!g.catalog.tools.creek || g.catalog.definition.hideTools?.includes('creek')) continue;
 

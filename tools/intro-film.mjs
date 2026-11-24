@@ -25,6 +25,19 @@ import { muxMp4, muxWebm } from './video-mux.mjs';
 import { FPS, SECONDS, LAYERS, TIME_OF_DAY, BEATS, SOUND, SLOWMO, HUSH } from './intro-film-shots.mjs';
 import { SHOTS, ANIMALS, animalAt, cameraAt, mapAt as planMap, realAt } from './intro-film-plan.mjs';
 import { makeProbe, meshGround } from './intro-film-probe.mjs';
+import { northCreekBank } from '../js/maps/water-shape.js';
+import { LEVEL } from '../js/config.js';
+
+// The ground the cameras stand on: the land's, but over the creek's gorge beyond the north fence
+// (outsideCreek, 0054) the banks' height either side: the shots were set before the creek ran out
+// there, and a camera on the gorge's bed looked up at its walls.
+const filmGround = r => (x, y) => {
+  const h = r.heightAtScene(x, y), w = r.world, nc = w.catalog?.definition?.northCreek;
+  if (!nc || y >= 0) return h;
+  const at = vy => { const b = vy <= 0 && northCreekBank(w, nc, vy); return b && x >= b.lo - 1 && x <= b.hi + 1 ? b.bank * LEVEL : -Infinity; };
+  const v0 = Math.floor(y), k = y - v0;
+  return Math.max(h, at(v0) * (1 - k) + (Number.isFinite(at(v0 + 1)) ? at(v0 + 1) : at(v0)) * k);
+};
 
 const DAY_CYCLE = 360; // scene.js: seconds in the renderer's day (todClock)
 const RUN_SEED = 20261121; // the start game's run seed (weather, starting animals); the land is seed 1987
@@ -118,10 +131,10 @@ function poseState(pose, p, foodTile) {
   }
   throw Error('No staging for pose ' + pose);
 }
-function castOf(g, farm) {
+function castOf(g, farm, hide = []) {
   const W = g.wildlife, cast = {}, defs = {};
   for (const [name, A] of Object.entries(ANIMALS)) {
-    if (A.farm !== farm) continue;
+    if (A.farm !== farm || hide.includes(name)) continue; // (a shot's hide: left out of it, plan)
     const def = g.catalog.animal[A.species], p = animalAt(name, -1);
     if (name === 'buck') while (!isMaleVariant(def, { id: W.nextId, age: 600 })) W.nextId++; // (a buck, antlered as the game draws him all year; Cole chose this over a March buck's shed head, 2026-11-22)
     const a = W.spawn(def, p.x, p.y, { silent: true, age: A.species === 'cougar' ? 700 : 600 });
@@ -218,7 +231,7 @@ async function filmLayer(name) {
     simulate = film => { let days = film * ANIMAL_SPEEDS[1]; while (days > 0) { const d = Math.min(days, .05); g.wildlife.update(d); g.visitors.update(d); days -= d; } };
     g.wildlife.lifePace = SPEEDS[1] / ANIMAL_SPEEDS[1];
   } else {
-    ({ cast, stage } = castOf(g, L.game));
+    ({ cast, stage } = castOf(g, L.game, shot.hide || []));
     if (L.game === 'restored') {
       // the rest of the restored farm's wildlife lives (the staged elk are placed again after each step)
       g.wildlife.lifePace = SPEEDS[1] / ANIMAL_SPEEDS[1];
@@ -256,7 +269,7 @@ async function filmLayer(name) {
     camera = f => {
       // (the renderer's smooth ground for the camera's heights: the drawn mesh's triangles give a
       // smoothed look tiny kinks, and a point on a triangle's edge can fall back to another ground)
-      const c = cameraAt(camShot, f / FPS, (x, y) => r.heightAtScene(x, y), endView);
+      const c = cameraAt(camShot, f / FPS, filmGround(r), endView);
       const look = { x: c.look[0], y: c.look[2], z: c.look[1] };
       if (c.dist != null) r.filmSweep = { look, dist: c.dist, w: c.w };
       eyeAt(r, { x: c.pos[0], y: c.pos[2], z: c.pos[1] }, look, c.fov, lens, c.dist != null ? Math.max(34, c.dist * 2.2) : null);

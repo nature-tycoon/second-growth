@@ -2,7 +2,7 @@
 
 import buildAmazonPlants from '../data/plants-amazon.js';
 import buildAmazonAnimals from '../data/animals-amazon.js';
-import { generateRanch, amazonBorderCell } from './amazon-world.js';
+import { generateRanch, amazonBorderCell, creekX } from './amazon-world.js';
 import { FIRST_GOAL, PNW_GOALS, perimeterFence, culvertExists, pop, speciesPresent } from '../sim/goals.js';
 
 
@@ -83,6 +83,7 @@ export default {
   generate: generateRanch,
   stones: 0.004, // the odds loosening the soil turns up stones on a tile (0035): deep, old weathered soils: hardly a stone in them
   borderCell: amazonBorderCell,
+  northCreek: creekX, // (its creek carried on through the drawn land beyond the north fence, outsideCreek)
   startWildlife: [['capybara', 4, 54, 41, 3], ['armadillo', 2, 22, 50, 6], ['caiman', 1, 54, 40, 2], ['piranha', 6, 60, 86, 6],
     ['anteater', 1, 76, 30, 4]], // the forest birds and agoutis come back from the rainforest once there's forest for them
   startText: 'The rains are ending, Year 1. Capybaras graze the cattle pond and an anteater works the pasture edge. The rainforest is right there to the north and east, waiting to come back.',

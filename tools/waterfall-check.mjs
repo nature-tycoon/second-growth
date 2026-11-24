@@ -219,7 +219,10 @@ check('Drawn: a rock ledge and falling water off it (sheet, foam, mist), its foo
     if (id === 'pnw') continue;
     const a = farm(id), ta = new Terrain(new THREE.Scene(), atlas); ta.setWorld(a.world, a.border); ta.updateSurface(a);
     assert.ok(!ta.falls && !ta.fallRock, `no falling water or ledge on ${id}`);
-    assert.ok(ta.water.geometry.attributes.aWhite.array.every(v => v === 0), `no white water on ${id}`);
+    // (on the farm: beyond the north fence the starting creek comes down the hills as white cascade
+    // water where it's steep, outsideCreek, 0054; the fence row's outer corners are shared with it)
+    const wp = ta.water.geometry.attributes.position, onFarm = k => wp.getZ(k) > 0 && wp.getX(k) >= 0 && wp.getX(k) <= a.world.w && wp.getZ(k) <= a.world.h;
+    assert.ok(ta.water.geometry.attributes.aWhite.array.every((v, k) => v === 0 || !onFarm(k)), `no white water on ${id}`);
   }
 });
 

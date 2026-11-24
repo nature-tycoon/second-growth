@@ -3,7 +3,7 @@
 import buildPnwPlants from '../data/plants-pnw.js';
 import buildPnwAnimals from '../data/animals-pnw.js';
 import { PNW_GOALS, PNW_CHAIN } from '../sim/goals.js';
-import { generateFarm, pnwBorderCell } from '../world.js';
+import { generateFarm, pnwBorderCell, pnwNorthCreek, pnwNorthKeep } from '../world.js';
 
 export default {
   id: 'pnw',
@@ -38,6 +38,9 @@ export default {
   generate: generateFarm,
   stones: 0.05, // the odds loosening the soil turns up stones on a tile (0035): glacial outwash and till: the valley floor is full of cobbles
   borderCell: pnwBorderCell,
+  fencedCreek: true, // (its ditch comes in at the north fence, held shut to arrivals while the fence stands: waterGapClosed, 0053)
+  northCreekKeep: pnwNorthKeep,
+  northCreek: pnwNorthCreek, // (its creek carried on through the drawn land beyond the north fence, outsideCreek)
   // (old pasture is Townsend's vole country, and a red-tailed hawk hunts it; American crows work
   // the open fields from the trees round them: the common animals of worn-out farmland)
   startWildlife: [['vole', 14, 90, 14, 10], ['robin', 3, 25, 24, 6], ['raccoon', 1, 33, 22, 4], ['mallard', 2, 93, 37, 2], ['treefrog', 5, 93, 37, 4],

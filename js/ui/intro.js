@@ -26,7 +26,7 @@ const START_GRACE_MS = 4000; // (the game is ready but the film hasn't started: 
 // on, and is gone before the last shot (the 'start' layer, 30.2 s) and the line over the farm.
 // Drawn here over the video, not baked in, so it is sharp at any size. tools/intro-film-check.mjs
 // holds these to the cut.
-export const TITLE_IN = 23.4, TITLE_OUT = 28.4;
+export const TITLE_IN = 22.9, TITLE_OUT = 27.9; // (0.5 s earlier with the shorter stalk, 2026-11-23)
 // When the film may start (film-playback.md): never on a few frames that then freeze. It starts once
 // it is all here, or once its download, measured over MEASURE_MS while arriving, will stay ahead of
 // playback to the end with MARGIN to spare and MIN_AHEAD seconds in hand, or once the browser stops

@@ -110,7 +110,7 @@ check('Standing water affects plant diagnostics and only sustained flooding make
   assert.ok(plantLimits(w,i,PLANT.fir).some(s=>s.includes('standing water')));
   assert.ok(w.moist[i]>.85);w.waterWetDays[i]=0;updatePlants(g);assert.equal(w.tree[i],PLANT.fir.id);
   // (it drowns over the following weeks, not on one day: drownOdds)
-  let d=0;while(w.tree[i]&&d<120){w.waterWetDays[i]=30+d;updatePlants(g);d++;}assert.equal(w.tree[i],0,`still alive after ${d} flooded days`);assert.equal(w.feature[i],F.SNAG);
+  let d=0;while(w.tree[i]&&d<120){w.waterWetDays[i]=30+d;updatePlants(g);d++;}assert.equal(w.tree[i],0,`still alive after ${d} flooded days`);assert.ok(w.feature[i]===F.SNAG||w.feature[i]===F.LOG,`left ${w.feature[i]}`); // (deadwood: a snag on 0.7 of the rolls, else a log, removeTree's SNAG_ODDS; which roll it gets moves with the map)
 });
 check('Binary and legacy saves preserve water, wet days, and future evolution', () => {
   const g=farm();g.wildlife.buildDam(g.world.idx(54,58), 1);for(let k=0;k<5;k++)rain(g);

@@ -50,24 +50,24 @@ export const SUBJECTS = Object.fromEntries(LAYERS.filter(L => L.subjects.length)
 export const PREDATOR = { name: 'cougar', prey: 'buck', attacks: BEATS.breakCover };
 
 // The sound: real recordings from assets/sounds (decision 0002; credits in their provenance,
-// field-sources.json), placed and faded on the film's clock (31.8 s; F3 retimed it to the restaged cut). No raven in the library yet: a
+// field-sources.json), placed and faded on the film's clock (31.3 s; F3 retimed it to the restaged cut, and everything after 11.3 s moved 0.5 s earlier when the stalk was shortened, 2026-11-23). No raven in the library yet: a
 // Steller's jay calls instead (s8.md). gain is linear; ramps are [time, gain] points.
 export const SOUND = [
   // the creek under it all: up out of the black, low in the forest, swelling at the falls, fading as the eye climbs
-  { file: 'field-bed-stream-1', at: 0, loop: true, ramp: [[0, 0], [1, .5], [2.6, .42], [4.8, .22], [11.3, .18], [13.3, .26], [15.15, .3], [18.4, .55], [19.5, .7], [23.2, .62], [26, .35], [31.8, .3]] },
+  { file: 'field-bed-stream-1', at: 0, loop: true, ramp: [[0, 0], [1, .5], [2.6, .42], [4.8, .22], [11.3, .18], [12.8, .26], [14.65, .3], [17.9, .55], [19, .7], [22.7, .62], [25.5, .35], [31.3, .3]] },
   // wind in the firs; it carries the shots where the forest goes quiet (the cougar's eyes, the stalk)
-  { file: 'field-bed-wind-1', at: 0, loop: true, ramp: [[0, 0], [1.6, .32], [7.8, .3], [8.5, .42], [13.3, .36], [15.15, .3], [23.2, .32], [26, .42], [31.8, .28]] },
+  { file: 'field-bed-wind-1', at: 0, loop: true, ramp: [[0, 0], [1.6, .32], [7.8, .3], [8.5, .42], [12.8, .36], [14.65, .3], [22.7, .32], [25.5, .42], [31.3, .28]] },
   { file: 'field-raven-1', at: .1, gain: .35 },           // far off in the black: a common raven (NPS, Yellowstone)
   { file: 'field-pacific-wren-1', at: 2.6, gain: .3 },    // the opening and his ears; done before the cougar's eyes (7.8 s), when the forest goes quiet
   // (the clips are levelled to about -23 dB; their gains set each within 3 dB of the creek and waterfall
   // under it, the far hooves within 8: at a third of that they were lost in the water, measured on the mix)
-  { file: 'field-twig-snap-1', at: 13.15, gain: .6 },    // under the cougar's paw as it creeps on: the snap lands at the cut, half a second before his head comes up
-  { file: 'field-hooves-1', at: 14.7, gain: .7 },        // his spring and gallop toward us (muffled by the slow motion's hush)
-  { file: 'field-hooves-2', at: 20, gain: .5 },          // landing past the fence and bounding away down the far bank, 70 m off
-  { file: 'field-american-crow-1', at: 21.9, gain: 1 },  // while the cougar watches
-  { file: 'field-meadowlark-1', at: 26, gain: .3 },       // 30 years on, the meadow
-  { file: 'field-swainsons-thrush-2', at: 27.6, gain: .2 },
-  { file: 'field-robin-1', at: 30, gain: .22 },           // today, the farm the game opens on
+  { file: 'field-twig-snap-1', at: 12.65, gain: .6 },    // under the cougar's paw as it creeps on: the snap lands at the cut, half a second before his head comes up
+  { file: 'field-hooves-1', at: 14.2, gain: .7 },        // his spring and gallop toward us (muffled by the slow motion's hush)
+  { file: 'field-hooves-2', at: 19.5, gain: .5 },          // landing past the fence and bounding away down the far bank, 70 m off
+  { file: 'field-american-crow-1', at: 21.4, gain: 1 },  // while the cougar watches
+  { file: 'field-meadowlark-1', at: 25.5, gain: .3 },       // 30 years on, the meadow
+  { file: 'field-swainsons-thrush-2', at: 27.1, gain: .2 },
+  { file: 'field-robin-1', at: 29.5, gain: .22 },           // today, the farm the game opens on
 ];
 // In the slow motion the sound drops to a low hush (Cole, f2.md 6): low-passed and quieter, not silent.
 export const HUSH = { cutoff: 380, gain: .55, ease: .2 };

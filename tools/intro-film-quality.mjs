@@ -6,7 +6,7 @@
 // frame before it, within one shot: the picture "breathing" sharp then soft).
 //
 //   nice -n 15 node tools/intro-film-quality.mjs [files] [--every=1] [--gop=60] [--json=out.json]
-//   files default to the game's: assets/intro/intro-film.webm, .mp4, -1080.mp4
+//   files default to the game's: assets/intro/intro-film.mp4, -1080.mp4
 import { writeFile } from 'node:fs/promises';
 import { openBrowser } from './browser-session.mjs';
 import { LAYERS, FPS } from './intro-film-shots.mjs';
@@ -15,7 +15,7 @@ const args = process.argv.slice(2);
 const opt = (n, d) => args.find(a => a.startsWith(`--${n}=`))?.split('=')[1] ?? d;
 const every = Number(opt('every', 1)), gop = Number(opt('gop', 60)), jsonOut = opt('json', null);
 const files = args.filter(a => !a.startsWith('--'));
-if (!files.length) files.push('assets/intro/intro-film.webm', 'assets/intro/intro-film.mp4', 'assets/intro/intro-film-1080.mp4');
+if (!files.length) files.push('assets/intro/intro-film.mp4', 'assets/intro/intro-film-1080.mp4'); // (H.264 only: there's no WebM since film-playback.md)
 const shotOf = f => { const t = f / FPS; let name = '-'; for (const L of LAYERS) if (t >= L.from && t < L.to) name = L.name; return name; };
 const median = a => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : null; };
 

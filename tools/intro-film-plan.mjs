@@ -11,7 +11,7 @@
 // are judged in real seconds, so the slow motion never hides a too-fast run.
 
 export const FPS = 30;
-export let SECONDS = 35.4; // (33 approved; 35.4 with the sweep to the start view; TRIMS below take it to 32.2)
+export let SECONDS = 35.4; // (33 approved; 35.4 with the sweep to the start view; TRIMS below take it to 31.3)
 export const TILE_M = 8;
 // [from, to, rate] in film seconds: 1.5 s of film at half speed round the cougar's pounce
 export const SLOWMO = [[17.75, 19.25, .5]];
@@ -111,8 +111,9 @@ export const SHOTS = [
     sound: 'creek and wind fade up; a raven far off',
   },
   {
-    n: 1, layer: 'opening', from: 1.5, to: 5.5, fadeIn: 1, title: 'The opening', farm: 'start', subjects: ['buck', 'cougar'],
-    see: 'Misty old forest, morning sun through the gap where the creek runs out of the trees. A buck browses in the salmonberry, side-on, head down. Low in the sword ferns at the left of the frame, too small to notice, the cougar is already there.',
+    n: 1, layer: 'opening', from: 1.5, to: 5.5, fadeIn: 1, title: 'The opening', farm: 'start', subjects: ['buck'], hide: ['cougar'],
+    // (Cole, 2026-11-23: the cougar showed in the first shot, frozen and awkward; it's left out of it, first seen in shot 3)
+    see: 'Misty old forest, morning sun through the gap where the creek runs out of the trees. A buck browses in the salmonberry, side-on, head down.',
     camera: { move: 'very slow push in', lens: 'wide', fov: 46, pos: [69.35, -0.75, .4], to: [69.31, -1.35, .4], look: [68.95, -5.2, .26] },
     where: 'At the forest edge, in the creek\'s opening, looking north up it',
     animals: 'Buck browses. Cougar lies still.',
@@ -128,7 +129,7 @@ export const SHOTS = [
   },
   {
     n: 3, layer: 'eyes', from: 8.5, to: 12, title: 'The cougar', farm: 'start', subjects: ['cougar'],
-    see: 'Long lens, low among the ferns: two eyes and the shoulders of a cougar, flat to the ground, fixed on the buck. It was there in the first shot. At 9.8 s it starts to creep.',
+    see: 'Long lens, low among the ferns: two eyes and the shoulders of a cougar, flat to the ground, fixed on the buck. At 9.8 s it starts to creep.',
     camera: { move: 'still', lens: 'long', fov: 5.5, pos: [71.35, -3.04, .25], look: ['cougar', 'head'] },
     where: 'Low at the forest edge, 30 m south-east of the cougar, so it looks almost toward us',
     animals: 'Cougar still, then begins to creep (under 1 m/s).',
@@ -226,6 +227,9 @@ export const TRIMS = [
                         // buck half a second before his head comes up: the story jumps 1.5 s (F3's first
                         // trim instead shortened the cougar's freeze, which hurried its creep into a rush)
   [24.9, 1.4, 'film'],  // the cougar watches 1.4 s, not 2.8 s
+  [12, .5, 'skip'],     // (Cole, 2026-11-23: "shorten the stalk just a little") the stalk opens half a
+                        // second further into the cougar's creep: a jump at the cut from its eyes, not a
+                        // faster creep; 1.5 s of stalk, not 2.0
 ];
 {
   const less = (t, at, cut) => t > at ? t - Math.min(cut, t - at) : t;

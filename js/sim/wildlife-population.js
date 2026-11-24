@@ -21,7 +21,7 @@ import { simRandom } from './sim-random.js';
 import { swimDepth } from './waterline.js';
 import { crossingColumn } from './migration-route.js';
 import { territory, Animal, inRiver, spotIn, WITH_MOM } from './wildlife-shared.js';
-import { waitAtFence, waitingAtFence } from './fence-gate.js';
+import { waitAtFence, waitingAtFence, waterGapClosed } from './fence-gate.js';
 
 const LEAVE_DAYS = 20; // (days a leaving animal has to get off the map: a walk off takes one or two)
 
@@ -265,8 +265,8 @@ export class WildlifePopulation {
         }
       }
       const i = w.idx(x, y);
-      if (!passable(w, i, def)) {
-        if (w.feature[i] === F.FENCE) blocked ??= edge === 'N' ? x : y;
+      if (!passable(w, i, def) || waterGapClosed(w, i)) {
+        if (w.feature[i] === F.FENCE || waterGapClosed(w, i)) blocked ??= edge === 'N' ? x : y;
         continue;
       }
       const c = this.spawn(def, x, y);

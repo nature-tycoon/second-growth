@@ -2,12 +2,12 @@
   "title": "Second Growth: first-visit intro",
   "map": "pnw",
   "seed": 1987,
-  "seconds": 31.8,
+  "seconds": 31.3,
   "fps": 30,
-  "sourceRevision": "00d648b09d9e27a4dc584fabafd2e38fe5bfbea5",
-  "sourceDate": "2026-11-22",
+  "sourceRevision": "758b8d030171e01733d179ea351d8a370d82b130",
+  "sourceDate": "2026-11-23",
   "uncommittedGameChanges": true,
-  "madeAt": "2026-11-22T23:52:55.429Z",
+  "madeAt": "2026-11-24T01:01:24.360Z",
   "madeWith": "node tools/film-intro.mjs (tools/intro-film.mjs, tools/intro-film-shots.mjs)",
   "lastFrame": {
     "image": "assets/intro/intro-film-last.jpg",
@@ -25,11 +25,11 @@
     }
   },
   "beats": {
-    "headUp": 13.8,
-    "bolt": 14.8,
-    "breakCover": 14.8,
-    "pounce": 15.73,
-    "fence": 19.44
+    "headUp": 13.3,
+    "bolt": 14.3,
+    "breakCover": 14.3,
+    "pounce": 15.23,
+    "fence": 18.94
   },
   "layers": [
     {
@@ -37,8 +37,7 @@
       "shot": 1,
       "title": "The opening",
       "subjects": [
-        "buck",
-        "cougar"
+        "buck"
       ],
       "name": "opening",
       "from": 0.8,
@@ -85,7 +84,7 @@
       ],
       "name": "stalk",
       "from": 11.3,
-      "to": 13.3,
+      "to": 12.8,
       "fade": 0,
       "fromBlack": false,
       "sweep": false
@@ -98,8 +97,8 @@
         "buck"
       ],
       "name": "headup",
-      "from": 13.3,
-      "to": 15.15,
+      "from": 12.8,
+      "to": 14.65,
       "fade": 0,
       "fromBlack": false,
       "sweep": false
@@ -113,8 +112,8 @@
         "cougar"
       ],
       "name": "burst",
-      "from": 15.15,
-      "to": 18.4,
+      "from": 14.65,
+      "to": 17.9,
       "fade": 0,
       "fromBlack": false,
       "sweep": false
@@ -128,8 +127,8 @@
         "cougar"
       ],
       "name": "fence",
-      "from": 18.4,
-      "to": 21.8,
+      "from": 17.9,
+      "to": 21.3,
       "fade": 0,
       "fromBlack": false,
       "sweep": false
@@ -142,8 +141,8 @@
         "cougar"
       ],
       "name": "watch",
-      "from": 21.8,
-      "to": 23.2,
+      "from": 21.3,
+      "to": 22.7,
       "fade": 0,
       "fromBlack": false,
       "sweep": false
@@ -154,8 +153,8 @@
       "title": "The rise",
       "subjects": [],
       "name": "rise",
-      "from": 23.2,
-      "to": 26.4,
+      "from": 22.7,
+      "to": 25.9,
       "fade": 0,
       "fromBlack": false,
       "sweep": true
@@ -166,8 +165,8 @@
       "title": "30 years on",
       "subjects": [],
       "name": "rise30",
-      "from": 25.6,
-      "to": 31.4,
+      "from": 25.1,
+      "to": 30.9,
       "fade": 0.8,
       "fromBlack": false,
       "cameraOf": 9,
@@ -179,8 +178,8 @@
       "title": "Today",
       "subjects": [],
       "name": "start",
-      "from": 30.2,
-      "to": 31.8,
+      "from": 29.7,
+      "to": 31.3,
       "fade": 1.2,
       "fromBlack": false,
       "sweep": false
@@ -222,49 +221,49 @@
       "by": "stephan",
       "license": "CC0",
       "source": "https://commons.wikimedia.org/wiki/File:Snapping_twig_(single).ogg",
-      "at": 13.15
+      "at": 12.65
     },
     {
       "file": "field-hooves-1",
       "by": "Bruno Auzet (Freesound Community, Pixabay)",
       "license": "CC0",
       "source": "https://commons.wikimedia.org/wiki/File:Six_Horses_Galloping_By.ogg",
-      "at": 14.7
+      "at": 14.2
     },
     {
       "file": "field-hooves-2",
       "by": "Bruno Auzet (Freesound Community, Pixabay)",
       "license": "CC0",
       "source": "https://commons.wikimedia.org/wiki/File:Six_Horses_Galloping_By.ogg",
-      "at": 20
+      "at": 19.5
     },
     {
       "file": "field-american-crow-1",
       "by": "Jonathon Jongsma",
       "license": "CC BY-SA 3.0",
       "source": "https://commons.wikimedia.org/wiki/File:Corvus_brachyrhynchos_-_American_Crow_-_XC80525.ogg",
-      "at": 21.9
+      "at": 21.4
     },
     {
       "file": "field-meadowlark-1",
       "by": "Jonathon Jongsma",
       "license": "CC BY-SA 3.0",
       "source": "https://commons.wikimedia.org/wiki/File:Sturnella_neglecta_-_Western_Meadowlark_-_XC104522.ogg",
-      "at": 26
+      "at": 25.5
     },
     {
       "file": "field-swainsons-thrush-2",
       "by": "Doug Hynes",
       "license": "CC BY-SA 4.0",
       "source": "https://commons.wikimedia.org/wiki/File:Catharus_ustulatus_-_Swainson%27s_Thrush_XC613535.mp3",
-      "at": 27.6
+      "at": 27.1
     },
     {
       "file": "field-robin-1",
       "by": "Jonathon Jongsma",
       "license": "CC BY-SA 3.0",
       "source": "https://commons.wikimedia.org/wiki/File:Turdus_migratorius_-_American_Robin_-_XC107523.ogg",
-      "at": 30
+      "at": 29.5
     }
   ],
   "outputs": [
@@ -289,50 +288,50 @@
         {
           "file": "assets/intro/intro-film.mp4",
           "kind": "mp4",
-          "bytes": 15521332,
-          "sha256": "7dbf3a27abced1f1f4f3e3a1e4a9cfdf50a3531276ce8c65563a39316f35407d",
-          "checked": {
-            "duration": 31.872,
-            "width": 1280,
-            "height": 720,
-            "soundSeconds": 31.87,
-            "soundRms": 0.0697
-          },
+          "bytes": 15590514,
+          "sha256": "d424309991dcbe945bba076d94419ca1720529ee1f910b8132acb2992f380ae2",
           "kbBySecond": [
             11,
-            26,
-            354,
-            679,
-            941,
-            1104,
-            1172,
-            1228,
-            1325,
-            1480,
-            1657,
-            1848,
-            2001,
-            2077,
-            2200,
-            2334,
-            2634,
-            2923,
-            3270,
-            3526,
-            3586,
-            3675,
-            3774,
-            3867,
-            4198,
-            4799,
-            5658,
-            7507,
-            9623,
-            11624,
-            13520,
-            14824,
-            15158
-          ]
+            27,
+            350,
+            637,
+            908,
+            1077,
+            1145,
+            1203,
+            1306,
+            1489,
+            1695,
+            1917,
+            2069,
+            2183,
+            2287,
+            2546,
+            2841,
+            3144,
+            3539,
+            3618,
+            3689,
+            3790,
+            3904,
+            4082,
+            4579,
+            5265,
+            6646,
+            8675,
+            10718,
+            12669,
+            14167,
+            15209,
+            15225
+          ],
+          "checked": {
+            "duration": 31.381,
+            "width": 1280,
+            "height": 720,
+            "soundSeconds": 31.38,
+            "soundRms": 0.0705
+          }
         }
       ]
     },
@@ -357,99 +356,99 @@
         {
           "file": "website/review-media/video/intro-film-1080.mp4",
           "kind": "mp4",
-          "bytes": 27958053,
-          "sha256": "738bbc1b775a440d3ac173bc6ec73ff24345963c097c3cb3bfa3157a7fa312ee",
-          "checked": {
-            "duration": 31.872,
-            "width": 1920,
-            "height": 1080,
-            "soundSeconds": 31.87,
-            "soundRms": 0.0698
-          },
+          "bytes": 28270303,
+          "sha256": "93350e94e988837fc71e5f7fe99ad4627685c1a7e9bf90a864ee94febd818bcd",
           "kbBySecond": [
             11,
             33,
-            571,
-            1106,
-            1559,
-            1849,
-            1955,
-            2045,
-            2192,
-            2439,
-            2715,
-            3001,
-            3250,
-            3387,
-            3590,
-            3801,
-            4280,
-            4746,
-            5311,
-            5719,
-            5830,
-            5981,
-            6143,
-            6303,
-            6831,
-            7768,
-            9142,
-            12104,
-            15952,
-            19994,
-            24054,
-            26752,
-            27303
-          ]
+            581,
+            1089,
+            1569,
+            1880,
+            1986,
+            2078,
+            2238,
+            2548,
+            2886,
+            3219,
+            3468,
+            3664,
+            3845,
+            4257,
+            4741,
+            5242,
+            5871,
+            6012,
+            6140,
+            6313,
+            6499,
+            6788,
+            7584,
+            8676,
+            10846,
+            14309,
+            18253,
+            22321,
+            25731,
+            27579,
+            27608
+          ],
+          "checked": {
+            "duration": 31.381,
+            "width": 1920,
+            "height": 1080,
+            "soundSeconds": 31.38,
+            "soundRms": 0.0706
+          }
         },
         {
           "file": "assets/intro/intro-film-1080.mp4",
           "kind": "mp4",
-          "bytes": 27958053,
-          "sha256": "738bbc1b775a440d3ac173bc6ec73ff24345963c097c3cb3bfa3157a7fa312ee",
-          "game": true,
-          "checked": {
-            "duration": 31.872,
-            "width": 1920,
-            "height": 1080,
-            "soundSeconds": 31.87,
-            "soundRms": 0.0698
-          },
+          "bytes": 28270303,
+          "sha256": "93350e94e988837fc71e5f7fe99ad4627685c1a7e9bf90a864ee94febd818bcd",
           "kbBySecond": [
             11,
             33,
-            571,
-            1106,
-            1559,
-            1849,
-            1955,
-            2045,
-            2192,
-            2439,
-            2715,
-            3001,
-            3250,
-            3387,
-            3590,
-            3801,
-            4280,
-            4746,
-            5311,
-            5719,
-            5830,
-            5981,
-            6143,
-            6303,
-            6831,
-            7768,
-            9142,
-            12104,
-            15952,
-            19994,
-            24054,
-            26752,
-            27303
-          ]
+            581,
+            1089,
+            1569,
+            1880,
+            1986,
+            2078,
+            2238,
+            2548,
+            2886,
+            3219,
+            3468,
+            3664,
+            3845,
+            4257,
+            4741,
+            5242,
+            5871,
+            6012,
+            6140,
+            6313,
+            6499,
+            6788,
+            7584,
+            8676,
+            10846,
+            14309,
+            18253,
+            22321,
+            25731,
+            27579,
+            27608
+          ],
+          "game": true,
+          "checked": {
+            "duration": 31.381,
+            "width": 1920,
+            "height": 1080,
+            "soundSeconds": 31.38,
+            "soundRms": 0.0706
+          }
         }
       ]
     }

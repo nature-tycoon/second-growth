@@ -5,7 +5,7 @@
 
 import buildChinandegaPlants from '../data/plants-chinandega.js';
 import buildChinandegaAnimals from '../data/animals-chinandega.js';
-import { generateFinca, chinandegaBorderCell, volcanoTint, ESTUARY_X, BEACH, SLOPE_Y, FARM_ROAD } from './chinandega-world.js';
+import { generateFinca, chinandegaBorderCell, quebradaX, volcanoTint, ESTUARY_X, BEACH, SLOPE_Y, FARM_ROAD } from './chinandega-world.js';
 import { FIRST_GOAL, PNW_GOALS, culvertExists, pop, speciesPresent } from '../sim/goals.js';
 import { riverRow } from '../world.js';
 import { T, F, H } from '../config.js';
@@ -244,6 +244,7 @@ export default {
   generate: generateFinca,
   stones: 0.035, // the odds loosening the soil turns up stones on a tile (0035): volcanic: scoria and lava stones from San Cristóbal
   borderCell: chinandegaBorderCell,
+  northCreek: quebradaX, // (its creek carried on through the drawn land beyond the north fence, outsideCreek)
   stats: fincaStats,
   daily: fincaDaily,
   // The cooperative keeps grazing these paddocks. Native grass holds the gaps between planted
