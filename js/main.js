@@ -11,7 +11,7 @@ import { initLang } from './i18n.js';
 import { BIOMES } from './biome.js';
 import { sharedFarmAtBoot, startVisit, openError } from './ui/share.js';
 import { reloadIfStale, watchForNewVersion } from './fresh-version.js';
-import { IntroFilm, introWanted } from './ui/intro.js';
+import { IntroFilm, introBlocked } from './ui/intro.js';
 import { PerfNotices } from './ui/perf-notices.js';
 import './lang/es.js'; // the Spanish language pack (only used when a map is played in Spanish)
 
@@ -79,7 +79,9 @@ async function boot() {
     initAnalytics();
     // A first visit plays the intro film (after analytics, so intro_started is sent) over the loading screen while the game loads underneath
     // (ui/intro.js); the farm waits for it and opens at the film's last frame.
-    const intro = !pending && !shared && !Game.hasSave() && introWanted(startMap) ? new IntroFilm({ first: true }) : null;
+    const fresh = !pending && !shared && !Game.hasSave(), introNot = fresh ? introBlocked(startMap) : 'visit';
+    if (fresh && introNot && introNot !== 'automated') track('intro_not_offered', { reason: introNot, map: startMap });
+    const intro = fresh && !introNot ? new IntroFilm({ first: true }) : null;
     const game = new Game();
     game.newGame(1987, 'free', 'standard', startMap, pending?.runSeed ?? Game.randomRunSeed());
     game.speed = 0; // paused until the player chooses Start or Continue

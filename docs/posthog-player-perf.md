@@ -28,7 +28,8 @@ campaign objective), `quest_help`, `panel_closed` (seconds a panel was open), `w
 warning wording once a session, numbers as #), `species_lost`, and `game_loaded` (`load_ms` and
 each loading step's start), `loading_left` and `load_failed`. `webgl_context_lost` (from 2026-11-14: `stage` is the loading step or `playing`, with `seconds`, `quality`, `gpu`) counts the view being dropped, which the iOS simulator did once while loading. `species_discovered.species` is the
 species key from 2026-11-09; before that it held the species count. `perf_sample` also fires at
-10 s from then. Most players now arrive at secondgrowth.earth/play. Check:
+10 s from then.
+The intro film (from 2026-11-23, `ui/intro.js`): `intro_started`, `intro_skipped` (`second`; from 2026-11-24 `how` and `taps`, stray taps that only pulse Skip, since a tap on the film no longer skips), `intro_finished`; from 2026-11-24 `intro_failed` (`reason`: `not_ready` is a film too slow to start by the time the game was ready, `stalled` one that froze 6 s, `error`, `no_source`, `play_blocked`, `play_error`) and `intro_not_offered` (`reason`: a first visit with no save that never got it: `map`, `seen`, `save_data`, `no_storage`, `off`). Before 2026-11-24 a film that didn't play left no event. Most players now arrive at secondgrowth.earth/play. Check:
 `node tools/play-analytics-browser-check.mjs`. First findings: [posthog-review-2026-11.md](posthog-review-2026-11.md).
 
 ## History

@@ -1349,7 +1349,7 @@ body.moment-on #joystick, body.moment-on #view-ctrls, body.moment-on #toolpanel,
 /* The first-visit intro film (js/ui/intro.js): over the loading screen and everything else, upright
    phones included (the film plays upright, letterboxed; the turn prompt comes after it). Unseen and
    click-through until the film is actually playing, so a slow download leaves the loading screen up. */
-.intro { position: fixed; inset: 0; z-index: 300; background: #000; opacity: 0; pointer-events: none; cursor: pointer;
+.intro { position: fixed; inset: 0; z-index: 300; background: #000; opacity: 0; pointer-events: none;
   transition: opacity .9s ease; font-family: var(--ui); }
 .intro.playing { opacity: 1; pointer-events: auto; }
 .intro.playing.fading { opacity: 0; pointer-events: none; }
@@ -1360,9 +1360,9 @@ body.moment-on #joystick, body.moment-on #view-ctrls, body.moment-on #toolpanel,
   border-radius: 999px; padding: 10px 16px; min-height: 40px; cursor: pointer; }
 .intro-bar button:hover, .intro-bar button:focus-visible { background: rgba(12, 22, 16, .8); border-color: rgba(246, 239, 216, .7); }
 .intro-sound.off { background: rgba(183, 212, 148, .9); color: #13241a; border-color: transparent; }
-.intro-hint { position: absolute; left: max(16px, env(safe-area-inset-left)); bottom: max(22px, env(safe-area-inset-bottom)); margin: 0;
-  color: rgba(246, 239, 216, .7); font-size: 13px; animation: intro-hint 5s ease forwards; pointer-events: none; }
-@keyframes intro-hint { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+/* a tap on the film (not Skip) only points at Skip: a skip must be meant (intro.js) */
+.intro-skip.nudge { animation: intro-nudge .9s ease; }
+@keyframes intro-nudge { 0%, 100% { transform: none; } 20%, 60% { transform: scale(1.12); background: rgba(246, 239, 216, .92); color: #13241a; } }
 /* the title drop over the rise (TITLE_IN/OUT in intro.js): the loading screen's wordmark, live text */
 .intro-title { position: absolute; left: 50%; top: 44%; transform: translate(-50%, calc(-50% + .12em)); margin: 0; white-space: nowrap; pointer-events: none;
   font: 700 clamp(34px, min(10vh, 7.5vw), 132px)/1 'Bricolage Grotesque', 'Avenir Next', system-ui, sans-serif; letter-spacing: -.03em; color: #fbf6e7;
