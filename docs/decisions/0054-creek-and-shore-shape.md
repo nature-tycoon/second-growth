@@ -50,8 +50,8 @@ cause, not only the creek.
   of strength ≥ `BIG_FLOOD` 1.3 may cut one `sharpBends` bend across its inside (a chute cut-off,
   at most `CUT_ADD` 8 new tiles, `CUT_LOOP` 10 left), chance `CUT_CHANCE` 0.5. Fresh maps have no
   sharp bend, so it reaches old saves and creeks a player's edits left sharp. Refused: land higher
-  over the nearest creek tile than the flood rises (`RISE` × strength × (1 − sponge), as `reachFrom`; not `w.flood`,
-  which spreads only from fish-connected creeks), a road, trail, gravel, mud, a building, any feature,
+  over the nearest creek tile than the flood rises (`RISE` × strength × (1 − sponge), as `reachFrom`'s creek walk;
+  since 2026-11-23 `w.flood` follows every creek too, so cuts may come on the PNW ditch above its culvert), a road, trail, gravel, mud, a building, any feature,
   a level pad, a locked tile; a dam, culvert, boardwalk, building, road, pond, Hollis-managed water
   or a fall within 3 tiles. Every test, and a **trial cut** (made, tested by `swimsBetween` down the
   whole reach, put back), comes before `g.rng` is drawn, so a farm with nothing to cut keeps its run's
@@ -135,7 +135,8 @@ the water back by a few centimetres of depth, not round a step a tile wide.
 - Session 6 (flood cut-offs): Cole chose floods trimming tight bends over yearly meandering (decades
   slow, and it would move fish, beavers, dams and dug creeks). First gated on the flood's own marks
   (`w.flood`), but those spread only from creeks open to the river's fish, so the PNW ditch above its
-  culvert never floods; the gate is the same height rule instead. A bend turning up Hollis's slope is
+  culvert never floods; the gate is the same height rule instead. (2026-11-23, batch creeks-fps-2 s2: floods now spread along every creek, 0034;
+  the gate stayed the height rule, which already matched.) A bend turning up Hollis's slope is
   refused by the trial: the shorter cut puts the corner's 0.5-level drop into a step fish can't swim
   (grading never cuts more than `CHANNEL_CUT`); one turning down the slope is cut in 3 tiles. The
   old loop is marsh, not a pond: a pond needs `levelPond` (it digs deeper), a marsh holds water on the

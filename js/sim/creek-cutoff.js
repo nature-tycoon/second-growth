@@ -32,9 +32,8 @@ const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 function cuttable(game, add, seg, intensity) {
   const w = game.world, map = game.mapDefinition;
   // (the land it cuts is floodplain: no higher over the creek beside it than this flood rises over a
-  // creek, measured as Events.reachFrom does, tile height over the nearest creek tile's. Not the
-  // flood's own marks: those spread only from creeks open to the river's fish, and a creek above a
-  // culvert floods as well)
+  // creek, the creek half of Events.reachFrom's rule, measured from the nearest creek tile here. The
+  // flood's own marks follow every creek too, above a culvert or below; this asks only this reach)
   const creek = seg.filter(i => w.terrain[i] === T.CREEK);
   const over = i => {
     const x = i % w.w, y = (i / w.w) | 0;

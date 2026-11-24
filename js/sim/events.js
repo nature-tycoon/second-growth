@@ -491,32 +491,38 @@ export class Events {
     this.finishFlood(intensity, sponge, flooded);
   }
 
-  // Walk out from the river and connected creeks over land that sits only a little above them
-  // ("height above nearest drainage"): wide on the river's floodplain, narrow along creeks.
+  // Walk out from the river and every creek over land that sits only a little above them
+  // ("height above nearest drainage"): wide on the river's floodplain, narrow along creeks. Every
+  // creek, above a culvert or below, dug or the map's: storm water runs in all of them, and a culvert
+  // passes water though it stops fish (w.connected is fish passage only, 0034). The river's floodplain
+  // and the creeks' banks are walked apart and joined, so a creek beside the river never takes a tile
+  // the river would have flooded (each walk keeps the first source to reach a tile, as before). The
+  // river's walk runs on over a creek too, as high water backs up a creek's mouth.
   reachFrom(eff, visit) {
-    const w = this.game.world;
-    const srcH = new Float32Array(w.n).fill(NaN), srcRiver = new Uint8Array(w.n), dist = new Uint8Array(w.n).fill(255);
+    const w = this.game.world, seen = new Uint8Array(w.n);
+    this.walkFrom(eff, true, j => { seen[j] = 1; visit(j); });
+    this.walkFrom(eff, false, j => { if (!seen[j]) visit(j); });
+  }
+
+  walkFrom(eff, river, visit) {
+    const w = this.game.world, src = river ? T.RIVER : T.CREEK;
+    const reach = river ? 9 : 3, limit = eff * (river ? 1.1 : 0.45);
+    const srcH = new Float32Array(w.n), dist = new Uint8Array(w.n).fill(255);
     const q = [];
     for (let i = 0; i < w.n; i++) {
-      const t = w.terrain[i];
-      if (t === T.RIVER || (t === T.CREEK && w.connected[i])) {
-        srcH[i] = w.tileH(i % w.w, (i / w.w) | 0); srcRiver[i] = t === T.RIVER ? 1 : 0; dist[i] = 0; q.push(i);
-      }
+      if (w.terrain[i] === src) { srcH[i] = w.tileH(i % w.w, (i / w.w) | 0); dist[i] = 0; q.push(i); }
     }
     for (let h = 0; h < q.length; h++) {
       const i = q[h];
-      const x = i % w.w, y = (i / w.w) | 0;
-      const reach = srcRiver[i] ? 9 : 3;
       if (dist[i] >= reach) continue;
+      const x = i % w.w, y = (i / w.w) | 0;
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const xx = x + dx, yy = y + dy;
         if (!w.inb(xx, yy)) continue;
         const j = w.idx(xx, yy);
         if (dist[j] !== 255 || w.struct[j] >= 0) continue;
-        dist[j] = dist[i] + 1; srcH[j] = srcH[i]; srcRiver[j] = srcRiver[i];
-        const above = w.tileH(xx, yy) - srcH[j];
-        const limit = eff * (srcRiver[j] ? 1.1 : 0.45);
-        if (above > limit) continue;
+        dist[j] = dist[i] + 1; srcH[j] = srcH[i];
+        if (w.tileH(xx, yy) - srcH[j] > limit) continue;
         visit(j);
         q.push(j);
       }
