@@ -34,3 +34,11 @@ All 4 sessions landed on `claude/ideas-phone-creeks-fish` (4717ad6, 4f82c99, 024
 - The steep reach below the falls could be drawn whiter and faster. Realistic: cascades run white. Pairs with 8.
 - Side-creek mouths: the drawn current starts turning about two tiles up the side creek. Fine as is.
 - Tools: add the new-game menu to `phone-review.mjs`. Turn the visual-qa flow-direction measurement into a browser check. Cover a beaver pond with a marsh fringe in `fish-falls-marsh-check`.
+
+## Cole's answers (2026-11-24)
+
+- Jaguar motion-sweep failure: fix it next.
+- S-curves: yes, draw dug creeks as a smooth ribbon.
+- Land redraw: yes, redraw only the edited patch.
+- Snakeheads: yes, their own session.
+- The rest: the recommended answers stand unless Cole says otherwise.

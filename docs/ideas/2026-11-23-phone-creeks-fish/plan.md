@@ -47,3 +47,12 @@ Fish (0050, 0034) — came back ("again")
 | 4 | Fish clumping at falls and marsh | 7, 8 | opus | medium | [x] (riffles open below the fall; 3 open questions) |
 
 Sequential in this checkout. Sessions 2 and 4 run `regression-reviewer` (water, movement).
+
+## Round 2 (Cole's answers, 2026-11-24)
+
+| # | Title | Model | Size | Status |
+|---|---|---|---|---|
+| 5 | Jaguar rush vs motion sweep (blocks merge) | opus | small | [ ] |
+| 6 | Dug creeks drawn as a smooth ribbon (+ downhill spoil bank) | opus | medium | [ ] |
+| 7 | Land tools redraw only the edited patch | opus | medium | [ ] |
+| 8 | Sumatra snakehead pile-up in peat marsh | opus | medium | [ ] |
