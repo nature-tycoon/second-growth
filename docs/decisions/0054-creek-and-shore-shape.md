@@ -69,11 +69,32 @@ cause, not only the creek.
   it never touches, so running it again moves nothing. It's skipped where the creek no longer reaches
   row 0 (an old PNW farm, whose ditch began a row in, keeps it; a creek the player filled at the fence).
   It draws dry while the Hollis model has the fence tile dry. Its corners aren't recarved after a
-  stroke at row 0 until the next load: accepted. PNW's course swings west at once to keep the intro
-  film's stage (x 67-71, rows -6 to -1) dry; move the film's marks and `PNW_NORTH` (world.js) together.
-  PNW's ditch now starts at row 0 under a water-gap fence (`F.FENCE` on the creek tile), so the north
-  fence stays whole for 0053. Reef: no creek, no `northCreek`. Steep land draws a sloped sheet (each
-  water corner takes its highest neighbour's level), on PNW 2.5 levels a row by the fence.
+  stroke at row 0 until the next load: accepted. It is two tiles wide (`MIN_WIDE`, widened west;
+  one tile drew as a thread beside the farm's ditch, wider ones as a sheet), sunk in a shallow gorge (Cole, 2026-11-23: a wide tilted sheet on the hillside looked
+  wonky): the bed `GORGE` 0.8 levels under the untouched land a tile beyond its walls (deeper, 2-3
+  levels by the fence, stood as raw earth walls in the film's first shot); the
+  tile either side is a wall, its outer corner lowered halfway (`WALL`); no tree on the creek or its
+  walls. Beyond the fence the bank ring takes the *lowest* water beside it (terrain.js), or the
+  water a row upstream stood in the air over a bend's inside. White water there is capped at 0.3
+  (`OUTSIDE_WHITE`; full white read as a snowfield) and no waterfall ledge is drawn. PNW's course
+  swings west at once so the intro film's marks stay dry, and the film's stage on its east bank is
+  never carved (`northCreekKeep`, `pnwNorthKeep` in world.js: by the fence even the creek's own east
+  corners, which leaves its gorge one-sided there; the buck's hooves sank 0.26 on the gorge's lip);
+  its cameras over the gorge stand on its banks' height (`northCreekBank`, `filmGround` in tools/intro-film.mjs). Move the film's marks and
+  `PNW_NORTH` (world.js) together, then run `intro-film-motion`.
+  PNW's ditch now starts at row 0, one creek tile with its west corner cut down so it draws about
+  two tiles wide (one drew as a neck at the fence; a second creek tile moved the dipper off the creek
+  and halved opening-lapse's trees), with
+  no fence (Cole: no fence across the creek), yet closed to arrivals while the fence stands either
+  side (`fencedCreek` in the map, `waterGapClosed` in fence-gate.js, read by `immigrate` and the
+  waiting animals' `gap`), so the opening still opens the farm (0053; an open gap let elk walk in on
+  12 of 40 seeded arrivals). The other maps' creeks have always been a gap.
+  `vh` is saved, and the carve only lowers: a save made with an earlier course or gorge keeps that
+  trench beside the new one. None shipped (the first version never reached main); change `PNW_NORTH`,
+  `GORGE` or `WALL` knowing saves keep the old cut.
+  That tile is laid after `generateHeights`, its corners cut to just above the next tile's bed: in
+  the creek from the start it shifted the planting's random draws and moved the waterfall's ledge a
+  tile (`creekFalls` picks it along the whole steep reach). Reef: no creek, no `northCreek`.
 - Check: `node tools/water-shape-check.mjs [maps]` (no sharp bend on any map as generated; the drawn
   waterline's share of points turning over 60° within a tile under each map's ceiling; the creek
   beyond the north fence, full width, falling, carved again unchanged; a right-angle

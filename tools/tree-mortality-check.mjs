@@ -71,7 +71,9 @@ check('Only removeTree clears a living tree (and World.clearPlants, for laying o
     if (/killTree\(|\.tree\[[^\]]+\] *= *0\b/.test(line)) hits.push(relative(root, p));
   });
   walk(root);
-  assert.deepEqual(hits.sort(), ['sim/plants.js', 'world.js'], 'a tree is cleared outside removeTree');
+  // (maps/water-shape.js: outsideCreek clears the drawn border's trees off the creek beyond the fence, 0054;
+  // nothing in the simulation reads the border)
+  assert.deepEqual(hits.sort(), ['maps/water-shape.js', 'sim/plants.js', 'world.js'], 'a tree is cleared outside removeTree');
 });
 
 console.log(`${checks} tree mortality checks passed.`);

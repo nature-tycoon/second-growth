@@ -11,7 +11,9 @@ function check(name, fn) { fn(); checks++; console.log(`PASS ${name}`); }
 const SALMON = ANIMALS.find(d => d.special === 'salmon');
 function run(seed) {
   Math.random = mulberry32(seed);
-  const g = new Game(); g.newGame(1987, 'free', 'standard', 'pnw'); g.autosave = false; g.day = 70;
+  // (the seed is the run seed too: the simulation draws from it, not Math.random, so before 2026-11-23
+  // all six runs were one and the same, and any change to PNW's creek flipped it between a catch and none)
+  const g = new Game(); g.newGame(1987, 'free', 'standard', 'pnw', seed); g.autosave = false; g.day = 70;
   const w = g.world, wl = g.wildlife;
   for (let i = 0; i < w.n; i++) if (w.feature[i] === F.CULVERT) w.feature[i] = 0;
   w.hydroDirty = true; g.refreshEnvironment();

@@ -13,7 +13,7 @@ globalThis.localStorage ||= { getItem() { return null; }, setItem() {}, removeIt
 const { Game } = await import('../js/game.js');
 const { BIOME_LIST } = await import('../js/biome.js');
 const { ToolActions } = await import('../js/tool-actions.js');
-const { T, isWater } = await import('../js/config.js');
+const { T, F, isWater } = await import('../js/config.js');
 const { tileWaterLevel } = await import('../js/sim/waterline.js');
 const { sharpBends, COURSE_TURN, outsideCreek } = await import('../js/maps/water-shape.js');
 const { BORDER } = await import('../js/config.js');
@@ -151,7 +151,7 @@ for (const map of maps) {
     for (let y = -BORDER; y < 0; y++) assert.ok(wetB(course(y), y), `no creek beyond the fence on row ${y}`);
     for (let vy = -1; vy >= -BORDER; vy--) assert.ok(w.vert(course(vy), vy) > w.vert(course(vy + 1), vy + 1), `the bed doesn't fall toward the farm at row ${vy}`);
     const vh = w.vh.slice();
-    assert.equal(outsideCreek(w, B, course, BORDER), 0, 'the land falls northward faster than the bed');
+    assert.equal(outsideCreek(w, B, course, BORDER, g.catalog.definition.northCreekKeep), 0, 'the land falls northward faster than the bed');
     assert.ok(vh.every((v, i) => v === w.vh[i]), 'carving it again moved the land');
   });
   // (deer waiting at the fence by it stand on a bank, not its bed: offCreek in fence-gate.js)
@@ -164,6 +164,16 @@ for (const map of maps) {
         g.wildlife.agents.splice(g.wildlife.agents.indexOf(a), 1);
       }
     }
+  });
+  // PNW's ditch comes in through its north fence (fencedCreek: no fence on the water): until the
+  // opening tears the fence out, an arrival at the creek is held there like anywhere along it (0053; a
+  // plain gap let elk walk in on 12 of 40 seeded arrivals, regression review 2026-11-23)
+  if (map === 'pnw') check('pnw: the north fence holds arrivals at the creek too', () => {
+    const elk = g.catalog.animal.elk, before = g.wildlife.agents.length;
+    for (let x = 0; x < w.w; x++) if (w.terrain[w.idx(x, 0)] === T.CREEK) {
+      assert.equal(g.wildlife.immigrate(elk, 1, false, { edge: 'N', at: x }), 0, `an elk walked in at ${x}, 0`);
+    }
+    for (const a of g.wildlife.agents.slice(before)) g.wildlife.agents.splice(g.wildlife.agents.indexOf(a), 1);
   });
   if (!g.catalog.tools.creek || g.catalog.definition.hideTools?.includes('creek')) continue;
 

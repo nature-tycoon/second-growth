@@ -69,6 +69,9 @@ function turfColor(p, month, season, catalog) {
 
 // How far water fills each kind of basin above its lowest corner, in height levels.
 const FILL = WATER_FILL;
+// The starting creek beyond the north fence (outsideCreek) comes down steep hills on some maps: run
+// white in full, its sloped sheet read as a snowfield in the intro film, so only streaks of white.
+const OUTSIDE_WHITE = 0.3;
 // A waterfall's drawn ledge (buildFalls): the water runs level over the rock's top for FALL_RUN of the
 // fall's tile, then falls on its arc over FALL_TRAVEL more (landing just short of the foot, where the
 // tile's ramp is still under the arc: the tile grid can't hold a sheer face).
@@ -338,6 +341,10 @@ export class Terrain {
       else if (t === T.TRAIL && game.catalog.definition.sandBed) { tex = S.TURF; c = pastureColor(game.catalog.definition.id, season, game.catalog.definition.look.pasture[season]).map(v => v * 1.04); } // (a snorkel trail is just marked with buoys over the sand)
       // pond beds share the marsh's soft texture (just darker), so the two blend at their edges
       else if (t === T.POND) { tex = S.TURF; c = [0.4, 0.44, 0.34]; }
+      // (the creek beyond the fence, outsideCreek: on a mossy forest floor its bed is moss too, as a
+      // forest stream's stones are; where the farm's bank stays natural beside it, the bed out of the
+      // water showed as bare brown earth)
+      else if (!inside && t === T.CREEK && def.look.borderMoss) { tex = S.TURF; c = def.look.borderMoss.map(v => v * 0.8); bare = 0; }
       else if (isWater(t)) { tex = S.BED; c = [0.7, 0.66, 0.58]; }
       else {
         const canopy = inside ? w.canopy[i] : 0;
@@ -623,7 +630,10 @@ export class Terrain {
       // (the water beside it, or else at its corner: beside a steep creek, the creek a tile upstream
       // stood the bank's water up to 0.6 over the creek's own, and over a waterfall it held the
       // lip's level out over the pool below)
+      // (beyond the fence, the lowest: on the inside of a bend in the steep creek there the water a row
+      // upstream stood up in the air over the bank's lower corner)
       let L = -Infinity, kd = 0;
+      const out = ty + Y0 < 0;
       for (const diag of [0, 1]) {
         for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
           if ((dx && dy ? 1 : 0) !== diag || !(dx || dy)) continue;
@@ -631,7 +641,7 @@ export class Terrain {
           if (xx < 0 || yy < 0 || xx >= TW || yy >= TH) continue;
           const j = yy * TW + xx;
           if (below && managed(j)) continue; // (the pond's water, held behind the dam; the creek below still banks it)
-          if (wet[j] && level[j] > L) { L = level[j]; kd = kind[j]; }
+          if (wet[j] && (L === -Infinity || (out ? level[j] < L : level[j] > L))) { L = level[j]; kd = kind[j]; }
         }
         if (L > -Infinity) break;
       }
@@ -828,7 +838,7 @@ export class Terrain {
         // any pond: drawn tile by tile at its own level, it ended in hard steps at the tile lines)
         const c = vColor(vx, vy), lv = vLevel(vx, vy);
         pos[o] = vx; pos[o + 1] = lv * LEVEL; pos[o + 2] = vy; nor[o + 1] = 1; o += 3;
-        dep[od] = lv - w.vert(vx, vy); round[od] = lv - smooth(vx, vy); white[od] = vWhite(vx, vy);
+        dep[od] = lv - w.vert(vx, vy); round[od] = lv - smooth(vx, vy); white[od] = vy < 0 ? Math.min(OUTSIDE_WHITE, vWhite(vx, vy)) : vWhite(vx, vy);
         const vi = ((vy - Y0) * (TW + 1) + vx - X0) * 3;
         flow[od * 2] = vertexFlow[vi]; flow[od * 2 + 1] = vertexFlow[vi + 1]; bend[od] = vertexFlow[vi + 2]; od++;
         col[oc] = lin(c[0]); col[oc + 1] = lin(c[1]); col[oc + 2] = lin(c[2]); col[oc + 3] = vWet(vx, vy) ? c[3] : 0; oc += 4;

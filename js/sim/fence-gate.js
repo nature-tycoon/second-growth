@@ -11,6 +11,7 @@
 //            up, entering: set once it's walking in (k: the gap it uses, depth: tiles in), until it's on the map }
 
 import { passable } from './animal-terrain.js';
+import { F, isWater } from '../config.js';
 import { facePoint } from './animal-positioning.js';
 import { simRandom } from './sim-random.js';
 import { travelSpeed } from './climb-pace.js';
@@ -50,6 +51,17 @@ export function waitAtFence(wl, def, n, edge, at) {
   return out;
 }
 
+// A creek under a boundary fence on a map whose fence spans its creek (`fencedCreek`, PNW: the ditch
+// comes in at the fence, 0054): closed to arrivals while the fence stands either side of it, as a
+// water-gap fence would hold them, so the opening still opens the farm (0053), with no fence drawn in
+// the water (Cole, 2026-11-23). The other maps' creeks have always been gaps.
+export function waterGapClosed(w, i) {
+  if (!w.catalog?.definition?.fencedCreek || !isWater(w.terrain[i])) return false;
+  const x = i % w.w, y = (i / w.w) | 0, fenced = (xx, yy) => w.inb(xx, yy) && w.feature[w.idx(xx, yy)] === F.FENCE;
+  if (y === 0) return fenced(x - 1, 0) && fenced(x + 1, 0);
+  return (x === 0 || x === w.w - 1) && fenced(x, y - 1) && fenced(x, y + 1);
+}
+
 // The nearest edge tile within REACH of the animal's spot that it can now walk through, or -1.
 function gap(w, a, g) {
   const span = g.edge === 'N' ? w.w : w.h;
@@ -57,7 +69,7 @@ function gap(w, a, g) {
     const k = g.at + d * s;
     if (k < 0 || k >= span) continue;
     const i = edgeTile(w, g.edge, k);
-    if (passable(w, i, a)) return k;
+    if (passable(w, i, a) && !waterGapClosed(w, i)) return k;
   }
   return -1;
 }

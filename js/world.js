@@ -214,8 +214,7 @@ export function generateFarm(seed = 1987, catalog = activeCatalog) {
   // The drainage ditch: a straightened creek, runs from a spring in the north to the river.
   // (dug with rounded corners, as a real ditch is: a creek never turns on the tile grid's right
   // angles, 0054. It still passes the culvert at (54, 75))
-  // It comes in from the old forest under the north fence (2026-11-22: it began a row in, at a spring)
-  const ditch = rasterCourse(smoothCourse([[69.5, 0.5], [69.5, 45.5], [54.5, 45.5], [54.5, Hh + 0.5]]));
+  const ditch = rasterCourse(smoothCourse([[69.5, 1.5], [69.5, 45.5], [54.5, 45.5], [54.5, Hh + 0.5]]));
   // (the ditch as farms made before 0054 have it, with square corners: loading one doesn't take
   // those tiles for creek the player dug, game.js)
   w.formerCreek = new Set();
@@ -255,7 +254,6 @@ export function generateFarm(seed = 1987, catalog = activeCatalog) {
     w.feature[i] = F.FENCE;
   };
   for (let x = 0; x < W; x++) fence(x, 0);
-  w.feature[w.idx(pnwNorthCreek(0), 0)] = F.FENCE; // (a water-gap fence hung across the ditch: the north fence stays whole, as before, 0053)
   for (let y = 0; y < Hh - 9; y++) fence(W - 1, y);
   for (let y = 0; y < Hh - 9; y++) fence(0, y);
   const fenceRect = (x0, y0, x1, y1, gap) => {
@@ -326,6 +324,19 @@ export function generateFarm(seed = 1987, catalog = activeCatalog) {
   for (let x = 48; x <= 58; x++) if (rng() < 0.45) plant('rose', x, 50, 0.9, 5);
 
   generateHeights(w, FIELDS, pnwLand(w));
+  // The ditch comes in from the old forest under the north fence (2026-11-22: it began a row in, at a
+  // spring), through the north fence (no fence over the water: Cole, 2026-11-23), held shut to arrivals while the
+  // fence stands either side (fencedCreek, waterGapClosed in fence-gate.js, 0053). Laid after the land: in
+  // the creek from the start it shifted the planting's random draws and moved the waterfall a tile
+  // (creekFalls picks its ledge along the whole steep reach), and the intro film is staged on both.
+  // Its bed is cut down to a little above the ditch's next tile, so it still runs downhill (0044).
+  // Its west corner is cut down too, so its water draws over the bank there about two tiles wide, as
+  // it is beyond the fence (one drew as a neck between it and the ditch: Cole). Not a second creek
+  // tile: that moved the dipper off the creek and halved the opening's planted trees (dipper-check,
+  // opening-lapse-check).
+  { const cx = pnwNorthCreek(0), i = w.idx(cx, 0), bed = Math.max(w.vert(cx, 1), w.vert(cx + 1, 1)) + 0.05;
+    w.terrain[i] = T.CREEK; w.clearPlants(i); if (w.feature[i] === F.FENCE) w.feature[i] = 0;
+    for (const vx of [cx - 1, cx, cx + 1]) w.setVert(vx, 0, Math.min(w.vert(vx, 0), bed)); }
   for (const st of w.structures) if (st) w.flattenRect(st.x, st.y, st.w, st.h);
   w.hydroDirty = true;
   return w;
@@ -437,8 +448,12 @@ function pondGroups(w, tiles) {
 // a forest creek coming down from the north-west into the ditch. It swings west at once so the intro
 // film's stage, the salmonberry opening at x 69 where the buck browses and the cougar creeps
 // (tools/intro-film-plan.mjs ANIMALS, x 67-71, rows -6 to -1), stays dry ground: two tiles clear of the
-// cougar's ferns. It turns 45° at most, gentler than 0054's limit.
-const PNW_NORTH = [69, 69, 68, 67, 66, 65, 65, 64, 64, 64, 65, 65, 66, 66, 67];
+// cougar's ferns. It turns 45° at most, gentler than 0054's limit. (Its bed's cut reaches the corners
+// of the buck's tiles: run intro-film-motion after changing it or the gorge, GORGE in water-shape.js)
+const PNW_NORTH = [69, 68, 67, 66, 65, 64, 63, 63, 63, 63, 64, 64, 65, 65, 66];
+// (the film's stage keeps its ground on the gorge's east bank: by the fence the creek's own east
+// corners too, so the buck's run and the cougar's stand don't tip into it)
+export const pnwNorthKeep = (vx, vy) => vy >= -7 && vx <= 73 && vx >= (vy === -1 ? 70 : vy === -2 ? 69 : 67);
 export const pnwNorthCreek = y => PNW_NORTH[Math.min(PNW_NORTH.length - 1, Math.max(0, -y))];
 
 // Hollis farm surroundings: conifer forest north and east, fields and blackberry west, the river south.
@@ -469,13 +484,18 @@ export function pnwBorderCell(x, y, r, r2, world) {
 // on nearly every tile; an uneven edge one to three tiles deep of shrubs, ferns and younger alder,
 // maple and fir, as a forest meets a field; the odd treefall gap of vine maple and huckleberry;
 // and where the creek comes out of it, a line of salmonberry with alder and redcedar either side.
+const OPEN_ROWS = 7;
 function pnwOldForest(x, y, r, r2, world) {
   const P = world.catalog.plant, east = y >= 0;
   const d = Math.max(-y, x - world.w + 1); // (tiles into the forest from the farm's edge)
   const edge = 1.2 + valueNoise((east ? y : x) + 300, east ? 7 : 3, 5, 61) * 2.6 + (hash2(x, y, 62) - 0.5) * 0.8;
   const pick = (u, mix) => { for (const [k, p] of mix) if ((u -= p) < 0) return P[k].id; return P[mix[mix.length - 1][0]].id; };
   const wet = cx => !east && world.inb(cx, 0) && [0, 1, 2].some(cy => world.terrain[world.idx(cx, cy)] === T.CREEK); // (its spring sits a row or two in)
-  const creekAt = cx => wet(cx) && !(wet(cx - 1) && wet(cx + 1)); // (a creek running in, not a ditch dug along the fence: the border is rebuilt on load)
+  // (a creek running in, not a ditch dug along the fence: the border is rebuilt on load; the opening
+  // only OPEN_ROWS deep, by the fence where the buck browses in the intro film: carried on in a
+  // straight line it stood as a strip of bushes up the forest with no creek in it once the creek beyond
+  // the fence turned west, outsideCreek, Cole 2026-11-23)
+  const creekAt = cx => d <= OPEN_ROWS && wet(cx) && !(wet(cx - 1) && wet(cx + 1));
   let tree = 0, g = 0, shrub = 0, ground = P.swordfern.id;
   if (creekAt(x)) shrub = P.salmonberry.id;
   else if (creekAt(x - 1) || creekAt(x + 1)) {
@@ -517,7 +537,7 @@ export class Border {
     }
     // the starting creek runs on beyond the north fence (drawing only: its bed is carved north of row 0)
     const course = world.catalog?.definition?.northCreek;
-    if (course) outsideCreek(world, this, course, B);
+    if (course) outsideCreek(world, this, course, B, world.catalog.definition.northCreekKeep);
   }
   bi(x, y) {
     const bx = x + BORDER, by = y + BORDER;
