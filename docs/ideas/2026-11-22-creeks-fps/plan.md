@@ -28,7 +28,7 @@ Branch: `claude/ideas-creeks-fps` (cut from origin/main 2f26961). Sessions run o
 | 6 | Floods trim tight creek bends | e | opus | M | done e642da6 |
 | 7 | Frame rate: measure, Fable design, first wins | f | opus | L | done (see s7.md) |
 | 8 | Frame rate: build the design's main pieces | f | opus | L | done 5650d44 (shadows, antialiasing: no gain, not shipped) |
-| 9 | Starting creek off the north edge + refilm intro | h | opus | L | running in worktree, branch claude/ideas-creeks-fps-s9-4515f5 |
+| 9 | Starting creek off the north edge + refilm intro | h | opus | L | done e55e49a on claude/ideas-creeks-fps-s9-4515f5 (not merged yet) |
 
 Order: cheap UI first, creek shape before erosion, frame rate after the new drawing lands so it measures it, refilm last.
 Sessions 3, 5, 6, 8, 9 run `regression-reviewer` on plan and diff.
