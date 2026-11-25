@@ -173,6 +173,12 @@ positions and normals of every drawn tile, skirt, line, `buildWater` ~20 ms, ove
 frame of the drag. Stopgap (ideas batch phone-creeks-fish s2): during a creek stroke the rebuild waits
 three times its last cost (`creekStroke`, scene.js); 11 rebuilds in a 14-tile drag fell to 4, and the
 stroke shows at once as the brush preview. Raise/Lower still rebuild every frame (the brush aims at
-the world's heights, so a held mesh would slide the brush off the cursor). **Open fix**: a patch-only
-`updateHeights` (positions and normals for the edited tiles and one ring) and an incremental water
-mesh, which would serve every land tool.
+the world's heights, so a held mesh would slide the brush off the cursor).
+
+**Patch redraw (s7, same batch, 2026-11-24).** `Terrain.reshape` redraws only the ground round the
+corners that changed, and the water only near water; output byte-identical to a whole redraw
+(`terrain-patch-check`). In node: a drag frame of any land tool 1-4 ms against a whole rebuild of 44-119
+ms; the end of a stroke away from water costs nothing more. **Still open**: near water, the end of the
+stroke (and a paced mid-drag frame) still rebuilds the water mesh whole, 15-85 ms (cold the first time a
+new stretch is drawn): riverbank stones re-scattered (~24% of it), the current's coordinates
+(`flowCoords`, ~16%), the ribbon (~7%). An incremental water mesh would remove it.

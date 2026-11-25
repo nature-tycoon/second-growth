@@ -70,6 +70,12 @@ function turfColor(p, month, season, catalog) {
 
 // How far water fills each kind of basin above its lowest corner, in height levels.
 const FILL = WATER_FILL;
+// How far (tiles) the drawn water reads the ground's heights beyond its own tiles: the bank ring
+// (one), a pond's spill scan (two past it), the smoothed waterline (one more), riverbank stones.
+// A height edit farther than this from every drawn water tile leaves the water mesh as it was.
+const WATER_REACH = 4;
+// grow area a (world tiles, inclusive) to take in b
+const unite = (a, b) => { a.x0 = Math.min(a.x0, b.x0); a.y0 = Math.min(a.y0, b.y0); a.x1 = Math.max(a.x1, b.x1); a.y1 = Math.max(a.y1, b.y1); return a; };
 // The starting creek beyond the north fence (outsideCreek) comes down steep hills on some maps: run
 // white in full, its sloped sheet read as a snowfield in the intro film, so only streaks of white.
 const OUTSIDE_WHITE = 0.3;
@@ -231,50 +237,149 @@ export class Terrain {
 
   updateHeights() {
     const w = this.world, g = this.mesh.geometry;
-    const pos = g.attributes.position.array, nor = g.attributes.normal.array;
-    const vn = (x, y) => {
-      const dx = (this.h(x + 1, y) - this.h(x - 1, y)) / 2, dy = (this.h(x, y + 1) - this.h(x, y - 1)) / 2;
-      const l = Math.hypot(dx, 1, dy);
-      return [-dx / l, 1 / l, -dy / l];
-    };
-    let o = 0;
-    for (let ty = 0; ty < this.TH; ty++) for (let tx = 0; tx < this.TW; tx++) {
-      const x = tx + this.X0, y = ty + this.Y0;
-      const A = [x, y], B = [x + 1, y], C = [x + 1, y + 1], D = [x, y + 1];
-      for (const [vx, vy] of [A, C, B, A, D, C]) {
-        pos[o] = vx; pos[o + 1] = this.h(vx, vy); pos[o + 2] = vy;
-        const nn = vn(vx, vy);
-        nor[o] = nn[0]; nor[o + 1] = nn[1]; nor[o + 2] = nn[2];
-        o += 3;
-      }
-    }
-    g.attributes.position.needsUpdate = true;
-    g.attributes.normal.needsUpdate = true;
+    this.writeGround(0, 0, this.TW - 1, this.TH - 1);
+    for (const name of ['position', 'normal']) { g.attributes[name].clearUpdateRanges(); g.attributes[name].needsUpdate = true; }
     g.computeBoundingSphere();
-    // the map's own height range, for shading hollows and rises (5th to 95th percentile, so one
-    // tall peak or a deep river doesn't flatten everything else)
-    { const hs = []; for (let y = 0; y <= w.h; y += 2) for (let x = 0; x <= w.w; x += 2) hs.push(this.h(x, y)); hs.sort((a, b) => a - b);
-      this.tiles.hRange.value.set(hs[Math.floor(hs.length * 0.05)], hs[Math.floor(hs.length * 0.95)] + 0.01); }
-    this.hv = w.hv;
+    this.heightRange();
+    this.hv = w.hv; this.vhDrawn = w.vh.slice();
     this.buildSkirt();
     this.buildLine();
     this.buildWater();
     this.liftOverlay();
   }
 
+  // Positions and normals of the ground's tiles tx0..tx1, ty0..ty1 (terrain tiles, inclusive).
+  writeGround(tx0, ty0, tx1, ty1) {
+    const g = this.mesh.geometry, pos = g.attributes.position.array, nor = g.attributes.normal.array;
+    const vn = (x, y) => {
+      const dx = (this.h(x + 1, y) - this.h(x - 1, y)) / 2, dy = (this.h(x, y + 1) - this.h(x, y - 1)) / 2;
+      const l = Math.hypot(dx, 1, dy);
+      return [-dx / l, 1 / l, -dy / l];
+    };
+    for (let ty = ty0; ty <= ty1; ty++) {
+      let o = (ty * this.TW + tx0) * 18;
+      for (let tx = tx0; tx <= tx1; tx++) {
+        const x = tx + this.X0, y = ty + this.Y0;
+        const A = [x, y], B = [x + 1, y], C = [x + 1, y + 1], D = [x, y + 1];
+        for (const [vx, vy] of [A, C, B, A, D, C]) {
+          pos[o] = vx; pos[o + 1] = this.h(vx, vy); pos[o + 2] = vy;
+          const nn = vn(vx, vy);
+          nor[o] = nn[0]; nor[o + 1] = nn[1]; nor[o + 2] = nn[2];
+          o += 3;
+        }
+      }
+    }
+  }
+
+  // the map's own height range, for shading hollows and rises (5th to 95th percentile, so one
+  // tall peak or a deep river doesn't flatten everything else)
+  heightRange() {
+    const w = this.world, hs = [];
+    for (let y = 0; y <= w.h; y += 2) for (let x = 0; x <= w.w; x += 2) hs.push(this.h(x, y)); hs.sort((a, b) => a - b);
+    this.tiles.hRange.value.set(hs[Math.floor(hs.length * 0.05)], hs[Math.floor(hs.length * 0.95)] + 0.01);
+  }
+
+  // After the land is reshaped (a brush stroke, undo, a flood's cut-off), redraw only what moved:
+  // the corners that changed since the last drawing (compared with a copy of the heights, so any
+  // edit is caught), the ground's tiles round them (their normals read one corner further), the
+  // overlay, the skirt and the dashed farm line only where the patch reaches them, and the water
+  // only if it lies near enough to read those heights (WATER_REACH). Every value written is the
+  // one a whole-map updateHeights writes, so the patch's edge meets the untouched land exactly.
+  // holdWater: leave a needed water rebuild for later (the renderer paces it during a stroke).
+  // Returns 'all' (it redrew the whole map), or { area, water }: area (world tiles, inclusive) is
+  // the ground the surface repaint must cover (the changed tiles and any shore the water moved);
+  // water is 'same', 'built' or 'held'.
+  reshape(holdWater = false) {
+    const w = this.world, vh = w.vh, old = this.vhDrawn, TW = this.TW, TH = this.TH, VW = TW + 1;
+    if (!old || old.length !== vh.length || w.VW !== VW) { this.updateHeights(); return 'all'; }
+    let cx0 = Infinity, cy0 = Infinity, cx1 = -1, cy1 = -1;
+    for (let k = 0; k < vh.length; k++) if (vh[k] !== old[k]) {
+      const cx = k % VW, cy = (k / VW) | 0;
+      if (cx < cx0) cx0 = cx; if (cx > cx1) cx1 = cx; if (cy < cy0) cy0 = cy; if (cy > cy1) cy1 = cy;
+    }
+    const prevHv = this.hv;
+    this.hv = w.hv;
+    if (cx1 < 0) { // (a version bump with no height moved: what was current stays current)
+      if (this.topHv === prevHv) this.topHv = this.hv;
+      if (!this.waterPending && this.waterKey(true) === this.waterKeyLand) this.waterK = this.waterKey();
+      return { area: null, water: 'same' };
+    }
+    // (no size limit: a wide box, say a stroke's shore shaped again far off, still costs less than the
+    // whole map, whose water rebuild is most of it; the surface repaint sets its own limit)
+    old.set(vh);
+    const g = this.mesh.geometry;
+    // the ground: tiles with a corner within one of a changed corner (that corner's normal reads it)
+    const tx0 = Math.max(0, cx0 - 2), ty0 = Math.max(0, cy0 - 2), tx1 = Math.min(TW - 1, cx1 + 1), ty1 = Math.min(TH - 1, cy1 + 1);
+    this.writeGround(tx0, ty0, tx1, ty1);
+    const k0 = ty0 * TW + tx0, k1 = ty1 * TW + tx1 + 1;
+    for (const name of ['position', 'normal']) {
+      const attr = g.attributes[name];
+      attr.addUpdateRange(k0 * 18, (k1 - k0) * 18); attr.needsUpdate = true; // (added to any not yet uploaded: three.js clears them once sent)
+    }
+    // (the bounds only grow, for culling: a whole recount over every vertex is most of a patch's cost)
+    if (g.boundingSphere) {
+      let lo = Infinity, hi = -Infinity;
+      for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) { const h = vh[cy * VW + cx] * LEVEL; if (h < lo) lo = h; if (h > hi) hi = h; }
+      for (const [x, z] of [[cx0, cy0], [cx1, cy0], [cx0, cy1], [cx1, cy1]]) for (const y of [lo, hi]) g.boundingSphere.expandByPoint(new THREE.Vector3(x + this.X0, y, z + this.Y0));
+    }
+    this.heightRange();
+    // the skirt round the drawn land, and the dashed line round the farm, only where they run
+    if (cx0 <= 0 || cy0 <= 0 || cx1 >= TW || cy1 >= TH) this.buildSkirt();
+    {
+      const fx0 = -this.X0, fy0 = -this.Y0, fx1 = fx0 + w.w, fy1 = fy0 + w.h; // (the farm's edge, in corners)
+      const crossesX = c => cx0 <= c && c <= cx1 && cy1 >= fy0 && cy0 <= fy1, crossesY = c => cy0 <= c && c <= cy1 && cx1 >= fx0 && cx0 <= fx1;
+      if (crossesX(fx0) || crossesX(fx1) || crossesY(fy0) || crossesY(fy1)) this.buildLine();
+    }
+    // the tiles touching a changed corner, in world tiles
+    const area = { x0: cx0 - 1 + this.X0, y0: cy0 - 1 + this.Y0, x1: cx1 + this.X0, y1: cy1 + this.Y0 };
+    this.liftOverlay(area);
+    // each tile's highest corner, for updateSurface (snow lies by it): kept in step, so the ground
+    // can still be repainted as a patch, unless the land's own lowest or highest tile moved
+    if (this.top && this.topHv === prevHv) {
+      const top = this.top;
+      for (let ty = Math.max(0, cy0 - 1); ty <= Math.min(TH - 1, cy1); ty++) for (let tx = Math.max(0, cx0 - 1); tx <= Math.min(TW - 1, cx1); tx++) {
+        const a = ty * VW + tx;
+        top[ty * TW + tx] = Math.max(vh[a], vh[a + 1], vh[a + VW + 1], vh[a + VW]);
+      }
+      let lo = Infinity, hi = -Infinity;
+      for (let k = 0; k < top.length; k++) { const h = top[k]; if (h < lo) lo = h; if (h > hi) hi = h; }
+      if (lo === this.topLo && hi === this.topHi) this.topHv = this.hv;
+    }
+    // The water reads the heights only within a few tiles of itself (its bank ring, the spill
+    // round a pond, the smoothed waterline, the riverbanks' stones): an edit farther from any
+    // drawn water than that, with no water dug or filled, leaves it exactly as it was.
+    let water = 'same';
+    const near = this.waterNear && this.waterK != null && (this.waterKey(true) !== this.waterKeyLand || (() => {
+      const m = this.waterNear;
+      for (let ty = Math.max(0, cy0 - 1 - WATER_REACH); ty <= Math.min(TH - 1, cy1 + WATER_REACH); ty++)
+        for (let tx = Math.max(0, cx0 - 1 - WATER_REACH); tx <= Math.min(TW - 1, cx1 + WATER_REACH); tx++) if (m[ty * TW + tx]) return true;
+      return false;
+    })());
+    // (a rebuild held earlier in the stroke stays owed, though this sample is far from the water)
+    if (!this.waterNear || near || this.waterPending) {
+      if (holdWater) { water = 'held'; this.waterPending = true; }
+      else { this.buildWater(); water = 'built'; if (this.shoreMoved) unite(area, this.shoreMoved); }
+    } else this.waterK = this.waterKey();
+    return { area, water };
+  }
+
   // Reshaped ground moves the overlay with it, in place: the mesh, its colours and whether it shows
   // all stay, so an overlay that's on stays on through a Raise or Lower drag. (It was thrown away
   // here and only made again on the scene's next overlay refresh, up to 800 ms later, so it blinked
   // off after every stroke.) Same vertex order as quadMesh.
-  liftOverlay() {
+  liftOverlay(area = null) {
     const o = this.overlay;
     if (!o) return;
     const w = this.world, pos = o.geometry.attributes.position.array;
-    let k = 1;
-    for (let y = 0; y < w.h; y++) for (let x = 0; x < w.w; x++)
-      for (const [vx, vy] of [[x, y], [x + 1, y + 1], [x + 1, y], [x, y], [x, y + 1], [x + 1, y + 1]]) { pos[k] = this.h(vx, vy) + 0.03; k += 3; }
+    const x0 = area ? Math.max(0, area.x0) : 0, y0 = area ? Math.max(0, area.y0) : 0;
+    const x1 = area ? Math.min(w.w - 1, area.x1) : w.w - 1, y1 = area ? Math.min(w.h - 1, area.y1) : w.h - 1;
+    for (let y = y0; y <= y1; y++) {
+      let k = (y * w.w + x0) * 18 + 1;
+      for (let x = x0; x <= x1; x++)
+        for (const [vx, vy] of [[x, y], [x + 1, y + 1], [x + 1, y], [x, y], [x, y + 1], [x + 1, y + 1]]) { pos[k] = this.h(vx, vy) + 0.03; k += 3; }
+    }
     o.geometry.attributes.position.needsUpdate = true;
-    o.geometry.computeBoundingSphere();
+    if (!area) o.geometry.computeBoundingSphere();
   }
 
   // Textures and colors: what's on each tile this season.
@@ -533,9 +638,10 @@ export class Terrain {
   // above it, the ground hides it. So shorelines follow the land's contours instead of tile edges.
   // The water and flood meshes only change when the water does (dug ponds, a beaver dam, a flood,
   // reshaped ground), so each new day checks a cheap fingerprint before rebuilding them.
-  waterKey() {
+  // land: leave out the heights' version (Terrain.reshape asks whether anything else changed)
+  waterKey(land = false) {
     const w = this.world, t = w.terrain;
-    let h = (w.hv | 0) >>> 0;
+    let h = land ? 0 : (w.hv | 0) >>> 0;
     for (let i = 0; i < w.n; i++) {
       if (isWater(t[i])) h = Math.imul(h ^ (i * 16 + t[i]), 16777619) >>> 0;
       if (w.waterManaged?.[i] && Number.isFinite(w.waterLevel[i])) h = Math.imul(h ^ (i * 113 + Math.round(w.waterLevel[i] * 100)), 16777619) >>> 0;
@@ -554,7 +660,7 @@ export class Terrain {
   refreshFlood() { if (this.floodKey() !== this.floodK) this.buildFlood(); }
 
   buildWater() {
-    this.waterK = this.waterKey();
+    this.waterK = this.waterKey(); this.waterKeyLand = this.waterKey(true); this.waterPending = false;
     if (this.water) { this.scene.remove(this.water); this.water.geometry.dispose(); }
     const w = this.world, TW = this.TW, TH = this.TH, X0 = this.X0, Y0 = this.Y0;
     const wc = this.catalog.definition.look.water;
@@ -681,6 +787,22 @@ export class Terrain {
       const L = vLevel(vx + X0, vy + Y0), k = (vy * (TW + 1) + vx) * 2;
       if (Number.isFinite(L)) { shoreVertices[k] = L * LEVEL; shoreVertices[k + 1] = 1; }
     }
+    // (where the shore heights the ground's wet fringe reads moved, for a patch repaint: reshape)
+    {
+      const was = this.shoreVertices0, n = (TW + 1) * (TH + 1);
+      let x0 = Infinity, y0 = Infinity, x1 = -1, y1 = -1;
+      if (was && was.length === shoreVertices.length) for (let v = 0; v < n; v++) {
+        if (was[v * 2] === shoreVertices[v * 2] && was[v * 2 + 1] === shoreVertices[v * 2 + 1]) continue;
+        const vx = v % (TW + 1), vy = (v / (TW + 1)) | 0;
+        if (vx < x0) x0 = vx; if (vx > x1) x1 = vx; if (vy < y0) y0 = vy; if (vy > y1) y1 = vy;
+      }
+      this.shoreMoved = !was || was.length !== shoreVertices.length ? { x0: X0, y0: Y0, x1: X0 + TW - 1, y1: Y0 + TH - 1 }
+        : x1 < 0 ? null : { x0: x0 - 1 + X0, y0: y0 - 1 + Y0, x1: x1 + X0, y1: y1 + Y0 };
+      this.shoreVertices0 = shoreVertices;
+    }
+    // the tiles under the drawn sheet, the bank ring included (reshape: is an edit near the water)
+    const near = this.waterNear = new Uint8Array(TW * TH);
+    for (let k = 0; k < TW * TH; k++) if (level[k] === level[k]) near[k] = 1;
     // Only scatter where all four corners share a water sheet. This avoids stray objects
     // on the outer ring where the water mesh ends and its opacity falls to zero.
     const cells = [];

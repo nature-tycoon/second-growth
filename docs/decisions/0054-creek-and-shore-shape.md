@@ -21,10 +21,13 @@ cause, not only the creek.
   tributary and may leave at any angle.
   The stroke shows at once (2026-11-23, batch phone-creeks-fish s2): while dragging, the brush preview
   tints the tiles dug so far and the stroke from the head on to the brush (`pendingCourse`, input.js),
-  and the whole-map ground and water rebuild is paced to a third of the time (`creekStroke`,
-  Scene.refreshWorld); the shore pass still runs once, at the stroke's end. Before, the first tiles
-  after the start showed nothing until the head was 5 tiles behind, and each dug tile cost a 50-90 ms
-  frame. Only the creek is paced: Raise/Lower aim at the world's heights, a held mesh slides the brush.
+  and the water's rebuild is paced to a third of the time (`brushStroke`, Scene.refreshWorld); the
+  shore pass still runs once, at the stroke's end. Before, the first tiles after the start showed
+  nothing until the head was 5 tiles behind, and each dug tile cost a 50-90 ms frame. Since s7 (same
+  batch) the ground is never held: every land stroke redraws only the patch that moved (`Terrain.reshape`,
+  0048), so the brush stays on the cursor. Only the water is paced, in any brush stroke: near water,
+  for up to 3x its last rebuild, Raise/Lower show the new bank under the old sheet (accepted; exact again
+  when the stroke ends).
   A tight brush-1 S still draws tile-stepped (pnw 12.9%, amazon 10.2%, serengeti 13.1% of its
   waterline turning >60° within a tile): a creek's banks sit 0.03 over its water, so the waterline runs
   out along the next tile's edge. Raising a *dug* creek's banks like a pond's was measured (serengeti

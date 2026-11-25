@@ -59,6 +59,16 @@ are still proposals. 2026-11-14, ideas batch water-fixes, session 2.
   untouched, filled pond tile dry, gravel lots, roads).
 - After every land-tool stroke the shores it reached are shaped again (`shapeShoreNear`, 0054): land
   corners at the edge and the outer corners of water tiles, never a bed or a tile's level.
+- **The drawing redraws only the patch that moved** (`Terrain.reshape`, `js/render3d/terrain.js`; batch
+  phone-creeks-fish s7): it compares `w.vh` with its copy of the last drawn heights, so any height change
+  is caught (tools, undo, `trialEdit`, a flood's cut-off), and rewrites the ground's tiles round the
+  changed corners (normals read one corner further), the overlay, and the skirt or farm line only where
+  the patch reaches them; every value is the one a whole-map `updateHeights` writes. The water mesh is
+  left alone unless water lies within `WATER_REACH` (4) tiles of the change or water was dug or filled
+  (`waterKey(true)`, the key without `hv`); then it is rebuilt whole (pond bodies, the current's
+  coordinates and riverbank stones are whole-map), paced while dragging. A new way of drawing that
+  reads heights must be patched here too, or `terrain-patch-check` (every land tool on every map,
+  byte-identical to a whole redraw, uploads inside their ranges, cost) fails.
 - The one height write outside generation and `terrainEdit`: `outsideCreek` (0054) carves the drawn
   creek beyond the north fence, vertices north of row 0 only, when the `Border` is built (also on load).
 - Before building phase 3, read "Proposed model" below. A new tool or event that changes heights calls

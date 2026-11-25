@@ -1046,17 +1046,28 @@ export class Renderer {
   refreshWorld(game, swapped, now) {
     const w = this.world;
     let surface = false, flora = false;
-    // While a creek stroke is dragged, the whole-map ground and water rebuild (about 30 ms on a fast
-    // Mac for every tile dug) waits until three times its last cost has passed, so the drag stays
-    // smooth; the stroke shows at once as the brush preview (input.js), and the rebuild after the
-    // stroke is immediate. Only the creek: Raise and Lower move the ground the brush aims at (0054).
-    const t0 = performance.now(), held = this.creekStroke && t0 - (this.heavyAt || 0) < 3 * (this.heavyMs || 0);
-    let heavy = false; // (this frame rebuilt the whole map: timed to the end of the surface repaint below)
-    if (w.hv !== this.terrain.hv && !held) { this.terrain.updateHeights(); heavy = surface = flora = true; this.previewKey = null; } // (the brush preview sits on the new ground too; it rebuilds the water too)
-    else if (this.waterHeld && !held) { this.terrain.refreshWater(); heavy = true; }
-    if (!held) this.waterHeld = false;
+    // Reshaped land redraws only the patch that moved (Terrain.reshape): the ground at once, so the
+    // brush stays on the cursor, and the water only if the edit is near it. While a brush stroke is
+    // dragged, a water rebuild (13-30 ms) waits until three times its last cost has passed, so the
+    // drag stays smooth; the creek stroke shows at once as the brush preview (input.js), and the
+    // water catches up as soon as the stroke ends (0054).
+    const t0 = performance.now(), held = this.brushStroke && t0 - (this.heavyAt || 0) < 3 * (this.heavyMs || 0);
+    let heavy = false; // (this frame rebuilt the water or the whole map: timed to the end of the surface repaint below)
+    const edited = a => { this.editDirty = true; if (this.editArea === 'all') return; const e = this.editArea ||= { ...a }; e.x0 = Math.min(e.x0, a.x0); e.y0 = Math.min(e.y0, a.y0); e.x1 = Math.max(e.x1, a.x1); e.y1 = Math.max(e.y1, a.y1); };
+    // (a water rebuild moves the shore heights the ground's wet fringe reads: that patch repaints too)
+    const rebuildWater = () => { const was = this.terrain.water; this.terrain.refreshWater(); if (this.terrain.water !== was) { heavy = true; if (this.terrain.shoreMoved) edited(this.terrain.shoreMoved); } };
+    if (w.hv !== this.terrain.hv) {
+      const r = this.terrain.reshape(held);
+      flora = true; this.previewKey = null; // (the brush preview sits on the new ground too)
+      if (r === 'all') heavy = surface = true;
+      else {
+        if (r.area) edited(r.area);
+        if (r.water === 'built') heavy = true; else if (r.water === 'held') this.waterHeld = true;
+      }
+    }
+    if (this.waterHeld && !held) { this.waterHeld = false; rebuildWater(); }
     this.frameN = (this.frameN || 0) + 1;
-    if (game.day !== this.lastDay) { this.lastDay = game.day; this.dayDirty = this.frameN; flora = true; this.terrain.refreshWater(); this.terrain.refreshFlood(); }
+    if (game.day !== this.lastDay) { this.lastDay = game.day; this.dayDirty = this.frameN; flora = true; rebuildWater(); this.terrain.refreshFlood(); }
     else if (game.dayRun && this.dayDirty) this.dayDirty = this.frameN; // (and wait while the day is still being worked through: Game.update)
     // A new day repaints the ground and rebuilds the plants. They wait a frame or two so they don't
     // land in the same frame as the day's simulation and each other (a visible hitch), and at fast
@@ -1073,11 +1084,11 @@ export class Renderer {
     } else if (this.groundBands?.length && !this.editDirty) surface = true;
     if (surface && this.groundBands?.length) { patch = this.groundBands.shift(); band = true; }
     if (this.editDirty) {
+      if (held) this.waterHeld = true; else if (!heavy) rebuildWater();
       // (just the edited patch, unless something else this frame needs the whole map)
       if (!surface && this.editArea && this.editArea !== 'all') patch = this.editArea;
       else if (surface) { patch = null; band = false; this.groundBands = null; }
       surface = flora = true; this.editDirty = false; this.editArea = null;
-      if (held) this.waterHeld = true; else if (!heavy) this.terrain.refreshWater();
     }
     if (surface) {
       this.terrain.updateSurface(game, patch);

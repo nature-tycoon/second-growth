@@ -380,7 +380,7 @@ export class Input {
     this.stroke = this.ui.actions.begin(tool);
     if (!this.stroke) return;
     if (tool.brush) document.body.classList.add('painting');
-    this.r.creekStroke = !!tool.course; // (its redraw is paced while dragging: Scene.refreshWorld)
+    this.r.brushStroke = !!tool.brush; // (its water rebuilds are paced while dragging: Scene.refreshWorld)
     this.applyAt(t.x, t.y);
     if (!tool.brush) this.endStroke();
   }
@@ -429,7 +429,7 @@ export class Input {
   endStroke() {
     const s = this.stroke;
     this.stroke = null; this.hoverKey = null;
-    document.body.classList.remove('painting'); this.r.creekStroke = false;
+    document.body.classList.remove('painting'); this.r.brushStroke = false;
     if (!s) return;
     const before = s.changed.length, w = this.game.world;
     this.ui.actions.end(s);
