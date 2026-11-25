@@ -15,7 +15,7 @@
 
 import { T, isWater } from '../config.js';
 import { WATER_FILL } from '../sim/waterline.js';
-import { creekCourses } from '../maps/water-shape.js';
+import { creekCourses, smoothLine } from '../maps/water-shape.js';
 import { isFall } from '../maps/landform.js';
 
 // (half-width in tiles: a dug creek's bed lies within about 0.7 of its course and the corners the
@@ -34,7 +34,6 @@ export const RIBBON_K = 0.35;   // (height levels a tile, in the water shader: t
 // and a head's last tiles narrow.)
 export const RIBBON_DEEP = 0.2;
 export const RIBBON_DEEP_HEAD = 0.28; // (a head's last tiles: only the deepest bed, so the end still narrows)
-const SIGMA = 1;                // (smoothing along the course, in tiles: rounds the tile steps, barely tightens a 4-tile bend)
 
 // The ribbon over the world's corners ((w.w + 1) * (w.h + 1), row by row): `field`, tiles inside the
 // ribbon's edge (positive) or beyond it (negative), RIBBON_CAP where the ribbon doesn't govern; `bed`, 1
@@ -94,6 +93,7 @@ export function creekRibbon(w) {
   const nearHead = new Uint8Array(n); // (a head's last tiles: the ribbon narrows into them, guarded only over the deepest bed)
   for (const chain of courses) {
     for (const [end, step] of [[0, 1], [chain.length - 1, -1]]) if (head(...chain[end])) for (let j = 0; j < 3 && end + j * step >= 0 && end + j * step < chain.length; j++) { const [x, y] = chain[end + j * step]; nearHead[y * W + x] = 1; }
+    // (smoothed along the course over 1 tile: rounds the tile steps, barely tightens a 4-tile bend)
     const line = smoothLine(chain.map(([x, y]) => [x + 0.5, y + 0.5]), chain.map(([x, y]) => pinned(x, y)));
     // half-width along it: narrowing into a head at either end
     const cum = [0];
@@ -129,32 +129,8 @@ export function creekRibbon(w) {
   return out;
 }
 
-// A tile chain's centres smoothed along it (a Gaussian over SIGMA tiles, symmetric so the ends stay
-// put; `pin`ned points stay put too), then rounded twice more by corner cutting: a line with no tile steps in it.
-function smoothLine(pts, pin) {
-  const m = pts.length, R = Math.ceil(SIGMA * 3), out = [];
-  for (let j = 0; j < m; j++) {
-    const r = pin[j] ? 0 : Math.min(R, j, m - 1 - j);
-    let sx = 0, sy = 0, sw = 0;
-    for (let k = -r; k <= r; k++) { const wgt = Math.exp(-k * k / (2 * SIGMA * SIGMA)); sx += pts[j + k][0] * wgt; sy += pts[j + k][1] * wgt; sw += wgt; }
-    out.push([sx / sw, sy / sw]);
-  }
-  let line = out;
-  for (let pass = 0; pass < 2 && line.length > 2; pass++) {
-    const next = [line[0]];
-    for (let k = 0; k < line.length - 1; k++) {
-      const a = line[k], b = line[k + 1];
-      if (k > 0) next.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25]);
-      if (k < line.length - 2) next.push([a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]);
-    }
-    next.push(line.at(-1));
-    line = next;
-  }
-  return line;
-}
-
 // The field from one segment a-b (half-widths ha, hb): each corner near it keeps the most inside.
-function splat(best, VW, H, a, b, ha, hb) {
+export function splat(best, VW, H, a, b, ha, hb) {
   const reach = Math.max(ha, hb) + RIBBON_CAP;
   const x0 = Math.max(0, Math.floor(Math.min(a[0], b[0]) - reach)), x1 = Math.min(VW - 1, Math.ceil(Math.max(a[0], b[0]) + reach));
   const y0 = Math.max(0, Math.floor(Math.min(a[1], b[1]) - reach)), y1 = Math.min(H, Math.ceil(Math.max(a[1], b[1]) + reach));

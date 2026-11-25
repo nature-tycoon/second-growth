@@ -102,11 +102,36 @@ cause, not only the creek.
   it never touches, so running it again moves nothing. It's skipped where the creek no longer reaches
   row 0 (an old PNW farm, whose ditch began a row in, keeps it; a creek the player filled at the fence).
   It draws dry while the Hollis model has the fence tile dry. Its corners aren't recarved after a
-  stroke at row 0 until the next load: accepted. It is two tiles wide (`MIN_WIDE`, widened west;
-  one tile drew as a thread beside the farm's ditch, wider ones as a sheet), sunk in a shallow gorge (Cole, 2026-11-23: a wide tilted sheet on the hillside looked
+  stroke at row 0 until the next load: accepted. **Drawn the farm creek's width along a smooth line**
+  (2026-11-24, batch phone-creeks-fish s9; Cole: "looks really fake ... clipping ... wider off the map
+  than the creek on the map"): `northCreekLine` smooths each row's span centre, joined to the map's own
+  `course(y)` a few rows into the farm and pinned there (no jog at the fence; never from dug tiles, so
+  every load lays the same line), into `border.north` with the bed by vertex row. The carve lowers each
+  corner to the bed across from it plus `northCreekCross` (flat, rising to the fill line `NORTH_EDGE`
+  past the ribbon's edge, then the gorge's walls), only lowering and only inside the old spans' footprint
+  (the bank corners `northCreekBank` reads stay untouched: idempotent). `buildWater` lays the sheet at
+  bed + fill across from each corner (capped to the ground outside the ribbon's edge: at a sharp bend a
+  corner across from a higher stretch of bed stood the sheet 0.4 over a low bank) and ends it at the
+  ribbon, half-width `NORTH_HALF` 0.9 (as `RIBBON_HALF`) or the map's `northCreekHalf` (PNW 0.72: its
+  ditch draws ~1.4 wide); the fence row's corners keep the farm's level, and where no farm water meets
+  one the ribbon ends it too (the border's water spilled west over them onto the farm, the wedge in
+  Cole's screenshot; a two-tile creek's or a pond's own fence corners keep the farm's edge). Its tiles
+  are those the line runs through, joined edge to edge row to row and to every farm creek tile under the
+  fence (the drawn current runs along 4-connected water: across a diagonal step the farm's fence tile
+  flowed 101° off downhill, waterfall-check; such a joining tile can be creek under bare bank). Every
+  tile under the ribbon gets a sheet, no tree on the old span's footprint. Waiting deer keep clear of
+  the drawn water by the line (`offCreek` reads `border.north` when there is one, else the span). Before -> after (seed
+  1987, drawn width farm / beyond): pnw 1.41 / 2.31 -> 1.24, amazon 1.81 / 3.32 -> 1.69, serengeti
+  1.85 / 3.32 -> 1.65, atlanta 1.73 / 2.93 -> 1.66, chinandega 1.79 / 2.80 -> 1.64, sumatra 1.76 /
+  2.77 -> 1.67; outline steps 0%; edge 0.26-0.32 levels over its bank (the farm creek's own 0.21-0.32).
+  Its line on PNW is held west of the film stage's kept corners (`keep` in `northCreekLine`): a sharp
+  bend at rows -1 to -3, a slight bank bulge there (5 of ~1200 samples), and its fence row necks to ~1.2
+  between the farm's own row-0 corners and the stage (the bed climbs ~2.4 levels in that row).
+  `MIN_WIDE` still sets the spans the sim and the film read. Earlier (s5-s9 of creeks-fps) it was the
+  spans themselves, two tiles wide, each tile's flat sheet, the wall corners lowered halfway (`WALL`). Sunk
+  in a shallow gorge (Cole, 2026-11-23: a wide tilted sheet on the hillside looked
   wonky): the bed `GORGE` 0.8 levels under the untouched land a tile beyond its walls (deeper, 2-3
-  levels by the fence, stood as raw earth walls in the film's first shot); the
-  tile either side is a wall, its outer corner lowered halfway (`WALL`); no tree on the creek or its
+  levels by the fence, stood as raw earth walls in the film's first shot); no tree on the creek or its
   walls. Beyond the fence the bank ring takes the *lowest* water beside it (terrain.js), or the
   water a row upstream stood in the air over a bend's inside. White water there is capped at 0.3
   (`OUTSIDE_WHITE`; full white read as a snowfield) and no waterfall ledge is drawn. PNW's course
@@ -124,11 +149,15 @@ cause, not only the creek.
   12 of 40 seeded arrivals). The other maps' creeks have always been a gap.
   `vh` is saved, and the carve only lowers: a save made with an earlier course or gorge keeps that
   trench beside the new one. None shipped (the first version never reached main); change `PNW_NORTH`,
-  `GORGE` or `WALL` knowing saves keep the old cut.
+  `GORGE`, `NORTH_*` or `northCreekHalf` knowing saves keep the old cut (a save from before s9 keeps its
+  wide stepped trench, dry beside the narrower water: start a new farm to see it). The intro film
+  (assets/intro) was filmed with the old wide creek.
   That tile is laid after `generateHeights`, its corners cut to just above the next tile's bed: in
   the creek from the start it shifted the planting's random draws and moved the waterfall's ledge a
   tile (`creekFalls` picks it along the whole steep reach). Reef: no creek, no `northCreek`.
-- Check: `node tools/water-shape-check.mjs [maps]` (no sharp bend on any map as generated; the drawn
+- Check: `node tools/offmap-creek-check.mjs [maps] [--report]` for the creek beyond the fence (its drawn
+  width against the farm creek's, no tile steps, its water on its banks, no step at the fence, carved again
+  unchanged). `node tools/water-shape-check.mjs [maps]` (no sharp bend on any map as generated; the drawn
   waterline's share of points turning over 60° within a tile under each map's ceiling; the creek
   beyond the north fence, full width, falling, carved again unchanged; a right-angle
   creek stroke, a zigzag, a filled tile, a pond dug in steps and Lower beside a creek, through

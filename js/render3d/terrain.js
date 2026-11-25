@@ -19,6 +19,7 @@ import { PALETTES, paletteLeafColor, pastureColor } from './palettes.js';
 import { WATER_FILL } from '../sim/waterline.js';
 import { FALL_MIN } from '../maps/landform.js';
 import { creekRibbon, RIBBON_CAP, RIBBON_K } from './creek-ribbon.js';
+import { northCreekAt } from '../maps/water-shape.js';
 
 // Does a water tile have a corner the shore pass lifted out of its water (0054): one above the tile's
 // fill line that no other water tile touches? (A steep creek's high side is shared with the creek above.)
@@ -755,6 +756,16 @@ export class Terrain {
       if (L > -Infinity && Math.min(...w.corners(tx + X0, ty + Y0)) < L) ring.push([k, L, kd]);
     }
     for (const [k, L, kd] of ring) { level[k] = L; kind[k] = kd; }
+    // (beyond the fence every tile under the creek's ribbon has a sheet: a diagonal's side tiles weren't
+    // always in the bank ring, their level set below by the bed, northCreekAt)
+    const north = this.border?.north;
+    const nxs = north ? north.line.map(p => p[0]) : [0];
+    const ntx0 = Math.max(0, Math.floor(Math.min(...nxs)) - X0 - 3), ntx1 = Math.min(TW - 1, Math.ceil(Math.max(...nxs)) - X0 + 3);
+    if (north && !outsideDry) for (let ty = 0; ty < -Y0; ty++) for (let tx = ntx0; tx <= ntx1; tx++) {
+      const k = ty * TW + tx;
+      if (level[k] === level[k] || northCreekAt(north, tx + X0 + 0.5, ty + Y0 + 0.5).d > north.half + 0.75) continue;
+      level[k] = Math.min(...w.corners(tx + X0, ty + Y0)) + FILL[T.CREEK]; kind[k] = T.CREEK;
+    }
     const levelAt = (vx, vy) => {
       let L = -Infinity;
       for (const [dx, dy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
@@ -778,6 +789,27 @@ export class Terrain {
     // (each corner's level worked out once: it's read for every triangle that shares it)
     const VW = TW + 1, cornerLevel = new Float64Array(VW * (TH + 1));
     for (let vy = 0; vy <= TH; vy++) for (let vx = 0; vx <= TW; vx++) cornerLevel[vy * VW + vx] = levelAt(vx + X0, vy + Y0);
+    // The creek beyond the north fence (outsideCreek, 0054): its sheet lies on the bed it was carved to,
+    // bed + fill across from each corner (not tile by tile: on a steep hillside a tile's flat level stood
+    // in the air over the next one's bank, or sank under it), and its outline is its ribbon's edge,
+    // the farm creek's width (northRibbon: aRibbon below), out to NORTH_REACH tiles from its line. The
+    // fence row's corners keep the farm's level; the ribbon ends the water there too (with the farm's
+    // own where that governs): beside the creek the border's water spilled over them onto the farm.
+    const northRibbon = new Map(), NORTH_REACH = 6;
+    const farmWetFence = vx => [vx - 1, vx].some(x => w.inb(x, 0) && wet[-Y0 * TW + x - X0] === 1);
+    if (north && !outsideDry) {
+      const fill = FILL[T.CREEK], xs = north.line.map(p => p[0]);
+      const x0 = Math.max(X0, Math.floor(Math.min(...xs)) - NORTH_REACH), x1 = Math.min(X0 + TW, Math.ceil(Math.max(...xs)) + NORTH_REACH);
+      for (let vy = Y0; vy <= 0; vy++) for (let vx = x0; vx <= x1; vx++) {
+        const { d, bed } = northCreekAt(north, vx, vy);
+        if (d > NORTH_REACH) continue;
+        northRibbon.set(vy * 100000 + vx, Math.max(-RIBBON_CAP, Math.min(RIBBON_CAP, north.half - d)) * RIBBON_K);
+        const k = (vy - Y0) * VW + vx - X0;
+        // (outside the ribbon's edge never over the ground: where the creek bends sharply, PNW's round its
+        // film stage, a corner across from a higher stretch of bed held the sheet 0.4 over a low bank)
+        if (vy < 0 && Number.isFinite(cornerLevel[k])) cornerLevel[k] = d > north.half ? Math.min(bed + fill, w.vert(vx, vy) + 0.05) : bed + fill;
+      }
+    }
     const vLevel = (vx, vy) => {
       const tx = vx - X0, ty = vy - Y0;
       return tx >= 0 && ty >= 0 && tx <= TW && ty <= TH ? cornerLevel[ty * VW + tx] : levelAt(vx, vy);
@@ -965,7 +997,14 @@ export class Terrain {
         const c = vColor(vx, vy), lv = vLevel(vx, vy);
         pos[o] = vx; pos[o + 1] = lv * LEVEL; pos[o + 2] = vy; nor[o + 1] = 1; o += 3;
         dep[od] = lv - w.vert(vx, vy); round[od] = lv - smooth(vx, vy);
-        ribbonOut[od] = w.inb(vx, vy) || (vx === w.w && vy >= 0 && vy <= w.h) || (vy === w.h && vx >= 0 && vx <= w.w) ? ribbon.edge(vy * (w.w + 1) + vx, dep[od]) : RIBBON_CAP * RIBBON_K; white[od] = vy < 0 ? Math.min(OUTSIDE_WHITE, vWhite(vx, vy)) : vWhite(vx, vy);
+        {
+          const nr = northRibbon.get(vy * 100000 + vx) ?? RIBBON_CAP * RIBBON_K;
+          ribbonOut[od] = w.inb(vx, vy) || (vx === w.w && vy >= 0 && vy <= w.h) || (vy === w.h && vx >= 0 && vx <= w.w) ? ribbon.edge(vy * (w.w + 1) + vx, dep[od]) : nr;
+          // (on the fence row only where no farm water meets the corner: the border's water spilled over the
+          // farm's bare corners there; a two-tile creek's or a pond's own corners keep the farm's edge)
+          if (vy === 0 && !farmWetFence(vx)) ribbonOut[od] = Math.min(ribbonOut[od], nr);
+        }
+        white[od] = vy < 0 ? Math.min(OUTSIDE_WHITE, vWhite(vx, vy)) : vWhite(vx, vy);
         const vi = ((vy - Y0) * (TW + 1) + vx - X0) * 3;
         flow[od * 2] = vertexFlow[vi]; flow[od * 2 + 1] = vertexFlow[vi + 1]; bend[od] = vertexFlow[vi + 2]; od++;
         col[oc] = lin(c[0]); col[oc + 1] = lin(c[1]); col[oc + 2] = lin(c[2]); col[oc + 3] = vWet(vx, vy) ? c[3] : 0; oc += 4;

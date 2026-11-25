@@ -537,7 +537,7 @@ export class Border {
     }
     // the starting creek runs on beyond the north fence (drawing only: its bed is carved north of row 0)
     const course = world.catalog?.definition?.northCreek;
-    if (course) outsideCreek(world, this, course, B, world.catalog.definition.northCreekKeep);
+    if (course) outsideCreek(world, this, course, B, world.catalog.definition.northCreekKeep, world.catalog.definition.northCreekHalf);
   }
   bi(x, y) {
     const bx = x + BORDER, by = y + BORDER;

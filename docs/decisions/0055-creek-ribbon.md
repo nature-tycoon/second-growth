@@ -20,7 +20,8 @@ draws in tile steps; he chose "Yes, smooth ribbon" over raising dug creeks' bank
   narrow (0054).
 - **Where it governs:** a corner whose 4x4 tiles hold a course tile and no other wet tile (pond, marsh,
   river, a creek two wide, a fall, a beaver pond standing over the creek, a dug stub with no course).
-  Off the map (the creek beyond the north fence, `outsideCreek`) it isn't laid. Elsewhere the water keeps
+  Off the map (the creek beyond the north fence) the farm's field isn't laid: that creek has its own
+  ribbon along `border.north`'s line (0054, `northCreekAt`), and the fence row's corners with no farm water take the lower of the two. Elsewhere the water keeps
   its own waterline, so a mouth flares over a tile into the pond or river it meets.
 - **Bed guard:** at a corner of a course tile the ribbon never hides water deeper than `RIBBON_DEEP`
   0.2 (`RIBBON_DEEP_HEAD` 0.28 on a head's last three tiles, so the end still narrows): no dry pits

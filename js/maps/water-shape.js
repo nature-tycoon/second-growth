@@ -484,6 +484,32 @@ export function shapeShore(w) {
   return out.length / 3;
 }
 
+// ---------------------------------------------------------------- smooth lines
+
+// A tile chain's centres smoothed along it (a Gaussian over `sigma` tiles, symmetric so the ends stay
+// put; `pin`ned points stay put too), then rounded twice more by corner cutting: a line with no tile steps in it.
+export function smoothLine(pts, pin, sigma = 1) {
+  const m = pts.length, R = Math.ceil(sigma * 3), out = [];
+  for (let j = 0; j < m; j++) {
+    const r = pin[j] ? 0 : Math.min(R, j, m - 1 - j);
+    let sx = 0, sy = 0, sw = 0;
+    for (let k = -r; k <= r; k++) { const wgt = Math.exp(-k * k / (2 * sigma * sigma)); sx += pts[j + k][0] * wgt; sy += pts[j + k][1] * wgt; sw += wgt; }
+    out.push([sx / sw, sy / sw]);
+  }
+  let line = out;
+  for (let pass = 0; pass < 2 && line.length > 2; pass++) {
+    const next = [line[0]];
+    for (let k = 0; k < line.length - 1; k++) {
+      const a = line[k], b = line[k + 1];
+      if (k > 0) next.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25]);
+      if (k < line.length - 2) next.push([a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]);
+    }
+    next.push(line.at(-1));
+    line = next;
+  }
+  return line;
+}
+
 // ---------------------------------------------------------------- beyond the north fence
 
 // The starting creek carried on through the drawn land beyond the farm's north edge, so it's seen to
@@ -497,10 +523,12 @@ export function shapeShore(w) {
 // The bed sits in a shallow gorge: GORGE levels under the untouched banks (a tile beyond the creek's
 // walls; deeper, 2-3 levels by the fence, stood as raw earth walls in the intro film), so the water
 // runs down out of the trees in a channel instead of standing as a wide tilted sheet on the hillside (Cole, 2026-11-23: "too wide, irregular ... set down into a slight
-// gorge"). The tile either side is its wall, its outer corners lowered WALL of the way down; no tree
+// gorge"). Since batch phone-creeks-fish s9 the creek itself is laid and drawn along a smooth line inside
+// those spans, the farm creek's width (northCreekLine below; Cole: twice as wide as the farm's, in tile
+// steps); the spans still mark where the sim's waiting deer keep off and the film's cameras stand. No tree
 // stands on the creek or its walls. keep(vx, vy): corners it leaves alone (PNW: the intro film's stage on
 // its east bank, where the animals' hooves sank on the gorge's slopes).
-const MIN_WIDE = 2, GORGE = 0.8, WALL = 0.5, BED_FALL = 0.02;
+const MIN_WIDE = 2, GORGE = 0.8, BED_FALL = 0.02;
 // The creek's tiles on row y < 0 beyond the fence, [lo, hi], as outsideCreek lays them: between
 // course(y) and course(y + 1), and on the row by the fence as wide as the creek coming under it (a
 // two-tile creek at row 0 doesn't narrow to one past the fence). Null where it isn't carried on.
@@ -528,32 +556,107 @@ export function northCreekBank(w, course, vy) {
   const lo = Math.min(s[0], t[0]), hi = Math.max(s[1], t[1]) + 1;
   return { lo, hi, bank: Math.min(w.vert(lo - 2, vy), w.vert(hi + 2, vy)) };
 }
-export function outsideCreek(w, border, course, B, keep = null) {
+// The creek's smooth centre line beyond the fence (decision 0054, batch phone-creeks-fish s9): each
+// row's span centre, joined to the map's own creek line a few rows into the farm (course(y), y >= 0:
+// the map's, never the tiles a player may dig, so every load lays the same line), smoothed over
+// NORTH_SIGMA rows and corner-cut (smoothLine, as the farm's ribbon): no tile steps. The carve and the
+// water drawing (terrain.js buildWater) both follow it, so the water lies on the bed it cut.
+const NORTH_SIGMA = 1.5, NORTH_FARM = 4, NORTH_PAST = 3;
+// keep(vx, vy): corners the carve leaves alone (PNW's film stage, east of the creek): the line keeps
+// its water's edge west of the tiles they're on (the ground climbs to them across the whole tile), or
+// the uncut ground there stood up inside the drawn creek.
+export function northCreekLine(w, course, B, keep = null, half = NORTH_HALF) {
+  const pts = [], pin = [];
+  for (let y = NORTH_FARM; y >= 0; y--) { pts.push([course(y) + 0.5, y + 0.5]); pin.push(true); }
+  for (let y = -1; y >= -B - NORTH_PAST; y--) {
+    let x = (course(y) + course(y + 1)) / 2 + 0.5, held = false;
+    if (keep) for (const vy of [y, y + 1]) if (vy < 0) for (let vx = Math.floor(x) - 3; vx <= Math.ceil(x) + 3; vx++) {
+      if (keep(vx, vy) && vx > x - 1) { if (vx - 1 - half < x) { x = vx - 1 - half; held = true; } break; }
+    }
+    pts.push([x, y + 0.5]); pin.push(held);
+  }
+  // (the farm's points held, so the line meets the fence where the farm's own ribbon does, no jog;
+  // and those moved off kept corners, or smoothing drew them back over them)
+  return smoothLine(pts, pin, NORTH_SIGMA);
+}
+// Its half-width: the farm's ribbon's (RIBBON_HALF in render3d/creek-ribbon.js) unless the map's farm
+// creek draws narrower (northCreekHalf in its definition: PNW's, whose ground hems it in).
+export const NORTH_HALF = 0.9;
+// The cross-section either side of the line, in height levels over the bed: flat, then rising NORTH_RISE
+// a tile to the water's fill line NORTH_EDGE beyond the ribbon's edge (the ground's own waterline lies
+// just outside the drawn one, so it never bites into it, and the water's edge sits on the ground), then
+// the gorge's walls at NORTH_WALL a tile up to the banks.
+const NORTH_EDGE = 0.2, NORTH_RISE = 0.6, NORTH_WALL = 1.0;
+export function northCreekCross(d, half) {
+  const edge = half + NORTH_EDGE, d0 = edge - WATER_FILL[T.CREEK] / NORTH_RISE;
+  return d <= d0 ? 0 : d <= edge ? (d - d0) * NORTH_RISE : WATER_FILL[T.CREEK] + (d - edge) * NORTH_WALL;
+}
+// Where (x, y) lies against the creek beyond the fence (border.north): its distance from the line, in
+// tiles, and the bed's height level across from it.
+export function northCreekAt(north, x, y) {
+  const p = north.line;
+  let best = Infinity, py = 0;
+  for (let k = 0; k < p.length - 1; k++) {
+    const a = p[k], b = p[k + 1], dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
+    const t = l2 > 0 ? Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / l2)) : 0;
+    const qx = a[0] + dx * t, qy = a[1] + dy * t, d = Math.hypot(x - qx, y - qy);
+    if (d < best) { best = d; py = qy; }
+  }
+  // (the bed by vertex row, bed[-vy]: the fence's at 0, held level past either end)
+  const bed = north.bed, r = Math.max(0, Math.min(bed.length - 1, -py)), r0 = Math.floor(r), r1 = Math.min(bed.length - 1, r0 + 1);
+  return { d: best, bed: bed[r0] + (bed[r1] - bed[r0]) * (r - r0) };
+}
+export function outsideCreek(w, border, course, B, keep = null, half = NORTH_HALF) {
   // (only where the creek still reaches the fence: an old PNW farm's ditch began a row in, at a spring,
   // and keeps it; a creek the player filled at the fence isn't carried on past it on the next load)
+  border.north = null;
   if (!northCreekSpan(w, course, -1)) return 0;
   let uphill = 0, moved = false;
   const span = y => northCreekSpan(w, course, y);
-  const clear = (x, y, wet) => {
+  const c0 = course(0);
+  // the bed's height by vertex row, from bank corners the carve never touches
+  const bed = new Float32Array(B + 1);
+  bed[0] = Math.min(w.vert(c0, 0), w.vert(c0 + 1, 0)); // (the creek's bed as it comes under the fence)
+  for (let vy = -1; vy >= -B; vy--) {
+    const { bank } = northCreekBank(w, course, vy);
+    bed[-vy] = Math.max(bank - GORGE, bed[-vy - 1] + BED_FALL);
+    if (bed[-vy] > bank - 0.15) uphill++;
+  }
+  const north = border.north = { line: northCreekLine(w, course, B, keep, half), bed, half };
+  // (a tile of it or its walls: no tree, and creek with nothing growing on it if `wet`)
+  const bare = (x, y, wet) => {
     const bi = border.bi(x, y);
     if (bi < 0 || border.terrain[bi] === T.RIVER || border.terrain[bi] === T.ROAD) return;
     if (wet) { border.terrain[bi] = T.CREEK; border.shrub[bi] = border.ground[bi] = 0; }
     border.tree[bi] = 0; border.treeG[bi] = 0;
   };
+  // its tiles: those the line runs through (by the fence only inside the row's span, which the sim's
+  // waiting deer keep off, fence-gate.js offCreek, on rows -1 and -2); no tree on them or the gorge's walls
   for (let y = -B; y < 0; y++) {
     const [lo, hi] = span(y);
-    for (let x = lo - 1; x <= hi + 1; x++) clear(x, y, x >= lo && x <= hi);
+    for (let x = lo - 1; x <= hi + 1; x++) bare(x, y, (y < -2 || (x >= lo && x <= hi)) && northCreekAt(north, x + 0.5, y + 0.5).d < 0.75);
   }
-  const lower = (x, vy, h) => { if (w.vert(x, vy) > h + 1e-6) { w.setVert(x, vy, h); moved = true; } };
-  const c0 = course(0);
-  let prev = Math.min(w.vert(c0, 0), w.vert(c0 + 1, 0)); // (the creek's bed as it comes under the fence)
+  // (joined edge to edge, row to row, and to the farm's creek under the fence: the drawn current runs
+  // along 4-connected water, and a diagonal step left the farm's fence tile flowing off sideways,
+  // waterfall-check). Each row with no tile beside the row below it gets the one nearest its own.
+  const wetAt = (x, y) => y >= 0 ? w.inb(x, y) && w.terrain[w.idx(x, y)] === T.CREEK : border.terrain[border.bi(x, y)] === T.CREEK;
+  for (let y = -1; y >= -B; y--) {
+    const [lo, hi] = span(y), below = [], here = [];
+    for (let x = lo - 3; x <= hi + 3; x++) { if (wetAt(x, y + 1) && (y < -1 || Math.abs(x - c0) <= 2)) below.push(x); if (wetAt(x, y)) here.push(x); }
+    if (!below.length || here.some(x => below.includes(x))) continue;
+    // (on the fence row, every farm creek tile under it carries on: a two-tile creek doesn't neck)
+    const add = y === -1 ? below : [below.reduce((a, b) => here.length && Math.min(...here.map(h => Math.abs(h - b))) < Math.min(...here.map(h => Math.abs(h - a))) ? b : a)];
+    for (const x of add) bare(x, y, true);
+  }
+  // the carve: the bed across from each corner plus the cross-section, only ever lowering, inside the
+  // span's old footprint (one corner either side of it: the bank corners beyond stay untouched)
   for (let vy = -1; vy >= -B; vy--) {
-    const { lo, hi, bank } = northCreekBank(w, course, vy);
-    const bed = Math.max(bank - GORGE, prev + BED_FALL);
-    if (bed > bank - 0.15) uphill++;
-    for (let x = lo; x <= hi; x++) if (!keep?.(x, vy)) lower(x, vy, bed);
-    for (const x of [lo - 1, hi + 1]) if (!keep?.(x, vy)) lower(x, vy, bed + (bank - bed) * WALL);
-    prev = bed;
+    const { lo, hi } = northCreekBank(w, course, vy);
+    for (let x = lo - 1; x <= hi + 1; x++) {
+      if (keep?.(x, vy)) continue;
+      const { d, bed: b } = northCreekAt(north, x, vy), h = b + northCreekCross(d, half);
+      if (w.vert(x, vy) > h + 1e-6) { w.setVert(x, vy, h); moved = true; }
+    }
   }
   if (moved) { w.heightDirty = true; w.hv = (w.hv || 0) + 1; }
   return uphill;

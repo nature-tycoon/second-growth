@@ -15,7 +15,7 @@ import { F, isWater } from '../config.js';
 import { facePoint } from './animal-positioning.js';
 import { simRandom } from './sim-random.js';
 import { travelSpeed } from './climb-pace.js';
-import { northCreekSpan } from '../maps/water-shape.js';
+import { northCreekSpan, northCreekAt } from '../maps/water-shape.js';
 
 const REACH = 4;          // how far along the fence (tiles) a waiting animal notices a gap
 const OUT = [1.15, 1.85]; // how far beyond the edge it stands (leaving animals are removed past 2)
@@ -27,7 +27,16 @@ const inward = edge => edge === 'N' ? [0, 1] : edge === 'E' ? [-1, 0] : [1, 0];
 
 // A spot beyond the north fence moved sideways onto the nearer bank if the starting creek, carried on
 // past the fence there (northCreek, outsideCreek), runs under it: a waiting deer stood on its bed.
-function offCreek(w, x, y) {
+// (Since batch phone-creeks-fish s9 the creek is drawn along a smooth line, border.north: off its drawn
+// water by the line, else by the row's span as before)
+function offCreek(w, x, y, border) {
+  const north = border?.north;
+  if (north) {
+    const clear = north.half + 0.5, off = px => northCreekAt(north, px, y).d >= clear;
+    if (off(x)) return x;
+    for (let k = 1; k <= 40; k++) for (const s of [-1, 1]) if (off(x + s * k * 0.1)) return x + s * k * 0.1;
+    return x;
+  }
   const s = northCreekSpan(w, w.catalog.definition.northCreek, Math.floor(y));
   if (!s || x < s[0] - 0.3 || x > s[1] + 1.3) return x;
   return x - s[0] < s[1] + 1 - x ? s[0] - 0.4 : s[1] + 1.4;
@@ -40,7 +49,7 @@ export function waitAtFence(wl, def, n, edge, at) {
   for (let k = 0; k < n; k++) {
     const a = wl.spawn(def, edge === 'N' ? at : edge === 'E' ? w.w - 1 : 0, edge === 'N' ? 0 : at, { outside: true });
     const along = (k - (n - 1) / 2) * 0.9 + (simRandom() - 0.5) * 0.4, back = OUT[0] + simRandom() * (OUT[1] - OUT[0]);
-    if (edge === 'N') { a.x = offCreek(w, at + 0.5 + along, -back); a.y = -back; }
+    if (edge === 'N') { a.x = offCreek(w, at + 0.5 + along, -back, wl.game.border); a.y = -back; }
     else if (edge === 'E') { a.x = w.w + back; a.y = at + 0.5 + along; }
     else { a.x = -back; a.y = at + 0.5 + along; }
     a.leaving = true; a.state = 'idle'; a.wait = 1e9; a.path = null;

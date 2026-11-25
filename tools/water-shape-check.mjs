@@ -15,7 +15,7 @@ const { BIOME_LIST } = await import('../js/biome.js');
 const { ToolActions } = await import('../js/tool-actions.js');
 const { T, F, isWater } = await import('../js/config.js');
 const { tileWaterLevel } = await import('../js/sim/waterline.js');
-const { sharpBends, COURSE_TURN, outsideCreek, pendingCourse } = await import('../js/maps/water-shape.js');
+const { sharpBends, COURSE_TURN, outsideCreek, pendingCourse, northCreekAt } = await import('../js/maps/water-shape.js');
 const { BORDER } = await import('../js/config.js');
 const { waitAtFence } = await import('../js/sim/fence-gate.js');
 const { shapeShoreNear } = await import('../js/terrain-edit.js');
@@ -184,12 +184,17 @@ for (const map of maps) {
   // carving it again (every load) moves nothing. Maps without one (the reef) have no northCreek.
   const course = g.catalog.definition.northCreek;
   if (course) check(`${map}: the starting creek runs on beyond the north fence, downhill to it`, () => {
-    const B = g.border, wetB = (x, y) => B.terrain[B.bi(x, y)] === T.CREEK;
-    for (let x = 0; x < w.w; x++) if (w.terrain[w.idx(x, 0)] === T.CREEK && Math.abs(x - course(0)) <= 2) assert.ok(wetB(x, -1), `row 0's creek at x ${x} stops at the fence`);
-    for (let y = -BORDER; y < 0; y++) assert.ok(wetB(course(y), y), `no creek beyond the fence on row ${y}`);
-    for (let vy = -1; vy >= -BORDER; vy--) assert.ok(w.vert(course(vy), vy) > w.vert(course(vy + 1), vy + 1), `the bed doesn't fall toward the farm at row ${vy}`);
+    // (since batch phone-creeks-fish s9 it's laid along a smooth line, border.north: its tiles are those
+    // the line runs through, its bed falls along it; its drawn width and banks: offmap-creek-check)
+    const B = g.border, wetB = (x, y) => B.terrain[B.bi(x, y)] === T.CREEK, north = B.north;
+    assert.ok(north, 'no creek laid beyond the fence');
+    for (let y = -BORDER; y < 0; y++) {
+      const p = north.line.reduce((a, q) => Math.abs(q[1] - y - 0.5) < Math.abs(a[1] - y - 0.5) ? q : a), x = Math.floor(p[0]);
+      assert.ok(wetB(x, y) || wetB(x - 1, y) || wetB(x + 1, y), `no creek under its line on row ${y}`);
+    }
+    for (let k = 1; k < north.bed.length; k++) assert.ok(north.bed[k] > north.bed[k - 1], `the bed doesn't fall toward the farm at row ${-k}`);
     const vh = w.vh.slice();
-    assert.equal(outsideCreek(w, B, course, BORDER, g.catalog.definition.northCreekKeep), 0, 'the land falls northward faster than the bed');
+    assert.equal(outsideCreek(w, B, course, BORDER, g.catalog.definition.northCreekKeep, g.catalog.definition.northCreekHalf), 0, 'the land falls northward faster than the bed');
     assert.ok(vh.every((v, i) => v === w.vh[i]), 'carving it again moved the land');
   });
   // (deer waiting at the fence by it stand on a bank, not its bed: offCreek in fence-gate.js)
@@ -198,7 +203,9 @@ for (const map of maps) {
     const B = g.border;
     for (const at of [course(-1) - 1, course(-1), course(-2)]) {
       for (const a of waitAtFence(g.wildlife, deer, 4, 'N', at)) {
-        assert.notEqual(B.terrain[B.bi(Math.floor(a.x), Math.floor(a.y))], T.CREEK, `${deer.key} waiting at ${a.x.toFixed(2)}, ${a.y.toFixed(2)} stands in the creek`);
+        // (clear of its drawn water, the ribbon along border.north: a tile joining its current may be creek
+        // under bare bank, s9; offmap-creek-check samples the drawn water itself)
+        assert.ok(northCreekAt(B.north, a.x, a.y).d > B.north.half + 0.3, `${deer.key} waiting at ${a.x.toFixed(2)}, ${a.y.toFixed(2)} stands in the creek`);
         g.wildlife.agents.splice(g.wildlife.agents.indexOf(a), 1);
       }
     }

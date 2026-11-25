@@ -41,6 +41,7 @@ export default {
   fencedCreek: true, // (its ditch comes in at the north fence, held shut to arrivals while the fence stands: waterGapClosed, 0053)
   northCreekKeep: pnwNorthKeep,
   northCreek: pnwNorthCreek, // (its creek carried on through the drawn land beyond the north fence, outsideCreek)
+  northCreekHalf: 0.72, // (drawn that wide beyond the fence: as wide as its ditch draws on the farm, about 1.4 tiles; offmap-creek-check)
   // (old pasture is Townsend's vole country, and a red-tailed hawk hunts it; American crows work
   // the open fields from the trees round them: the common animals of worn-out farmland)
   startWildlife: [['vole', 14, 90, 14, 10], ['robin', 3, 25, 24, 6], ['raccoon', 1, 33, 22, 4], ['mallard', 2, 93, 37, 2], ['treefrog', 5, 93, 37, 4],
