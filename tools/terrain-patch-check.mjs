@@ -1,4 +1,4 @@
-// node tools/terrain-patch-check.mjs [maps] [--report]
+// node tools/terrain-patch-check.mjs [maps] [--report] [--fuzz=steps]
 // Land tools redraw only the edited patch (Terrain.reshape, batch phone-creeks-fish s7). On every map,
 // strokes of Raise, Lower, Fill & grade, Dig creek, Dig pond and Demolish go through ToolActions as a
 // player's do, the drawing following each sample the way Scene.refreshWorld does (reshape, then a patch
@@ -10,8 +10,18 @@
 //   and the water skipped far from water really was unchanged);
 // - every ground position and normal that changed lies inside the ranges sent to the graphics chip;
 // - a drag frame and the end of a stroke cost a small fraction of a whole-map rebuild: under
-//   DRY_SHARE of it away from water; near water (whose mesh is still rebuilt whole) a drag frame under
-//   DRY_SHARE while its rebuild is held, and the end one water rebuild with no whole-map redraw.
+//   DRY_SHARE of it away from water; near water a drag frame under DRY_SHARE while its water is held,
+//   and the end one water rebuild, a patch (s11), with no whole-map redraw.
+// Then the water alone (water-build.js, batch phone-creeks-fish s11), on every map:
+// - fuzz: random height, water and growth changes near water (beyond what the tools allow: a moved creek
+//   corner, a land tile turned to pond or creek, a pond filled, a pond-model level nudged, a building or
+//   feature put on a bank, trees and sedge grown, a ground repaint between), each drawn as a patch on
+//   one Terrain and compared with a whole build on another, byte for byte: every water attribute, the
+//   shore heights, the tiles near water, the drawn surface (waterAt), the riverbank details, the falls;
+//   shoreMoved covers every shore corner that moved; most of them really are patches (a change that
+//   leaves the water as it was draws nothing, 'same': its banks aren't compared then);
+// - cost: a bank corner beside a creek, a pond and the river moved, the patch's median under
+//   WATER_SHARE of a whole water build's (warm medians, same conditions).
 import assert from 'node:assert/strict';
 import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
@@ -33,11 +43,11 @@ for (let season = 0; season < 4; season++) for (const t of Object.values(T)) {
 }
 const args = process.argv.slice(2), report = args.includes('--report');
 const maps = args.find(a => !a.startsWith('--'))?.split(',') ?? BIOME_LIST.map(b => b.id);
-// (near water the end of a stroke still rebuilds the water mesh whole: pond bodies, the current's
-// coordinates and the riverbank stones are worked out over the whole map, 13-30 ms warm, more the first
-// time a new stretch is drawn. That end is checked by what it does, one water rebuild and no whole-map
-// redraw, not timed: one cold run against a warm median failed under load.)
-const DRY_SHARE = 0.25, NEAR_END_BUILDS = 1;
+// (near water the end of a stroke is one water rebuild, a patch since s11 (water-build.js). It's checked
+// by what it does, one patch and no whole-map redraw, not timed: one cold run against a warm median failed
+// under load. The patch's cost is timed on its own below, warm medians against warm medians.)
+const DRY_SHARE = 0.25, NEAR_END_BUILDS = 1, WATER_SHARE = 0.4;
+const FUZZ_STEPS = +(args.find(a => a.startsWith('--fuzz='))?.slice(7) ?? 36); // (--fuzz=300 for a long run)
 let checks = 0, failed = 0;
 const check = (name, fn) => { try { fn(); checks++; console.log('PASS ' + name); } catch (e) { failed++; console.log('FAIL ' + name + ': ' + e.message); } };
 const median = a => [...a].sort((p, q) => p - q)[a.length >> 1];
@@ -85,6 +95,7 @@ function frame(game, t, dragging, state) {
     else { grow(r.area); if (r.water === 'held') state.held = true; if (r.water === 'built') state.built++; }
   }
   if (state.held && !dragging) { state.held = false; const was = t.water; t.refreshWater(); if (t.water !== was) { state.built++; grow(t.shoreMoved); } }
+  if (state.built && t.waterPatch) (state.kinds ||= new Set()).add(t.waterPatch);
   if (whole) t.updateSurface(game); else if (area) t.updateSurface(game, area);
   const ms = performance.now() - at;
   ['position', 'normal'].forEach((n, q) => {
@@ -103,7 +114,7 @@ function stroke(game, t, actions, tool, path, radius = 0) {
   for (const [x, y] of path) { actions.paint(s, x, y, radius); drag.push(frame(game, t, true, state)); }
   actions.end(s);
   const end = frame(game, t, false, state);
-  return { drag, end, changed: s.changed.length, built: state.built, whole: state.whole };
+  return { drag, end, changed: s.changed.length, built: state.built, whole: state.whole, kinds: [...(state.kinds || [])] };
 }
 
 const wholeCost = (game, t) => { const s = []; for (let k = 0; k < 5; k++) { const at = performance.now(); t.updateHeights(); t.updateSurface(game); s.push(performance.now() - at); } return median(s); };
@@ -154,7 +165,7 @@ for (const map of maps) {
       terrain.updateHeights(); terrain.updateSurface(game);
       same(patched, snapshot(terrain), `${map} ${tool} (${kind})`);
       const dragMs = res.drag.length ? Math.max(...res.drag.slice(1).concat(res.drag[0])) : 0, dragMed = res.drag.length ? median(res.drag) : 0;
-      rows.push(`${tool}/${kind}: drag median ${dragMed.toFixed(1)} max ${dragMs.toFixed(1)}, end ${res.end.toFixed(1)} ms, water rebuilds ${res.built}`);
+      rows.push(`${tool}/${kind}: drag median ${dragMed.toFixed(1)} max ${dragMs.toFixed(1)}, end ${res.end.toFixed(1)} ms, water rebuilds ${res.built} (${res.kinds.join(', ') || '-'})`);
       if (res.whole) slow.push(`${tool} (${kind}): a whole-map redraw`);
       if (kind === 'dry') {
         assert.equal(res.built, 0, `${tool}: no water rebuild away from water`);
@@ -165,6 +176,7 @@ for (const map of maps) {
         // (its end is one cold water rebuild, timed once against a warm median: too noisy to time under
         // load, so what it does is checked instead)
         if (res.built > NEAR_END_BUILDS) slow.push(`${tool} (${kind}): ${res.built} water rebuilds`);
+        if (kind !== 'demolish' && res.kinds.includes('whole')) slow.push(`${tool} (${kind}): its water was built whole, not as a patch`);
       }
     }
     assert.ok(reshaped >= 4, `${map}: at least four strokes reshaped the land (${reshaped})`);
@@ -184,6 +196,94 @@ check('An unchanged world reshapes nothing, and a big change still redraws exact
   const patched = snapshot(terrain);
   terrain.updateHeights(); terrain.updateSurface(game);
   same(patched, snapshot(terrain), 'whole map reshaped');
+});
+
+
+// Everything the water drawing holds, for comparing a patch with a whole build.
+function waterState(t) {
+  const out = {};
+  for (const [n, a] of Object.entries(t.water.geometry.attributes)) out['water.' + n] = a.array.slice();
+  out.shore = t.shoreVertices.slice(); out.near = t.waterNear.slice();
+  for (const m of ['falls', 'spills', 'fallRock']) out[m] = t[m] ? t[m].geometry.attributes.position.array.slice() : new Float32Array(0);
+  const w = t.world, at = [];
+  for (let k = 0; k < 3000; k++) at.push(t.waterAt(-8 + (k * 37.13) % (w.w + 16), -8 + (k * 19.71) % (w.h + 16)));
+  out.waterAt = Float64Array.from(at);
+  out.banks = new TextEncoder().encode(JSON.stringify(t.banks.details));
+  return out;
+}
+
+for (const map of maps) {
+  check(`${map}: the water patched after random changes near it matches a whole build`, () => {
+    const { game, terrain: A } = make(map), w = game.world;
+    const B = new Terrain(new THREE.Scene(), atlas); B.setWorld(w, game.border); B.updateSurface(game); // (its banks scattered for this month too)
+    const rnd = mulberry32(map.length * 7919 + 11);
+    const water = []; for (let i = 0; i < w.n; i++) if (isWater(w.terrain[i])) water.push(i);
+    if (!water.length) return; // (the reef's sea: no tiles of water to draw)
+    const kinds = { patch: 0, whole: 0, same: 0 };
+    for (let step = 0; step < FUZZ_STEPS; step++) {
+      // a few changes round one water tile, then one water build
+      const i0 = water[Math.floor(rnd() * water.length)], x0 = i0 % w.w, y0 = (i0 / w.w) | 0;
+      for (let e = 0; e < 1 + Math.floor(rnd() * 3); e++) {
+        const x = x0 + Math.floor(rnd() * 7) - 3, y = y0 + Math.floor(rnd() * 7) - 3, r = rnd();
+        if (!w.inb(x, y)) continue;
+        const i = w.idx(x, y);
+        if (r < 0.55) w.setVert(x + (rnd() < 0.5), y + (rnd() < 0.5), w.vert(x, y) + (rnd() - 0.55) * 0.5);
+        else if (r < 0.7) { if (!isWater(w.terrain[i]) && w.struct[i] < 0) w.terrain[i] = [T.POND, T.MARSH, T.CREEK][Math.floor(rnd() * 3)]; else if (w.terrain[i] !== T.RIVER) w.terrain[i] = T.DUFF; }
+        else if (r < 0.8 && w.waterManaged?.[i]) w.waterLevel[i] = rnd() < 0.2 ? NaN : rnd() < 0.5 ? w.waterLevel[i] + (rnd() - 0.5) * 0.006 : Math.min(...w.corners(x, y)) + rnd() * 0.5;
+        else if (r < 0.8 && !isWater(w.terrain[i])) { if (rnd() < 0.5) w.feature[i] = w.feature[i] ? 0 : 1; else w.struct[i] = w.struct[i] >= 0 ? -1 : 0; }
+        else { w.groundG[i] = rnd(); for (let k = 0; k < 4; k++) { const j = w.idx(Math.max(0, Math.min(w.w - 1, x + k - 2)), y); w.treeG[j] = Math.min(1, w.treeG[j] + rnd() * 0.3); } }
+      }
+      w.hv++;
+      const before = A.shoreVertices.slice();
+      if (rnd() < 0.3) A.banks.refresh(game.month); // (a ground repaint's refresh between builds: the per-cell memo)
+      A.buildWater(); kinds[A.waterPatch]++;
+      B.buildWater(true);
+      const a = waterState(A), b = waterState(B);
+      // (nothing in the water changed, so nothing was drawn: the banks stay as last scattered, as a ground
+      // repaint's refresh keeps them till its rounded key moves; a whole build scatters them all again)
+      if (A.waterPatch === 'same') { delete a.banks; delete b.banks; }
+      same(a, b, `${map} step ${step} (${A.waterPatch})`);
+      // (every shore corner that moved lies in shoreMoved, for the ground's wet fringe)
+      const VW = A.TW + 1, m = A.shoreMoved;
+      for (let v = 0; v < before.length / 2; v++) if (before[v * 2] !== a.shore[v * 2] || before[v * 2 + 1] !== a.shore[v * 2 + 1]) {
+        const vx = v % VW + A.X0, vy = ((v / VW) | 0) + A.Y0;
+        assert.ok(m && vx >= m.x0 && vx <= m.x1 + 1 && vy >= m.y0 && vy <= m.y1 + 1, `${map} step ${step}: shore corner (${vx}, ${vy}) moved outside shoreMoved`);
+      }
+    }
+    assert.ok(kinds.patch >= 12 && kinds.patch >= 2 * kinds.whole, `${map}: most changes drawn as patches (${JSON.stringify(kinds)})`);
+    if (report) console.log(`  ${map}: ${JSON.stringify(kinds)}`);
+  });
+}
+
+check('A patch beside a creek, a pond and the river costs a small fraction of a whole water build', () => {
+  const rows = [], slow = [];
+  for (const map of maps) {
+    if (map === 'reef') continue;
+    const { game, terrain: t } = make(map), w = game.world;
+    const spots = {};
+    for (let i = 0; i < w.n && Object.keys(spots).length < 3; i++) {
+      const tt = w.terrain[i], name = tt === T.CREEK ? 'creek' : tt === T.RIVER ? 'river' : tt === T.POND ? 'pond' : null;
+      if (!name || spots[name]) continue;
+      const x = i % w.w, y = (i / w.w) | 0;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const xx = x + dx, yy = y + dy;
+        if (yy > 4 && w.inb(xx, yy) && !isWater(w.terrain[w.idx(xx, yy)]) && !spots[name]) spots[name] = [xx + (dx > 0), yy + (dy > 0)];
+      }
+    }
+    const whole = []; for (let k = 0; k < 7; k++) { const a = performance.now(); t.buildWater(true); whole.push(performance.now() - a); }
+    const W = median(whole), row = [`${map}: whole ${W.toFixed(1)} ms`];
+    for (const [name, [vx, vy]] of Object.entries(spots)) {
+      const h0 = w.vert(vx, vy), ms = [];
+      for (let k = 0; k < 9; k++) { w.setVert(vx, vy, h0 + (k % 2 ? 0 : -0.08)); w.hv++; const a = performance.now(); t.buildWater(); ms.push(performance.now() - a); }
+      w.setVert(vx, vy, h0); w.hv++; t.buildWater();
+      const P = median(ms);
+      row.push(`${name} ${P.toFixed(2)} (${(P / W * 100).toFixed(0)}%)`);
+      if (!(P < W * WATER_SHARE)) slow.push(`${map} ${name}: ${P.toFixed(1)} ms vs whole ${W.toFixed(1)}`);
+    }
+    rows.push(row.join(', '));
+  }
+  if (report || slow.length) console.log('  ' + rows.join('\n  '));
+  assert.equal(slow.length, 0, slow.join('; '));
 });
 
 console.log(failed ? `${failed} of ${checks + failed} terrain patch checks FAILED` : `${checks} terrain patch checks passed`);

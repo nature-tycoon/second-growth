@@ -45,32 +45,9 @@ export function creekRibbon(w) {
   const edge = (k, depth) => bed[k] ? Math.max(field[k] * RIBBON_K, depth - (bed[k] === 2 ? RIBBON_DEEP_HEAD : RIBBON_DEEP)) : field[k] * RIBBON_K;
   const out = { field, bed, edge };
   // each tile: 1 a one-tile-wide creek's, 2 other water (or a creek too wide, a fall, a pond over it)
-  const kind = new Uint8Array(n);
-  const wetI = i => {
-    if (w.waterManaged?.[i]) return Number.isFinite(w.waterLevel[i]);
-    return isWater(w.terrain[i]);
-  };
-  for (let i = 0; i < n; i++) {
-    if (!wetI(i)) continue;
-    kind[i] = 2;
-    if (w.terrain[i] !== T.CREEK || isFall(w, i)) continue;
-    const x = i % W, y = (i / W) | 0;
-    if (w.waterManaged?.[i]) {
-      // (a beaver pond standing over the creek is a pond)
-      const c = w.corners(x, y), bed = Math.min(c[0], c[1], c[2], c[3]);
-      if (w.waterLevel[i] > bed + WATER_FILL[T.CREEK] + 0.05) continue;
-    }
-    let block = false;
-    for (const [ox, oy] of [[0, 0], [-1, 0], [0, -1], [-1, -1]]) {
-      let all = true;
-      for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
-        const xx = x + ox + dx, yy = y + oy + dy;
-        if (!w.inb(xx, yy) || !wetI(w.idx(xx, yy))) { all = false; break; }
-      }
-      if (all) { block = true; break; }
-    }
-    if (!block) kind[i] = 1;
-  }
+  const kind = out.kind = new Uint8Array(n);
+  const wetI = i => wetTile(w, i);
+  for (let i = 0; i < n; i++) kind[i] = ribbonKind(w, i);
   const courses = creekCourses(w, i => kind[i] === 1);
   if (!courses.length) return out;
   const on = new Uint8Array(n);
@@ -127,6 +104,30 @@ export function creekRibbon(w) {
     for (const c of [k, k + 1, k + VW, k + VW + 1]) bed[c] = pass;
   }
   return out;
+}
+
+const wetTile = (w, i) => w.waterManaged?.[i] ? Number.isFinite(w.waterLevel[i]) : isWater(w.terrain[i]);
+// A tile's part in the ribbon: 0 dry, 1 a one-tile-wide creek's, 2 other water (a creek too wide, a fall,
+// a beaver pond standing over it). Only a creek tile's own corners (isFall, the pond's bed) are read, so
+// a change of height elsewhere leaves it as it was (water-build.js asks before finding the ribbon again).
+export function ribbonKind(w, i) {
+  if (!wetTile(w, i)) return 0;
+  if (w.terrain[i] !== T.CREEK || isFall(w, i)) return 2;
+  const W = w.w, x = i % W, y = (i / W) | 0;
+  if (w.waterManaged?.[i]) {
+    // (a beaver pond standing over the creek is a pond)
+    const c = w.corners(x, y), bed = Math.min(c[0], c[1], c[2], c[3]);
+    if (w.waterLevel[i] > bed + WATER_FILL[T.CREEK] + 0.05) return 2;
+  }
+  for (const [ox, oy] of [[0, 0], [-1, 0], [0, -1], [-1, -1]]) {
+    let all = true;
+    for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+      const xx = x + ox + dx, yy = y + oy + dy;
+      if (!w.inb(xx, yy) || !wetTile(w, w.idx(xx, yy))) { all = false; break; }
+    }
+    if (all) return 2;
+  }
+  return 1;
 }
 
 // The field from one segment a-b (half-widths ha, hb): each corner near it keeps the most inside.

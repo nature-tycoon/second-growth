@@ -18,8 +18,7 @@ import { Riverbanks, bankAllowed, surfaceHeight } from './riverbanks.js';
 import { PALETTES, paletteLeafColor, pastureColor } from './palettes.js';
 import { WATER_FILL } from '../sim/waterline.js';
 import { FALL_MIN } from '../maps/landform.js';
-import { creekRibbon, RIBBON_CAP, RIBBON_K } from './creek-ribbon.js';
-import { northCreekAt } from '../maps/water-shape.js';
+import { buildWater as buildWaterMesh, flowCoords } from './water-build.js';
 
 // Does a water tile have a corner the shore pass lifted out of its water (0054): one above the tile's
 // fill line that no other water tile touches? (A steep creek's high side is shared with the creek above.)
@@ -77,9 +76,6 @@ const FILL = WATER_FILL;
 const WATER_REACH = 4;
 // grow area a (world tiles, inclusive) to take in b
 const unite = (a, b) => { a.x0 = Math.min(a.x0, b.x0); a.y0 = Math.min(a.y0, b.y0); a.x1 = Math.max(a.x1, b.x1); a.y1 = Math.max(a.y1, b.y1); return a; };
-// The starting creek beyond the north fence (outsideCreek) comes down steep hills on some maps: run
-// white in full, its sloped sheet read as a snowfield in the intro film, so only streaks of white.
-const OUTSIDE_WHITE = 0.3;
 // A waterfall's drawn ledge (buildFalls): the water runs level over the rock's top for FALL_RUN of the
 // fall's tile, then falls on its arc over FALL_TRAVEL more (landing just short of the foot, where the
 // tile's ramp is still under the arc: the tile grid can't hold a sheer face).
@@ -103,54 +99,7 @@ export function waterSurfaceY(w, x, y) {
   return (Math.min(...w.corners(xi, yi)) + FILL[t]) * LEVEL;
 }
 
-// How far downstream and how far across the current each corner of a water mesh lies, in tiles,
-// for the water shader's streaks and wavelets. The shader used to project the position onto the
-// local current, which squeezed the bands into swirls wherever the current turns round a
-// headland (a few degrees of turn, a hundred tiles from the origin, shifts them by whole tiles).
-// Here the coordinates are walked out corner by corner along the current from one corner of each
-// stretch, then relaxed so the small mismatches round a headland spread out instead of leaving a
-// seam. Corners are integers; pos has three numbers per vertex, flow two; still water gets 0.
-export function flowCoords(pos, flow, count) {
-  const out = new Float32Array(count * 2), key = (x, z) => (z + 4096) * 8192 + x + 4096;
-  const index = new Map(), dx = [], dz = [], cx = [], cz = [];
-  for (let v = 0; v < count; v++) {
-    const fx = flow[v * 2], fz = flow[v * 2 + 1], l = Math.hypot(fx, fz);
-    if (l < 0.01) continue;
-    const k = key(pos[v * 3], pos[v * 3 + 2]);
-    if (!index.has(k)) { index.set(k, dx.length); dx.push(fx / l); dz.push(fz / l); cx.push(pos[v * 3]); cz.push(pos[v * 3 + 2]); }
-  }
-  const n = dx.length, nb = new Int32Array(n * 4).fill(-1);
-  for (let i = 0; i < n; i++) [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([ox, oz], s) => { nb[i * 4 + s] = index.get(key(cx[i] + ox, cz[i] + oz)) ?? -1; });
-  // the step from corner j to its neighbour i, along the current between them and across it
-  const step = (i, j, s) => {
-    const ox = cx[i] - cx[j], oz = cz[i] - cz[j], ax = dx[i] + dx[j], az = dz[i] + dz[j], l = Math.hypot(ax, az);
-    if (s) return l < 1e-6 ? 0 : (ox * -az + oz * ax) / l;
-    return l < 1e-6 ? 0 : (ox * ax + oz * az) / l;
-  };
-  const along = new Float32Array(n), across = new Float32Array(n), seen = new Uint8Array(n);
-  for (let s0 = 0; s0 < n; s0++) {
-    if (seen[s0]) continue;
-    const q = [s0]; seen[s0] = 1;
-    for (let h = 0; h < q.length; h++) for (let e = 0; e < 4; e++) {
-      const j = q[h], i = nb[j * 4 + e];
-      if (i < 0 || seen[i]) continue;
-      seen[i] = 1; along[i] = along[j] + step(i, j, 0); across[i] = across[j] + step(i, j, 1); q.push(i);
-    }
-  }
-  // (each corner's steps to its neighbours, worked out once rather than on every pass)
-  const sa = new Float64Array(n * 4), sc = new Float64Array(n * 4);
-  for (let i = 0; i < n; i++) for (let e = 0; e < 4; e++) { const j = nb[i * 4 + e]; if (j >= 0) { sa[i * 4 + e] = step(i, j, 0); sc[i * 4 + e] = step(i, j, 1); } }
-  for (let pass = 0; pass < 60; pass++) for (let i = 0; i < n; i++) {
-    let a = 0, c = 0, m = 0;
-    for (let e = 0; e < 4; e++) { const j = nb[i * 4 + e]; if (j >= 0) { a += along[j] + sa[i * 4 + e]; c += across[j] + sc[i * 4 + e]; m++; } }
-    if (m) { along[i] = a / m; across[i] = c / m; }
-  }
-  for (let v = 0; v < count; v++) {
-    const i = index.get(key(pos[v * 3], pos[v * 3 + 2]));
-    if (i !== undefined && Math.hypot(flow[v * 2], flow[v * 2 + 1]) >= 0.01) { out[v * 2] = along[i]; out[v * 2 + 1] = across[i]; }
-  }
-  return out;
-}
+export { flowCoords }; // (the current's coordinates: water-build.js, read by the flood too)
 
 export class Terrain {
   constructor(scene, atlas) {
@@ -224,6 +173,7 @@ export class Terrain {
     this.tiles.soil.value.fromArray(world.catalog.definition.look.soil).convertSRGBToLinear().multiplyScalar(0.72);
     this.tiles.origin.value.set(this.X0, this.Y0); this.tiles.size.value.set(this.TW, this.TH);
     this.water = null; this.falls = null; this.spills = null; this.fallRock = null; this.flood = null; this.overlay = null; this.preview = null;
+    this.wc = null; // (the water's cache: water-build.js)
     this.updateHeights();
   }
 
@@ -245,7 +195,7 @@ export class Terrain {
     this.hv = w.hv; this.vhDrawn = w.vh.slice();
     this.buildSkirt();
     this.buildLine();
-    this.buildWater();
+    this.buildWater(true);
     this.liftOverlay();
   }
 
@@ -348,7 +298,8 @@ export class Terrain {
     }
     // The water reads the heights only within a few tiles of itself (its bank ring, the spill
     // round a pond, the smoothed waterline, the riverbanks' stones): an edit farther from any
-    // drawn water than that, with no water dug or filled, leaves it exactly as it was.
+    // drawn water than that, with no water dug or filled, leaves it exactly as it was. Near it, the
+    // water redraws only what the edit reaches (water-build.js).
     let water = 'same';
     const near = this.waterNear && this.waterK != null && (this.waterKey(true) !== this.waterKeyLand || (() => {
       const m = this.waterNear;
@@ -660,373 +611,9 @@ export class Terrain {
   refreshWater() { if (this.waterKey() !== this.waterK) this.buildWater(); }
   refreshFlood() { if (this.floodKey() !== this.floodK) this.buildFlood(); }
 
-  buildWater() {
+  buildWater(whole = false) {
     this.waterK = this.waterKey(); this.waterKeyLand = this.waterKey(true); this.waterPending = false;
-    if (this.water) { this.scene.remove(this.water); this.water.geometry.dispose(); }
-    const w = this.world, TW = this.TW, TH = this.TH, X0 = this.X0, Y0 = this.Y0;
-    const wc = this.catalog.definition.look.water;
-    const COL = { [T.POND]: wc.pond, [T.CREEK]: wc.creek, [T.RIVER]: wc.river, [T.MARSH]: wc.marsh };
-    const level = new Float32Array(TW * TH).fill(NaN), kind = new Uint8Array(TW * TH), wet = new Uint8Array(TW * TH);
-    // (the water model runs a dry summer on the farm, not beyond it: where the starting creek is dry at
-    // the fence, the stretch drawn beyond it, outsideCreek, is too)
-    const nc = this.catalog.definition.northCreek, ni = nc ? w.idx(nc(0), 0) : -1;
-    const outsideDry = ni >= 0 && !!w.waterManaged?.[ni] && !Number.isFinite(w.waterLevel[ni]);
-    for (let ty = 0; ty < TH; ty++) for (let tx = 0; tx < TW; tx++) {
-      const x = tx + X0, y = ty + Y0, t = this.terrainAt(x, y);
-      const i = w.inb(x, y) ? w.idx(x, y) : -1, k = ty * TW + tx;
-      if (i >= 0 && w.waterManaged?.[i]) {
-        if (!Number.isFinite(w.waterLevel[i])) continue;
-        level[k] = w.waterLevel[i]; kind[k] = isWater(t) ? t : T.MARSH; wet[k] = 1;
-      } else {
-        if (!isWater(t)) continue;
-        if (outsideDry && t === T.CREEK && y < 0) continue; // (the creek beyond the fence runs dry with the ditch it feeds)
-        level[k] = Math.min(...w.corners(x, y)) + FILL[t]; kind[k] = t; wet[k] = 1;
-      }
-    }
-    // Ponds and marshes that touch are one body of standing water: give it one surface, so a
-    // deeper pond reads as darker water under a continuous sheet instead of a sunken square.
-    // (Capped a little above its lowest tile so water never climbs a slope.)
-    const managed = k => { const x = k % TW + X0, y = Math.floor(k / TW) + Y0; return w.inb(x, y) && !!w.waterManaged?.[w.idx(x, y)]; };
-    const body = new Int32Array(TW * TH).fill(-1);
-    for (let k0 = 0; k0 < TW * TH; k0++) {
-      if (managed(k0) || !wet[k0] || body[k0] >= 0 || (kind[k0] !== T.POND && kind[k0] !== T.MARSH)) continue;
-      const q = [k0]; body[k0] = k0;
-      let lo = Infinity, hi = -Infinity;
-      for (let h = 0; h < q.length; h++) {
-        const k = q[h], tx = k % TW, ty = (k / TW) | 0;
-        lo = Math.min(lo, level[k]); hi = Math.max(hi, level[k]);
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          const xx = tx + dx, yy = ty + dy;
-          if (xx < 0 || yy < 0 || xx >= TW || yy >= TH) continue;
-          const j = yy * TW + xx;
-          if (!managed(j) && wet[j] && body[j] < 0 && (kind[j] === T.POND || kind[j] === T.MARSH)) { body[j] = k0; q.push(j); }
-        }
-      }
-      // Nor does it stand above its lowest rim: on a slope the land past the downhill bank can
-      // drop below the basin's fill line, and the sheet would run out over it and stop in mid-air
-      // along a tile edge. So the surface sits just under that spill point (the ground the bank
-      // ring reaches out to, away from other water), but keeps most of its depth: drained lower,
-      // a dug pond shows its dark pit walls. (Where the land falls away faster still, the bank
-      // ring's outer edge comes down to meet the ground instead: see vLevel.)
-      const wetV = (vx, vy) => [[-1, -1], [0, -1], [-1, 0], [0, 0]].some(([dx, dy]) => {
-        const xx = vx + dx, yy = vy + dy;
-        return xx >= 0 && yy >= 0 && xx < TW && yy < TH && wet[yy * TW + xx];
-      });
-      let spill = Infinity;
-      for (const k of q) {
-        const tx = k % TW, ty = (k / TW) | 0;
-        for (let vy = ty - 1; vy <= ty + 2; vy++) for (let vx = tx - 1; vx <= tx + 2; vx++) {
-          if (!wetV(vx, vy)) spill = Math.min(spill, w.vert(vx + X0, vy + Y0));
-        }
-      }
-      const rim = spill - 0.02, L = Math.max(Math.min(hi, lo + 0.3, rim), lo - 0.1);
-      for (const k of q) {
-        const own = Math.min(...w.corners(k % TW + X0, Math.floor(k / TW) + Y0)) + 0.3;
-        level[k] = Math.max(L, Math.min(level[k], Math.max(rim, own)));
-      }
-    }
-    // one ring of bank tiles carries the neighbouring water level
-    // (except the pond's level onto the dry ground just below a beaver dam: the dam holds the pond
-    // off it, and the sheet carried over would run down the bank past the dam's mounds)
-    const belowDam = new Set();
-    for (const e of w.damEdges || []) belowDam.add(e[1]);
-    const ring = [];
-    for (let ty = 0; ty < TH; ty++) for (let tx = 0; tx < TW; tx++) {
-      const k = ty * TW + tx;
-      if (wet[k]) continue; // (a managed tile without water is bank too: the pond model's dry margins)
-      const below = belowDam.size > 0 && w.inb(tx + X0, ty + Y0) && belowDam.has(w.idx(tx + X0, ty + Y0));
-      // (the water beside it, or else at its corner: beside a steep creek, the creek a tile upstream
-      // stood the bank's water up to 0.6 over the creek's own, and over a waterfall it held the
-      // lip's level out over the pool below)
-      // (beyond the fence, the lowest: on the inside of a bend in the steep creek there the water a row
-      // upstream stood up in the air over the bank's lower corner)
-      let L = -Infinity, kd = 0;
-      const out = ty + Y0 < 0;
-      for (const diag of [0, 1]) {
-        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-          if ((dx && dy ? 1 : 0) !== diag || !(dx || dy)) continue;
-          const xx = tx + dx, yy = ty + dy;
-          if (xx < 0 || yy < 0 || xx >= TW || yy >= TH) continue;
-          const j = yy * TW + xx;
-          if (below && managed(j)) continue; // (the pond's water, held behind the dam; the creek below still banks it)
-          if (wet[j] && (L === -Infinity || (out ? level[j] < L : level[j] > L))) { L = level[j]; kd = kind[j]; }
-        }
-        if (L > -Infinity) break;
-      }
-      if (L > -Infinity && Math.min(...w.corners(tx + X0, ty + Y0)) < L) ring.push([k, L, kd]);
-    }
-    for (const [k, L, kd] of ring) { level[k] = L; kind[k] = kd; }
-    // (beyond the fence every tile under the creek's ribbon has a sheet: a diagonal's side tiles weren't
-    // always in the bank ring, their level set below by the bed, northCreekAt)
-    const north = this.border?.north;
-    const nxs = north ? north.line.map(p => p[0]) : [0];
-    const ntx0 = Math.max(0, Math.floor(Math.min(...nxs)) - X0 - 3), ntx1 = Math.min(TW - 1, Math.ceil(Math.max(...nxs)) - X0 + 3);
-    if (north && !outsideDry) for (let ty = 0; ty < -Y0; ty++) for (let tx = ntx0; tx <= ntx1; tx++) {
-      const k = ty * TW + tx;
-      if (level[k] === level[k] || northCreekAt(north, tx + X0 + 0.5, ty + Y0 + 0.5).d > north.half + 0.75) continue;
-      level[k] = Math.min(...w.corners(tx + X0, ty + Y0)) + FILL[T.CREEK]; kind[k] = T.CREEK;
-    }
-    const levelAt = (vx, vy) => {
-      let L = -Infinity;
-      for (const [dx, dy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
-        const tx = vx - X0 + dx, ty = vy - Y0 + dy;
-        if (tx < 0 || ty < 0 || tx >= TW || ty >= TH) continue;
-        const l = level[ty * TW + tx];
-        if (l === l && l > L) L = l;
-      }
-      // (at the bank ring's outer edge the sheet comes down to meet the ground, never ending in
-      // mid-air along the tile line where the land falls away faster than the water can follow)
-      return L > -Infinity && !vWet(vx, vy) ? Math.min(L, w.vert(vx, vy)) : L;
-    };
-    // fully clear at the outer edge of the bank ring, so shallows fade out instead of ending in a line
-    const vWet = (vx, vy) => {
-      for (const [dx, dy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
-        const tx = vx - X0 + dx, ty = vy - Y0 + dy;
-        if (tx >= 0 && ty >= 0 && tx < TW && ty < TH && wet[ty * TW + tx]) return true;
-      }
-      return false;
-    };
-    // (each corner's level worked out once: it's read for every triangle that shares it)
-    const VW = TW + 1, cornerLevel = new Float64Array(VW * (TH + 1));
-    for (let vy = 0; vy <= TH; vy++) for (let vx = 0; vx <= TW; vx++) cornerLevel[vy * VW + vx] = levelAt(vx + X0, vy + Y0);
-    // The creek beyond the north fence (outsideCreek, 0054): its sheet lies on the bed it was carved to,
-    // bed + fill across from each corner (not tile by tile: on a steep hillside a tile's flat level stood
-    // in the air over the next one's bank, or sank under it), and its outline is its ribbon's edge,
-    // the farm creek's width (northRibbon: aRibbon below), out to NORTH_REACH tiles from its line. The
-    // fence row's corners keep the farm's level; the ribbon ends the water there too (with the farm's
-    // own where that governs): beside the creek the border's water spilled over them onto the farm.
-    const northRibbon = new Map(), NORTH_REACH = 6;
-    const farmWetFence = vx => [vx - 1, vx].some(x => w.inb(x, 0) && wet[-Y0 * TW + x - X0] === 1);
-    if (north && !outsideDry) {
-      const fill = FILL[T.CREEK], xs = north.line.map(p => p[0]);
-      const x0 = Math.max(X0, Math.floor(Math.min(...xs)) - NORTH_REACH), x1 = Math.min(X0 + TW, Math.ceil(Math.max(...xs)) + NORTH_REACH);
-      for (let vy = Y0; vy <= 0; vy++) for (let vx = x0; vx <= x1; vx++) {
-        const { d, bed } = northCreekAt(north, vx, vy);
-        if (d > NORTH_REACH) continue;
-        northRibbon.set(vy * 100000 + vx, Math.max(-RIBBON_CAP, Math.min(RIBBON_CAP, north.half - d)) * RIBBON_K);
-        const k = (vy - Y0) * VW + vx - X0;
-        // (outside the ribbon's edge never over the ground: where the creek bends sharply, PNW's round its
-        // film stage, a corner across from a higher stretch of bed held the sheet 0.4 over a low bank)
-        if (vy < 0 && Number.isFinite(cornerLevel[k])) cornerLevel[k] = d > north.half ? Math.min(bed + fill, w.vert(vx, vy) + 0.05) : bed + fill;
-      }
-    }
-    const vLevel = (vx, vy) => {
-      const tx = vx - X0, ty = vy - Y0;
-      return tx >= 0 && ty >= 0 && tx <= TW && ty <= TH ? cornerLevel[ty * VW + tx] : levelAt(vx, vy);
-    };
-    const shoreVertices = this.shoreVertices = new Float32Array((TW + 1) * (TH + 1) * 2);
-    for (let vy = 0; vy <= TH; vy++) for (let vx = 0; vx <= TW; vx++) {
-      const L = vLevel(vx + X0, vy + Y0), k = (vy * (TW + 1) + vx) * 2;
-      if (Number.isFinite(L)) { shoreVertices[k] = L * LEVEL; shoreVertices[k + 1] = 1; }
-    }
-    // (where the shore heights the ground's wet fringe reads moved, for a patch repaint: reshape)
-    {
-      const was = this.shoreVertices0, n = (TW + 1) * (TH + 1);
-      let x0 = Infinity, y0 = Infinity, x1 = -1, y1 = -1;
-      if (was && was.length === shoreVertices.length) for (let v = 0; v < n; v++) {
-        if (was[v * 2] === shoreVertices[v * 2] && was[v * 2 + 1] === shoreVertices[v * 2 + 1]) continue;
-        const vx = v % (TW + 1), vy = (v / (TW + 1)) | 0;
-        if (vx < x0) x0 = vx; if (vx > x1) x1 = vx; if (vy < y0) y0 = vy; if (vy > y1) y1 = vy;
-      }
-      this.shoreMoved = !was || was.length !== shoreVertices.length ? { x0: X0, y0: Y0, x1: X0 + TW - 1, y1: Y0 + TH - 1 }
-        : x1 < 0 ? null : { x0: x0 - 1 + X0, y0: y0 - 1 + Y0, x1: x1 + X0, y1: y1 + Y0 };
-      this.shoreVertices0 = shoreVertices;
-    }
-    // the tiles under the drawn sheet, the bank ring included (reshape: is an edit near the water)
-    const near = this.waterNear = new Uint8Array(TW * TH);
-    for (let k = 0; k < TW * TH; k++) if (level[k] === level[k]) near[k] = 1;
-    // Only scatter where all four corners share a water sheet. This avoids stray objects
-    // on the outer ring where the water mesh ends and its opacity falls to zero.
-    const cells = [];
-    for (let ty = 0; ty < TH; ty++) for (let tx = 0; tx < TW; tx++) {
-      if (Number.isFinite(level[ty * TW + tx])) cells.push([tx + X0, ty + Y0]);
-    }
-    const waterAt = (x, z) => {
-      const xx = Math.floor(x), zz = Math.floor(z);
-      if ([vLevel(xx, zz), vLevel(xx + 1, zz), vLevel(xx + 1, zz + 1), vLevel(xx, zz + 1)].some(v => !Number.isFinite(v))) return NaN;
-      return surfaceHeight(vLevel, x, z) * LEVEL;
-    };
-    this.waterAt = waterAt; // (the drawn surface at a point, NaN off the water: animals swim by it)
-    this.banks.bind(w, this.border, cells, waterAt, this.bankTerrainAt, !!this.catalog.definition.look.underwater);
-    // blend the water's colour across tile corners, so pond, marsh and creek shade into each other
-    const vColor = (vx, vy) => {
-      const out = [0, 0, 0, 0]; let n = 0;
-      for (const [dx, dy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
-        const tx = vx - X0 + dx, ty = vy - Y0 + dy;
-        if (tx < 0 || ty < 0 || tx >= TW || ty >= TH) continue;
-        const k = ty * TW + tx;
-        if (level[k] !== level[k]) continue;
-        const c = COL[kind[k]];
-        for (let e = 0; e < 4; e++) out[e] += c[e];
-        n++;
-      }
-      return n ? out.map(v => v / n) : COL[T.POND];
-    };
-    const tiles = [];
-    for (let k = 0; k < TW * TH; k++) if (level[k] === level[k]) tiles.push(k);
-    const pos = new Float32Array(tiles.length * 18), col = new Float32Array(tiles.length * 24), nor = new Float32Array(tiles.length * 18);
-    const dep = new Float32Array(tiles.length * 6), flow = new Float32Array(tiles.length * 12), bend = new Float32Array(tiles.length * 6);
-    const round = new Float32Array(tiles.length * 6)
-    // the ground at a corner smoothed over its neighbours (1-2-1 each way): the water shader
-    // rounds the waterline's tile-sized steps against it
-    const smooth = (vx, vy) => {
-      let s = 0;
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) s += w.vert(vx + dx, vy + dy) * (2 - Math.abs(dx)) * (2 - Math.abs(dy));
-      return s / 16;
-    };
-    const moving = k => kind[k] === T.CREEK || kind[k] === T.RIVER;
-    const wetAt = (tx, ty) => tx >= 0 && ty >= 0 && tx < TW && ty < TH && wet[ty * TW + tx] && moving(ty * TW + tx);
-    const tileFlow = new Float32Array(TW * TH * 2), tileBend = new Float32Array(TW * TH);
-    // Which way the water runs: downstream along the channel network, so a creek flows into the
-    // river it joins and the river runs on past the mouth (no eddy at the confluence). Each
-    // connected stretch of creek and river drains out of the side of the view where its bed is
-    // lowest; the distance back from that exit, through the channel, gives every tile a
-    // downstream direction, which is then smoothed so bends and junctions turn gradually.
-    {
-      const dist = new Int32Array(TW * TH).fill(-1), comp = new Int32Array(TW * TH).fill(-1);
-      const bedOf = k => Math.min(...w.corners((k % TW) + X0, Math.floor(k / TW) + Y0));
-      const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-      for (const k0 of tiles) {
-        if (!moving(k0) || comp[k0] >= 0) continue;
-        const members = [k0]; comp[k0] = k0;
-        for (let h = 0; h < members.length; h++) {
-          const k = members[h], tx = k % TW, ty = (k / TW) | 0;
-          for (const [dx, dy] of N4) if (wetAt(tx + dx, ty + dy)) { const n = (ty + dy) * TW + tx + dx; if (comp[n] < 0) { comp[n] = k0; members.push(n); } }
-        }
-        // the exit: the view's edge where this stretch's bed is lowest (or its lowest tile)
-        const side = k => { const tx = k % TW, ty = (k / TW) | 0; return tx === 0 ? 0 : tx === TW - 1 ? 1 : ty === 0 ? 2 : ty === TH - 1 ? 3 : -1; };
-        let exitSide = -1, low = Infinity, lowest = members[0];
-        for (const k of members) { const b = bedOf(k); if (b < bedOf(lowest)) lowest = k; if (side(k) >= 0 && b < low) { low = b; exitSide = side(k); } }
-        const q = exitSide >= 0 ? members.filter(k => side(k) === exitSide) : [lowest];
-        for (const k of q) dist[k] = 0;
-        for (let h = 0; h < q.length; h++) {
-          const k = q[h], tx = k % TW, ty = (k / TW) | 0;
-          for (const [dx, dy] of N4) if (wetAt(tx + dx, ty + dy)) { const n = (ty + dy) * TW + tx + dx; if (dist[n] < 0) { dist[n] = dist[k] + 1; q.push(n); } }
-        }
-      }
-      // downhill in that distance field, over all eight neighbours
-      let fl = new Float32Array(TW * TH * 2);
-      for (const k of tiles) {
-        if (!moving(k) || dist[k] < 0) continue;
-        const tx = k % TW, ty = (k / TW) | 0;
-        let fx = 0, fy = 0;
-        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-          if ((!dx && !dy) || !wetAt(tx + dx, ty + dy)) continue;
-          const n = (ty + dy) * TW + tx + dx, drop = dist[k] - dist[n];
-          if (dist[n] < 0 || !drop) continue;
-          const l = Math.hypot(dx, dy); fx += dx / l * drop / l; fy += dy / l * drop / l;
-        }
-        if (!dist[k]) { // (at the exit itself: straight out of the view)
-          const e = (tx === 0 ? [-1, 0] : tx === TW - 1 ? [1, 0] : ty === 0 ? [0, -1] : ty === TH - 1 ? [0, 1] : [0, 0]);
-          fx += e[0]; fy += e[1];
-        }
-        const l = Math.hypot(fx, fy) || 1; fl[k * 2] = fx / l; fl[k * 2 + 1] = fy / l;
-      }
-      // smooth along the channel so the current turns gradually at bends and mouths
-      for (let pass = 0; pass < 3; pass++) {
-        const nx = new Float32Array(fl.length);
-        for (const k of tiles) {
-          if (!moving(k) || !wet[k]) continue;
-          const tx = k % TW, ty = (k / TW) | 0;
-          let fx = fl[k * 2] * 2, fy = fl[k * 2 + 1] * 2;
-          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && wetAt(tx + dx, ty + dy)) {
-            const n = (ty + dy) * TW + tx + dx; fx += fl[n * 2]; fy += fl[n * 2 + 1];
-          }
-          const l = Math.hypot(fx, fy) || 1; nx[k * 2] = fx / l; nx[k * 2 + 1] = fy / l;
-        }
-        fl = nx;
-      }
-      for (const k of tiles) {
-        if (!moving(k)) continue;
-        const tx = k % TW, ty = (k / TW) | 0, speed = kind[k] === T.CREEK ? 0.7 : 1;
-        let fx = fl[k * 2], fy = fl[k * 2 + 1];
-        if (!wet[k]) { // (the bank ring: carries on the current of the water beside it)
-          fx = fy = 0;
-          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (wetAt(tx + dx, ty + dy)) { const n = (ty + dy) * TW + tx + dx; fx += fl[n * 2]; fy += fl[n * 2 + 1]; }
-          const l = Math.hypot(fx, fy) || 1; fx /= l; fy /= l;
-        }
-        tileFlow[k * 2] = fx * speed; tileFlow[k * 2 + 1] = fy * speed;
-        const h = Number(wetAt(tx - 1, ty)) + Number(wetAt(tx + 1, ty));
-        const v = Number(wetAt(tx, ty - 1)) + Number(wetAt(tx, ty + 1));
-        tileBend[k] = h && v && h + v <= 3 ? 1 : 0;
-      }
-    }
-    // Shared corner samples avoid visible seams in flow and bend highlights.
-    const vertexFlow = new Float32Array((TW + 1) * (TH + 1) * 3);
-    for (let vy = 0; vy <= TH; vy++) for (let vx = 0; vx <= TW; vx++) {
-      let fx = 0, fy = 0, b = 0, n = 0;
-      for (const [dx, dy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
-        const tx = vx + dx, ty = vy + dy;
-        if (tx < 0 || ty < 0 || tx >= TW || ty >= TH) continue;
-        const k = ty * TW + tx;
-        if (!Number.isFinite(level[k])) continue;
-        fx += tileFlow[k * 2]; fy += tileFlow[k * 2 + 1]; b += tileBend[k]; n++;
-      }
-      const vi = (vy * (TW + 1) + vx) * 3;
-      if (n) { vertexFlow[vi] = fx / n; vertexFlow[vi + 1] = fy / n; vertexFlow[vi + 2] = b / n; }
-    }
-    // Falling water: how far the sheet drops across each moving tile, so a waterfall (landform.js
-    // creekFalls) runs white over its lip and foams out across the pool at its foot, and a steep
-    // cascade shows a little white. Each corner takes the most of the tiles round it.
-    const tileDrop = new Float32Array(TW * TH);
-    for (const k of tiles) {
-      if (!moving(k)) continue;
-      const x = (k % TW) + X0, y = Math.floor(k / TW) + Y0;
-      // (from one edge to the edge opposite, as isFall measures the bed: not the tilt across the stream)
-      const l = [vLevel(x, y), vLevel(x + 1, y), vLevel(x + 1, y + 1), vLevel(x, y + 1)];
-      tileDrop[k] = Math.max(Math.abs(l[0] + l[1] - l[2] - l[3]), Math.abs(l[0] + l[3] - l[1] - l[2])) / 2;
-    }
-    const vWhite = (vx, vy) => {
-      let d = 0;
-      for (const [dx, dy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
-        const tx = vx - X0 + dx, ty = vy - Y0 + dy;
-        if (tx >= 0 && ty >= 0 && tx < TW && ty < TH) d = Math.max(d, tileDrop[ty * TW + tx]);
-      }
-      return d <= 0.9 ? 0 : Math.min(1, (d - 0.9) / 0.8); // (a steep reach's 0.6 a tile stays clear; a fall's 2 runs white)
-    };
-    const white = new Float32Array(tiles.length * 6);
-    // A one-tile creek's outline follows a smooth ribbon along its course, not the tiles (creek-ribbon.js,
-    // 0055): where the shader's edge is cut, off the map's corners, nothing is (RIBBON_CAP)
-    const ribbon = creekRibbon(w), ribbonOut = new Float32Array(tiles.length * 6);
-    let o = 0, oc = 0, od = 0;
-    for (const k of tiles) {
-      const x = (k % TW) + X0, y = Math.floor(k / TW) + Y0;
-      for (const [vx, vy] of [[x, y], [x + 1, y + 1], [x + 1, y], [x, y], [x, y + 1], [x + 1, y + 1]]) {
-        // (the pond model's water too shares its level at each corner and rounds its waterline like
-        // any pond: drawn tile by tile at its own level, it ended in hard steps at the tile lines)
-        const c = vColor(vx, vy), lv = vLevel(vx, vy);
-        pos[o] = vx; pos[o + 1] = lv * LEVEL; pos[o + 2] = vy; nor[o + 1] = 1; o += 3;
-        dep[od] = lv - w.vert(vx, vy); round[od] = lv - smooth(vx, vy);
-        {
-          const nr = northRibbon.get(vy * 100000 + vx) ?? RIBBON_CAP * RIBBON_K;
-          ribbonOut[od] = w.inb(vx, vy) || (vx === w.w && vy >= 0 && vy <= w.h) || (vy === w.h && vx >= 0 && vx <= w.w) ? ribbon.edge(vy * (w.w + 1) + vx, dep[od]) : nr;
-          // (on the fence row only where no farm water meets the corner: the border's water spilled over the
-          // farm's bare corners there; a two-tile creek's or a pond's own corners keep the farm's edge)
-          if (vy === 0 && !farmWetFence(vx)) ribbonOut[od] = Math.min(ribbonOut[od], nr);
-        }
-        white[od] = vy < 0 ? Math.min(OUTSIDE_WHITE, vWhite(vx, vy)) : vWhite(vx, vy);
-        const vi = ((vy - Y0) * (TW + 1) + vx - X0) * 3;
-        flow[od * 2] = vertexFlow[vi]; flow[od * 2 + 1] = vertexFlow[vi + 1]; bend[od] = vertexFlow[vi + 2]; od++;
-        col[oc] = lin(c[0]); col[oc + 1] = lin(c[1]); col[oc + 2] = lin(c[2]); col[oc + 3] = vWet(vx, vy) ? c[3] : 0; oc += 4;
-      }
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
-    g.setAttribute('color', new THREE.BufferAttribute(col, 4));
-    g.setAttribute('aDepth', new THREE.BufferAttribute(dep, 1));
-    g.setAttribute('aFlow', new THREE.BufferAttribute(flow, 2));
-    g.setAttribute('aCurrent', new THREE.BufferAttribute(flowCoords(pos, flow, od), 2));
-    g.setAttribute('aBend', new THREE.BufferAttribute(bend, 1));
-    g.setAttribute('aQual', new THREE.BufferAttribute(new Float32Array(od), 1));
-    g.setAttribute('aRound', new THREE.BufferAttribute(round, 1));
-    g.setAttribute('aWhite', new THREE.BufferAttribute(white, 1));
-    g.setAttribute('aRibbon', new THREE.BufferAttribute(ribbonOut, 1));
-    this.water = new THREE.Mesh(g, this.waterMat);
-    this.water.renderOrder = 2;
-    this.scene.add(this.water);
-    this.buildFalls(tiles, tileDrop, wet, vLevel, vColor, vertexFlow);
-    this.refreshWaterQuality();
+    buildWaterMesh(this, whole);
   }
 
   // Waterfalls (landform.js creekFalls): over each tile where the creek's sheet drops FALL_MIN or
@@ -1211,16 +798,21 @@ export class Terrain {
   refreshWaterQuality() {
     const a = this.water?.geometry.attributes.aQual;
     if (!a) return;
-    const w = this.world, p = this.water.geometry.attributes.position, sea = !!this.catalog.definition.look.underwater;
+    const w = this.world, p = this.water.geometry.attributes.position.array, sea = !!this.catalog.definition.look.underwater;
+    // (worked out once a corner: up to six vertices share one)
+    const VW = this.TW + 1, nv = VW * (this.TH + 1), X0 = this.X0, Y0 = this.Y0;
+    if (!this.qualAt || this.qualAt.length !== nv) this.qualAt = new Float32Array(nv);
+    const at = this.qualAt.fill(NaN);
     for (let v = 0; v < a.count; v++) {
-      const vx = Math.round(p.getX(v)), vy = Math.round(p.getZ(v));
+      const vx = Math.round(p[v * 3]), vy = Math.round(p[v * 3 + 2]), ci = (vy - Y0) * VW + vx - X0;
+      if (at[ci] === at[ci]) { a.array[v] = at[ci]; continue; }
       let s = 0, n = 0;
       for (let dy = -1; dy <= 0; dy++) for (let dx = -1; dx <= 0; dx++) {
         const x = vx + dx, y = vy + dy;
         if (!isWater(this.terrainAt(x, y))) continue;
         s += sea ? 1 : w.inb(x, y) ? w.waterQ[w.idx(x, y)] : 0.6; n++;
       }
-      a.array[v] = n ? s / n : 0.6;
+      a.array[v] = at[ci] = n ? s / n : 0.6;
     }
     a.needsUpdate = true;
   }

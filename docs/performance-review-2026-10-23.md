@@ -182,3 +182,10 @@ ms; the end of a stroke away from water costs nothing more. **Still open**: near
 stroke (and a paced mid-drag frame) still rebuilds the water mesh whole, 15-85 ms (cold the first time a
 new stretch is drawn): riverbank stones re-scattered (~24% of it), the current's coordinates
 (`flowCoords`, ~16%), the ribbon (~7%). An incremental water mesh would remove it.
+
+**Water patch (s11, same batch, 2026-11-25): done.** The water redraws only what an edit reaches
+(`js/render3d/water-build.js`, decision 0048): 1.6-4.7 ms against a whole water build of 6.6-15 ms (itself
+down from 8-25), byte-identical (`terrain-patch-check`'s fuzz). What's left of a patch is mostly whole by
+choice: the riverbanks' fingerprints and instanced meshes (~1-2.5 ms), the channel flow field (~1-1.5 ms).
+Since the drag pacing waits three times the last water cost, the water now follows a Raise/Lower drag
+nearly every frame on a desktop.

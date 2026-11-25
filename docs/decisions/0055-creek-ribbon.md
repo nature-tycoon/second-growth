@@ -12,7 +12,9 @@ draws in tile steps; he chose "Yes, smooth ribbon" over raising dug creeks' bank
   moves: water levels, vertex heights, `aCurrent`/flow, `waterAt` (animals swim by it), `shoreVertices`,
   banks, falls, the sim, fish, plants, land. Every other mesh on the water material (floodwater) passes
   `aRibbon` 99: a missing attribute reads 0 and would hide it.
-- **The course is found again from the tiles every rebuild** (courses aren't saved): `creekCourses` over
+- **The course is found again from the tiles** (courses aren't saved; since phone-creeks-fish s11 only
+  when water was dug or filled or a moved corner changed a creek tile's `ribbonKind`, which holds the
+  only height reads: `isFall` and a beaver pond's bed; the water patch reuses it otherwise): `creekCourses` over
   one-tile creek tiles, centres smoothed along each chain (Gaussian, σ 1 tile, ends and the tiles within
   two of a junction pinned: Sumatra's canals keep their right angles, 0054), then corner-cut twice.
   Half-width `RIBBON_HALF` 0.9 (a dug bed lies within ~0.7 of the course, the corners the shore pass

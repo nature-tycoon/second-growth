@@ -65,10 +65,25 @@ are still proposals. 2026-11-14, ideas batch water-fixes, session 2.
   changed corners (normals read one corner further), the overlay, and the skirt or farm line only where
   the patch reaches them; every value is the one a whole-map `updateHeights` writes. The water mesh is
   left alone unless water lies within `WATER_REACH` (4) tiles of the change or water was dug or filled
-  (`waterKey(true)`, the key without `hv`); then it is rebuilt whole (pond bodies, the current's
-  coordinates and riverbank stones are whole-map), paced while dragging. A new way of drawing that
-  reads heights must be patched here too, or `terrain-patch-check` (every land tool on every map,
-  byte-identical to a whole redraw, uploads inside their ranges, cost) fails.
+  (`waterKey(true)`, the key without `hv`); then **the water redraws only what the change reaches** (s11,
+  `js/render3d/water-build.js`): it diffs the heights and each tile's water (terrain, pond-model flag
+  and level) against its cache, and redoes each stage only that far: the tiles' levels, any pond or marsh
+  body within 2 tiles (filled again whole: one body, one surface), the bank ring, their corners, the
+  current's coordinates (`relaxStretch`) of each stretch whose corners' flow or mesh order changed (a
+  whole creek or river if so: the 60 relaxing passes run along it), riverbank cells within 2 of the
+  window plus any whose planting or trees changed (`Riverbanks.scatter`, raw fingerprints), the creek
+  ribbon only if water was dug or filled or a creek tile's `ribbonKind` changed. The channel flow field
+  (water tiles only), falls and water quality are redone whole each build (cheap). It builds whole when the
+  change is wide (`PATCH_SHARE` 0.35), a dam's edges or spill changed, the north creek went dry or wet, or
+  the window reaches the fence row on a map with a creek beyond it. **A whole build and a patch are one
+  code path** (the whole one is the window over everything with a fresh cache), and `updateHeights`
+  always builds whole: keep it so, and add a new input the water reads to the diff (`changes`) or the
+  fallbacks. Patch 1.6-4.7 ms against 6.6-15 ms whole (node, fast Mac); the drag pacing below then
+  lets the water follow a Raise/Lower drag nearly every frame. A new way of drawing that reads heights
+  must be patched here too, or `terrain-patch-check` (every land tool on every map, byte-identical to a
+  whole redraw, uploads inside their ranges, cost; a fuzz of random height, water and growth changes
+  near water, every water value, shore, banks, falls and `waterAt` against a whole build; the patch's
+  cost under 40% of a whole water build) fails.
 - The one height write outside generation and `terrainEdit`: `outsideCreek` (0054) carves the drawn
   creek beyond the north fence, vertices north of row 0 only, when the `Border` is built (also on load).
 - Before building phase 3, read "Proposed model" below. A new tool or event that changes heights calls
@@ -248,3 +263,25 @@ What it does not change: river and reef water, floods' regional overlay, the dra
   Generated maps hash the same on every map (two seeds each).
 - Measured: the new check fails on the code before phase 2 (Raise beside a creek on pnw, atlanta and
   amazon moved the creek's corner by 0.23 levels, 55 cm).
+
+### Water patch redraw (2026-11-25, batch phone-creeks-fish s11)
+
+- Before: a stroke's end beside water rebuilt the whole water mesh (s7 measured 15-85 ms with the stroke's
+  ground repaint, 20-30 ms for the water alone warm), and while dragging the water waited, so a new bank
+  could show under the old sheet for up to 0.1 s.
+- `buildWater` moved to `js/render3d/water-build.js` and became staged over a window with a cache. The
+  whole build hashes the same as the old builder on every map, as generated and after 200 days of play
+  (every attribute, shore heights, tiles near water, banks, falls, `waterAt`). Speed-ups that keep the
+  numbers: the current's coordinates relaxed per stretch with typed arrays (`relaxStretch`, the same
+  arithmetic as `flowCoords`, which stays for the flood), water quality once a corner. The whole build
+  is now 6.6-15 ms (was 8-25).
+- The plan review caught: channel stretches start from the first creek-kind tile in row order, bank ring
+  included, so a dry ring tile can join two arms (kept by redoing the channel flow whole: it only walks
+  the water's tiles, ~1-1.5 ms); in-place writes would have blinded the shore diff (old values read before
+  each write) and `water !== was` in the scene (a new Mesh each build, sharing the geometry when the tile
+  list is the same, with update ranges); cached bank cells would drift from live growth (raw per-cell
+  fingerprints in `Riverbanks.refresh`; a cell is scattered again where they changed).
+- Patch vs whole water build, warm medians, bank corner moved beside a creek / pond / river: pnw 2.7 /
+  2.6 / 2.6 of 11.8 ms; amazon 3.3 / 3.0 / 2.8 of 12.9; serengeti 2.8 / 2.9 / 2.8 of 12.1; atlanta 1.6 /
+  - / 1.6 of 6.6; chinandega 3.9 / 4.6 / 3.8 of 14.8; sumatra 3.4 / - / 3.6 of 14.2 (22-31%; 10-15% of
+  the old whole build).

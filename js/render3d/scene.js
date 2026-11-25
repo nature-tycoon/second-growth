@@ -1048,9 +1048,11 @@ export class Renderer {
     let surface = false, flora = false;
     // Reshaped land redraws only the patch that moved (Terrain.reshape): the ground at once, so the
     // brush stays on the cursor, and the water only if the edit is near it. While a brush stroke is
-    // dragged, a water rebuild (13-30 ms) waits until three times its last cost has passed, so the
-    // drag stays smooth; the creek stroke shows at once as the brush preview (input.js), and the
-    // water catches up as soon as the stroke ends (0054).
+    // dragged, a water rebuild waits until three times its last cost has passed, so the drag stays
+    // smooth; the creek stroke shows at once as the brush preview (input.js), and the water catches up
+    // as soon as the stroke ends (0054). Since the water redraws only its patch (water-build.js, 2-5 ms
+    // on a fast Mac, a whole one 7-15) that wait is over by the next frame on a desktop, so the new bank
+    // no longer shows under the old water while dragging; a slow phone still skips a frame or two.
     const t0 = performance.now(), held = this.brushStroke && t0 - (this.heavyAt || 0) < 3 * (this.heavyMs || 0);
     let heavy = false; // (this frame rebuilt the water or the whole map: timed to the end of the surface repaint below)
     const edited = a => { this.editDirty = true; if (this.editArea === 'all') return; const e = this.editArea ||= { ...a }; e.x0 = Math.min(e.x0, a.x0); e.y0 = Math.min(e.y0, a.y0); e.x1 = Math.max(e.x1, a.x1); e.y1 = Math.max(e.y1, a.y1); };
