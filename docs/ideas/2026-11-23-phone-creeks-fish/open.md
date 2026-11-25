@@ -109,3 +109,10 @@ All landed: 0ab9c18 (off-map creeks), 5afd637 (tree guards, 0057), b1237f4 (wate
 - Smooth the farm creek's flare just before PNW's fence (s9).
 - Chinandega snappers in cut-off pools: check whether those pools dry under them now that stranded fish can die.
 - Tools: the pile probe should count only fish standing still; riverbank stones and the channel flow could also be patched (perf, small).
+
+## Cole's answers, round 3 (2026-11-25)
+
+- Trails browser check: fix it next, on this branch (s13).
+- Time-lapse stops at the first beaver cut: keep.
+- Intro film: re-film after merge.
+- Ship: Cole looks again (new PNW farm) before pushing.
