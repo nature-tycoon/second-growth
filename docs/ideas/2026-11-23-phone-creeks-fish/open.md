@@ -42,3 +42,32 @@ All 4 sessions landed on `claude/ideas-phone-creeks-fish` (4717ad6, 4f82c99, 024
 - Land redraw: yes, redraw only the edited patch.
 - Snakeheads: yes, their own session.
 - The rest: the recommended answers stand unless Cole says otherwise.
+
+# Round 2: open questions (sessions 5–8)
+
+All of round 2 landed: dfb9919 (jaguar), 2fc5da9 (suite green), df61755 (creek ribbon, 0055), 4dcbd66 (patch redraw), f554e1b (snakeheads). Headless suite 150/150, motion sweep passes. Nothing pushed.
+
+## Choice-shaped (asked)
+
+- **Tree guards (s5b):** beavers fell 20–30 of the ~45 trees planted at the opening on about a third of seeds, so the opening time-lapse check passes on its median, not every seed. Realistic: crews wire-guard riparian plantings. Recommended: a cheap wire tree guard for planted saplings, offered after the first beaver cut. It protects habitat and never grows wildlife, so it fits 0001.
+- **Water patch redraw (s7):** shaping beside water still rebuilds all the water when the stroke ends (15–85 ms, a hitch on a phone). Recommended: its own session.
+- **Stranded snakeheads (s8):** nine fish stranded in a one-tile dry-season puddle. Real snakeheads breathe air and wriggle over wet ground to the next pool. Recommended: fish with an air-breathing trait cross 1–2 wet tiles to the nearest water; other stranded fish die off as the puddle dries.
+
+## Recommended answers stand unless Cole objects
+
+- Spoil bank on downhill side of a dug creek (s6): not now; look in play first. It would change sim heights through `terrainEdit`.
+- Ribbon stops two tiles before a pond or river mouth (s6): leave it.
+- PNW dug creek reads grey at the overview in dim light (s6): glance in play; tune PNW's shallow colour if it reads as a road.
+- Brief water lag while dragging beside a pond (s7): accept; revisit if it flickers.
+- Opening check on five seeds (s5b): keep three; fix beavers instead.
+- Elephant feet at a bank foot (s8): close-up look before the next film shoot.
+- Daily swim-route cost, 1–7 ms once a day (s8): leave it.
+
+## New ideas (nature-checked)
+
+- Young shrubs still die on day one of a flood; give them trees' daily odds (willow and dogwood are flood-tolerant: realistic).
+- Fish and waders can sit just outside the drawn ribbon on a diagonal reach; keep them inside it.
+- The wet fringe beside water could follow the ribbon.
+- A per-fish "no progress in a day, drop the target" rule, as a safety net for any future pile-up.
+- Solitary prey (duiker, tapir) scatter when they flee rather than all running to one tile, as a trait. Realistic: herds bunch, solitary animals scatter.
+- Tools: `dipper-check` seed luck (restore 6 years or accept K ≥ 0.8), the motion sweep's `sunk` should sample drawn hooves, the end-of-stroke whole-map recolour (6–12 ms) could be patched, the ribbon could be recomputed near the edit only.

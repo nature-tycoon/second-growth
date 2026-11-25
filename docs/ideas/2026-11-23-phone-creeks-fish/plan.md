@@ -56,4 +56,4 @@ Sequential in this checkout. Sessions 2 and 4 run `regression-reviewer` (water, 
 | 5b | Headless suite green: opening-lapse trees, hippo home-range (block merge, found by s5) | opus | small–medium | [x] 2fc5da9 |
 | 6 | Dug creeks drawn as a smooth ribbon (+ downhill spoil bank) | opus | medium | [x] df61755 |
 | 7 | Land tools redraw only the edited patch | opus | medium | [x] (ground patched; water still whole near water, logged) |
-| 8 | Sumatra snakehead pile-up in peat marsh | opus | medium | [ ] |
+| 8 | Sumatra snakehead pile-up in peat marsh | opus | medium | [x] f554e1b |
