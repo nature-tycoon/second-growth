@@ -60,8 +60,11 @@ Sequential in this checkout. Sessions 2 and 4 run `regression-reviewer` (water, 
 
 ## Round 3 (Cole's answers, 2026-11-24)
 
+Cole added the off-map creek (screenshot `offmap-creek-pnw.webp`): on PNW the creek beyond the north fence looks fake, its edges are blocky, it clips through the ground at the top and near the fence, and on every map the off-map creeks are drawn wider than the creek on the farm. He's OK with placing it by hand if the result can be saved. It runs first.
+
 | # | Title | Model | Size | Status |
 |---|---|---|---|---|
-| 9 | Wire tree guards for planted saplings, offered after the first beaver cut | opus | medium | [ ] |
-| 10 | Water redraws only the edited patch | opus | medium | [ ] |
-| 11 | Stranded air-breathing fish wriggle to the next water | opus | small | [ ] |
+| 9 | Off-map creeks: match on-map width, smooth, no clipping (PNW first) | opus | medium | [ ] |
+| 10 | Wire tree guards for planted saplings, offered after the first beaver cut | opus | medium | [ ] |
+| 11 | Water redraws only the edited patch | opus | medium | [ ] |
+| 12 | Stranded air-breathing fish wriggle to the next water | opus | small | [ ] |
