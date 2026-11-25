@@ -26,6 +26,7 @@ import { WildlifeIntent } from './wildlife-intent.js';
 import { WildlifeWater } from './wildlife-water.js';
 import { WildlifeMove } from './wildlife-move.js';
 import { Animal, standable } from './wildlife-shared.js';
+import { isAnimalState } from './animal-states.js';
 export { passable, canLand } from './animal-terrain.js';
 export { inRiver } from './wildlife-shared.js';
 export { SALMON_RUN_MONTH, SALMON_MIN_HABITAT } from './wildlife-salmon.js';
@@ -229,6 +230,9 @@ export class Wildlife {
           }
           if (this.stepToward(a, a.tx, a.ty, sp * (a.move === 'tree' ? 1 : 1.2) * (a.pace || 1)) || a.x < -2 || a.y < -2 || a.x > w.w + 2 || a.y > w.h + 2) this.remove(a, 'left');
           break;
+        default:
+          // (a state not in animal-states.js, from an old save or a typo, would freeze it for good: back to idle)
+          if (!isAnimalState(a.state)) { a.state = 'idle'; a.wait = 0; a.path = null; }
       }
       recordTrailStep(this, a, def, trailX, trailY);
     }
