@@ -23,6 +23,7 @@ import { ensureHome, homeChoose, homeFalloff } from './home-range.js';
 import { markRisk, safety } from './predation-risk.js';
 import { passable, canLand, wader, shallowsFor } from './animal-terrain.js';
 import { swimRoute } from './swim-routes.js';
+import { wriggleOut, wriggleOn } from './fish-wriggle.js';
 import { simRandom } from './sim-random.js';
 import { routeWeight, stepWeight, driftRow, grassGone, greenSpot } from './migration-route.js';
 import { swimmer, territory, standable, inRiver, inCrossing, WITH_MOM } from './wildlife-shared.js';
@@ -114,6 +115,10 @@ export class WildlifeIntent {
     const distance = (a.x - predator.x) ** 2 + (a.y - predator.y) ** 2;
     let best = -1, score = -Infinity;
     const swim = swimRoute(this, a, def); // (a river fish only darts into water it can swim to)
+    // (and away from others of its kind: each scatters to its own water rather than all darting into
+    // the one tile farthest from the hunter. Sumatra snakeheads fleeing an otter by a marsh all took
+    // the same dead-end corner and piled up there, 100 per 1000 samples on seed 13, 2026-11-24)
+    const kin = swim ? this.agents.filter(o => o !== a && o.sp === a.sp && !o.leaving && Math.abs(o.x - a.x) < 3 && Math.abs(o.y - a.y) < 3) : null;
     // Only evaluate neighbouring tiles after a failed catch: no extra pathfinding
     // or searches in the ordinary per-frame movement loop.
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
@@ -124,7 +129,8 @@ export class WildlifeIntent {
       if (swim && !swim(w.idx(x, y), j)) continue;
       const d = (x + dx + 0.5 - predator.x) ** 2 + (y + dy + 0.5 - predator.y) ** 2;
       if (d <= distance) continue;
-      const s = d + preyCover(w, { sp: a.sp, x: x + dx, y: y + dy }, pd) * 2;
+      let s = d + preyCover(w, { sp: a.sp, x: x + dx, y: y + dy }, pd) * 2;
+      if (kin) for (const o of kin) if (w.idx(Math.floor(o.x), Math.floor(o.y)) === j || o.state === 'walk' && o.path?.[0] === j) s -= 2.5;
       if (s > score) { best = j; score = s; }
     }
     if (best < 0) return;
@@ -212,6 +218,10 @@ export class WildlifeIntent {
     // send it along the boundary, its wear makes a trail there, and the herds keep to the edge)
     const ring = j => { const x = j % W, y = (j / W) | 0; return x === 0 || y === 0 || x === W - 1 || y === w.h - 1; };
     const corridor = j => travelCorridor(w, a, def, map, j) && (a.leaving || a.move !== 'ground' || !ring(j));
+    // (a river fish roams only through water it can swim, as its other routes do: swim-routes.js.
+    // Without it, Sumatra snakeheads set off across a marsh's dry lip, pressed there, and set off
+    // the same way again, piling up at it: 324 per 1000 samples on seed 13, 2026-11-24)
+    const swim = swimRoute(this, a, def);
     stampN++;
     let head = 0, tail = 0, pick = -1, seen = 0;
     const dest = resume ?? -1;
@@ -231,7 +241,7 @@ export class WildlifeIntent {
         const xx = x + dx, yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= w.h) continue;
         const j = yy * W + xx;
-        if (stamp[j] === stampN || !corridor(j) || cutsCorner(W, x, y, dx, dy, corridor)) continue;
+        if (stamp[j] === stampN || !corridor(j) || cutsCorner(W, x, y, dx, dy, corridor) || (swim && !swim(i, j))) continue;
         stamp[j] = stampN; parent[j] = i; depth[j] = Math.min(32000, depth[i] + 1); bfsQ[tail++] = j;
       }
     }
@@ -255,7 +265,7 @@ export class WildlifeIntent {
     const keep = Math.max(2, territory(def) * 1.5);
     const minD = Math.round(clamp(2 + Math.sqrt(def.hr) * 1.2, 4, 12)), maxD = minD * 3;
     const kin = this.agents.filter(o => o !== a && o.sp === a.sp && !o.leaving && Math.abs(o.x - a.x) < maxD + keep && Math.abs(o.y - a.y) < maxD + keep);
-    const corridor = j => travelCorridor(w, a, def, map, j);
+    const corridor = j => travelCorridor(w, a, def, map, j), swim = swimRoute(this, a, def); // (as roam)
     stampN++;
     let head = 0, tail = 0, pick = -1, bs = 0;
     bfsQ[tail++] = start; stamp[start] = stampN; parent[start] = -1; depth[start] = 0;
@@ -275,7 +285,7 @@ export class WildlifeIntent {
         const xx = x + dx, yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= w.h) continue;
         const j = yy * W + xx;
-        if (stamp[j] === stampN || !corridor(j) || cutsCorner(W, x, y, dx, dy, corridor)) continue;
+        if (stamp[j] === stampN || !corridor(j) || cutsCorner(W, x, y, dx, dy, corridor) || (swim && !swim(i, j))) continue;
         stamp[j] = stampN; parent[j] = i; depth[j] = depth[i] + 1; bfsQ[tail++] = j;
       }
     }
@@ -294,6 +304,7 @@ export class WildlifeIntent {
     a.fruitMeal = null; a.fruitGoal = null;
     const w = this.game.world;
     const map = this.suit[a.sp];
+    if (wriggleOn(this, a, def)) return; // (a stranded fish part way over the ground goes on: fish-wriggle.js)
     // a migrant left treading water in the river (a crocodile, a scare): swim on to the far bank
     // (before anything else: in the water there's no stopping to stare at a crocodile)
     if (def.crossing && !a.leaving && inRiver(this, a)) {
@@ -469,6 +480,8 @@ export class WildlifeIntent {
         stamp[j] = stampN; parent[j] = i; bfsQ[tail++] = j;
       }
     }
+    // (an air-breather left in a puddle wriggles over wet ground to bigger water: fish-wriggle.js)
+    if (swim && wriggleOut(this, a, def, bfsQ, tail, i => stamp[i] === stampN, swim)) return;
     // nothing better around: now and then it potters off a few steps anyway (foraging, sniffing
     // about), rather than standing on one tile or shuttling between the same two
     // (a river fish always does: it holds in the current a while, then noses on, rather than
@@ -492,7 +505,9 @@ export class WildlifeIntent {
         a.patrolDir = [a.patrolDir[0] * c - a.patrolDir[1] * sn, a.patrolDir[0] * sn + a.patrolDir[1] * c];
       }
     }
-    if (best === start) { a.wait = riverFish ? 0.15 + simRandom() * 0.35 : 1 + simRandom() * 3; return; }
+    // (a river fish holding where it now and then lets the oldest of its recent places go: with every
+    // pool it can reach among its last four, a trout in a plunge pool held there for good, 2026-11-23)
+    if (best === start) { if (riverFish && simRandom() < 0.1) recent.shift(); a.wait = riverFish ? 0.15 + simRandom() * 0.35 : 1 + simRandom() * 3; return; }
     const path = [];
     for (let i = best; i !== start && i >= 0; i = parent[i]) path.push(i);
     a.path = path; a.state = 'walk';

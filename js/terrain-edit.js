@@ -16,6 +16,7 @@ import { forgetSwimRoutes } from './sim/swim-routes.js';
 import { T, isWater, clamp } from './config.js';
 import { WATER_FILL } from './sim/waterline.js';
 import { CHANNEL_STEP, CHANNEL_CUT } from './maps/landform.js';
+import { shoreHeights } from './maps/water-shape.js';
 
 export const LAND = 0, BODY = 1, CHANNEL = 2, BUILDING = 3;
 const C4 = [[0, 0], [1, 0], [1, 1], [0, 1]]; // (a tile's corners)
@@ -104,6 +105,36 @@ export function terrainEdit(w, tiles, want, { self = null, join = null, shore = 
 }
 
 // ---------------------------------------------------------------- the tools' edits
+
+// After a stroke that changed the ground or the water (`tiles`), the shores within SHORE_REACH of it
+// are shaped again so the waterline follows a smooth outline of the water (shoreHeights, 0054). Its
+// rules are its own (it never lowers a bed, never moves the corner a water tile's level stands on, a
+// building's, a road's, nor those of `hold`: a Fill & grade pad keeps its level; it lifts the outer
+// corners only of water the stroke made, never other water's, 0048), so every tile in reach counts as
+// the edit's own here. Returns the tiles whose corners moved (to redraw).
+export const SHORE_REACH = 3;
+export function shapeShoreNear(w, tiles, hold = null) {
+  if (!tiles.length) return [];
+  const W1 = w.w + 1, close = new Uint8Array(W1 * (w.h + 1));
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const i of tiles) {
+    const [x, y] = xy(w, i);
+    x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+    for (let vy = Math.max(0, y - SHORE_REACH); vy <= Math.min(w.h, y + 1 + SHORE_REACH); vy++)
+      for (let vx = Math.max(0, x - SHORE_REACH); vx <= Math.min(w.w, x + 1 + SHORE_REACH); vx++) close[vy * W1 + vx] = 1;
+  }
+  const box = [x0 - SHORE_REACH, y0 - SHORE_REACH, x1 + SHORE_REACH + 1, y1 + SHORE_REACH + 1];
+  const out = shoreHeights(w, box, { near: (vx, vy) => close[vy * W1 + vx] === 1, hold: hold && new Set(hold), edit: true, own: new Set(tiles) });
+  if (!out.length) return [];
+  const want = new Map(), area = new Set();
+  for (let k = 0; k < out.length; k += 3) {
+    want.set(out[k + 1] * W1 + out[k], out[k + 2]);
+    for (const [ox, oy] of ROUND) if (w.inb(out[k] + ox, out[k + 1] + oy)) area.add(w.idx(out[k] + ox, out[k + 1] + oy));
+  }
+  const moved = [...area];
+  terrainEdit(w, moved, (vx, vy, h) => want.get(vy * W1 + vx) ?? h, { self: () => true });
+  return moved;
+}
 
 // Raise or Lower ground: the tile's corners go up or down by half of `amt` (40 levels: above the
 // highest hill any map has, 0044). Beside water or a building only the land corners move. On water,
@@ -286,4 +317,12 @@ export function levelBuilding(w, s) {
   for (let y = s.y; y <= s.y + s.h; y++) for (let x = s.x; x <= s.x + s.w; x++) { sum += w.vert(x, y); n++; }
   for (let y = s.y; y < s.y + s.h; y++) for (let x = s.x; x < s.x + s.w; x++) tiles.push(w.idx(x, y));
   return terrainEdit(w, tiles, () => sum / n);
+}
+
+// A change tried and taken back (a flood's cut, sim/creek-cutoff.js): run `fn`, read its answer, and
+// put the heights, terrain and dug-creek marks back as they were. Returns what `fn` returned.
+export function trialEdit(w, fn) {
+  const vh = w.vh.slice(), terrain = w.terrain.slice(), dug = w.dugBed.slice(), hv = w.hv, dirty = w.heightDirty;
+  try { return fn(); }
+  finally { w.vh.set(vh); w.terrain.set(terrain); w.dugBed.set(dug); w.hv = hv; w.heightDirty = dirty; forgetSwimRoutes(w); }
 }

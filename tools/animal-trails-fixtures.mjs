@@ -20,3 +20,12 @@ export function runTrailDays(g,days=100){
  for(let day=0;day<days;day++){g.wildlife.daily();for(let k=0;k<20;k++)g.wildlife.update(.05);g.day++;if(day===49)g.wildlife.load(JSON.parse(JSON.stringify(g.wildlife.serialize())));}
  return g;
 }
+// The run seed (for g.wildRng) among `seeds` whose herd wears the most drawn trail in `days`: any change
+// to how elk walk, or to the map's land under the fixture, reshuffles which seed wears a strong trail
+// (24 drew 29 samples, then 2 after 0054's shore pass; the median over 30 seeds stayed 13), so the
+// review page picks its own instead of a hand-picked one going stale.
+export function strongestTrailSeed(Game,seeds,days=220,threshold=0.09){
+ let best=seeds[0],most=-1;
+ for(const s of seeds){const {g}=createTrailFixture(Game);g.wildRng.setState(s);runTrailDays(g,days);let n=0;for(const v of g.world.trailDensity||[])if(v>threshold)n++;if(n>most){most=n;best=s;}}
+ return best;
+}

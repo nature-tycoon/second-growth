@@ -11,7 +11,8 @@ import { initLang } from './i18n.js';
 import { BIOMES } from './biome.js';
 import { sharedFarmAtBoot, startVisit, openError } from './ui/share.js';
 import { reloadIfStale, watchForNewVersion } from './fresh-version.js';
-import { IntroFilm, introWanted } from './ui/intro.js';
+import { IntroFilm, introBlocked } from './ui/intro.js';
+import { PerfNotices } from './ui/perf-notices.js';
 import './lang/es.js'; // the Spanish language pack (only used when a map is played in Spanish)
 
 const loading = document.getElementById('loading-screen');
@@ -78,7 +79,9 @@ async function boot() {
     initAnalytics();
     // A first visit plays the intro film (after analytics, so intro_started is sent) over the loading screen while the game loads underneath
     // (ui/intro.js); the farm waits for it and opens at the film's last frame.
-    const intro = !pending && !shared && !Game.hasSave() && introWanted(startMap) ? new IntroFilm({ first: true }) : null;
+    const fresh = !pending && !shared && !Game.hasSave(), introNot = fresh ? introBlocked(startMap) : 'visit';
+    if (fresh && introNot && introNot !== 'automated') track('intro_not_offered', { reason: introNot, map: startMap });
+    const intro = fresh && !introNot ? new IntroFilm({ first: true }) : null;
     const game = new Game();
     game.newGame(1987, 'free', 'standard', startMap, pending?.runSeed ?? Game.randomRunSeed());
     game.speed = 0; // paused until the player chooses Start or Continue
@@ -153,6 +156,13 @@ async function boot() {
     navigator.getBattery?.().then(b => { const upd = () => { onBattery = !b.charging; }; upd(); b.addEventListener('chargingchange', upd); }).catch(() => {});
     const targetFps = () => settings.fps === '60' ? 60 : settings.fps === '30' ? 30 : touch || onBattery ? 30 : 60;
     renderer.frameCap = () => ({ target_fps: targetFps(), on_battery: onBattery });
+    // (once ever each: the browser drawing without the graphics chip, and a slow spell on battery)
+    const notices = new PerfNotices({
+      settings, save: saveSettings, track, gpu: renderer.gpuName(), ua: navigator.userAgent, onBattery: () => onBattery,
+      notify: (text, extra) => game.notify(text, 'warn', null, extra),
+      shown: () => loaded && loading.classList.contains('done') && !ui.intro?.covering,
+      playing: () => game.speed > 0 && !renderer.contextLost,
+    });
     const frameErrors = new Set();
     const diagnostics = new URLSearchParams(location.search).get('perf') === '1'
       ? new PerformanceOverlay(game, renderer) : null;
@@ -164,7 +174,7 @@ async function boot() {
         ['simulation', dt => { if (!renderer.contextLost) game.update(dt); }],
         ['input', dt => input.update(dt)],
         ['render', dt => { if (!ui.intro?.covering) renderer.draw(game, ui.state, dt); }], // (not under the intro film)
-        ['interface', dt => ui.frame(dt)],
+        ['interface', dt => { ui.frame(dt); notices.frame(performance.now()); }],
       ],
       onError(error, phase) {
         if (phase === 'simulation') {

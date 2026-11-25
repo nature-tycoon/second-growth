@@ -4,15 +4,19 @@
 import { groundAt } from '../sim/waterline.js';
 import { LEVEL, clamp } from '../config.js';
 import { trait } from '../data/animal-kinds.js';
+import { runLevel } from '../sim/swim-routes.js';
 import { fishSnap } from './eating-pose.js';
 import { salmonLeap } from './actors-common.js';
 
 const SWIM_STRIDE = 0.7; // (body lengths a fish moves per beat of its tail at a cruise: about 0.6-0.8 in real fish)
+const WRIGGLE_BEAT = 3; // (over the ground a fish throws its body side to side much more for the way it makes: fish-wriggle.js)
 
 // (in its tile's water, the same depth the simulation keeps it in (swimDepth): down to
 // half way in the shallows, so it never sinks into the bank where the water thins out)
 export function riverFishHeight(c) {
-  const { w, a, def, st, mo, sc, k, frameDt, time, surf, ground } = c;
+  const { w, a, def, st, mo, sc, k, frameDt, time, ground } = c;
+  // (crossing a creek's riffle, in the running water the drawn sheet shows there, not on the bed)
+  const run = c.surf != null ? runLevel(w, a.x, a.y) : null, surf = run != null ? Math.max(c.surf, run * LEVEL) : c.surf;
   let y;
   const room = surf != null ? surf - groundAt(w, a.x, a.y) * LEVEL : 0; // (the ground on the drawn triangles)
   y = surf != null ? surf - Math.max(0, Math.min(0.05 + mo.sink * sc, room * 0.5)) : ground;
@@ -23,6 +27,11 @@ export function riverFishHeight(c) {
     const bed = surf - room - mo.bottom * sc;
     y = Math.max(bed, trait(def, 'bottomDweller') ? bed + 0.004 : Math.min(y, surf - 0.012 - mo.top * sc));
   }
+  // (an air-breather wriggling over the ground to the next water, out of water deep enough to
+  // cover it: laid on the ground, belly down, never half sunk in it; its body wave beats fast,
+  // tailBeat. Only while it crosses: fish-wriggle.js)
+  st.wriggle = !!a.wriggle && mo.top != null && (surf == null || room < (mo.top - mo.bottom) * sc);
+  if (st.wriggle) y = Math.max(y, ground - mo.bottom * sc + 0.003);
   // running salmon leap: every few seconds one arcs clear of the water, nose up then down,
   // only while it's making its way along the river: one holding in a pool or in the current
   // stays under (it decides between leaps, so a leap under way always finishes)
@@ -63,7 +72,7 @@ export function snapPose(c) {
 export function tailBeat(c) {
   const { a, st, mo, sc, dx, dz } = c;
   if (mo.swims) {
-    const beat = Math.min(0.5, Math.hypot(dx, dz)) / (SWIM_STRIDE * mo.len * sc) * Math.PI * 2 / 1.4;
+    const beat = Math.min(0.5, Math.hypot(dx, dz)) / (SWIM_STRIDE * mo.len * sc) * Math.PI * 2 / 1.4 * (st.wriggle ? WRIGGLE_BEAT : 1);
     const scull = Math.max(0, a.phase - (st.simPhase ?? a.phase)) * Math.PI * 0.4;
     st.swimPhase = ((st.swimPhase ?? a.id * 2.3) + Math.max(beat, scull)) % (Math.PI * 200); st.simPhase = a.phase;
   }

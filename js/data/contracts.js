@@ -372,7 +372,8 @@ export function assertAnimalSpec(a, path = 'animal') {
 }
 
 export function assertToolDefinition(t, catalog, path = 'tool') {
-  object(t, path); fields(t, path, keys('key name desc cat cost apply icon brush size costFor footprint species layer animal sub hint doneText fenceLine mapTool'));
+  object(t, path); fields(t, path, keys('key name desc cat cost apply icon brush size costFor footprint species layer animal sub hint doneText fenceLine mapTool course'));
+  optional(t, 'course', path, boolean);
   for (const k of ['key', 'name', 'desc']) text(t[k], `${path}.${k}`);
   choice(t.cat, `${path}.cat`, ['land', 'plants', 'features', 'remove', 'visitors', 'wildlife']);
   number(t.cost, `${path}.cost`); boolean(t.brush, `${path}.brush`); integer(t.size, `${path}.size`); fn(t.apply, `${path}.apply`);

@@ -10,6 +10,7 @@ import { isMaleVariant } from '../data/animals.js';
 import { isWater, lifeAge, DAYS_PER_YEAR } from '../config.js';
 import { inRut } from './cervid-groups.js';
 import { removeTree } from './plants.js';
+import { guarded } from './tree-guard.js';
 
 export const CELL = 4;
 const MEMORY = 45; // days the running average remembers
@@ -106,7 +107,7 @@ export function rubSapling(game, a, def, x, y) {
   const dx = Math.floor(rng() * 3) - 1, dy = Math.floor(rng() * 3) - 1;
   if (!w.inb(x + dx, y + dy)) return;
   const i = w.idx(x + dx, y + dy), p = game.catalog.plants[w.tree[i]];
-  if (!p || w.treeG[i] < RUB.lo || w.treeG[i] >= RUB.hi || isWater(w.terrain[i]) || (!p.conifer && rng() < 0.5)) return;
+  if (!p || w.treeG[i] < RUB.lo || w.treeG[i] >= RUB.hi || isWater(w.terrain[i]) || guarded(w, i) || (!p.conifer && rng() < 0.5)) return; // (a wire guard round it: sim/tree-guard.js)
   if ((w.treeG[i] -= RUB.hit) <= 0.02) removeTree(w, i, 'browse', rng, { deadwood: false });
   game.stats.saplingsRubbed = (game.stats.saplingsRubbed || 0) + 1;
 }

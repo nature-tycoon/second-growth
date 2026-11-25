@@ -115,4 +115,11 @@ export function slopePose(c) {
   const want = Math.max(-0.5, Math.min(0.5, Math.atan2(at(a.x + fx, a.y + fy) - at(a.x - fx, a.y - fy), 2 * L)));
   st.slope = st.slope == null ? want : st.slope + (want - st.slope) * Math.min(1, k * 2);
   c.posePitch += st.slope;
+  // (on ground that dips under its middle, the foot of a bank, the line pitched through its middle
+  // runs below the ground at the hooves: it stands on its hooves, the body lifted that much, never
+  // over a tenth of its height. An elephant idle below a Serengeti bank had a forefoot 0.04 in it, 2026-11-24)
+  if (c.ground != null && Math.abs(c.y - c.ground) < 1e-6) {
+    const s = Math.sin(st.slope) * L, lift = Math.max(at(a.x + fx, a.y + fy) - (c.y + s), at(a.x - fx, a.y - fy) - (c.y - s));
+    if (lift > 0) c.y += Math.min(lift, 0.1 * (st.h || mo.len * sc));
+  }
 }

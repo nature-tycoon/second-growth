@@ -150,8 +150,9 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
     };
     const treeStrokes = await plantStep('trees', 'mix_pioneer');
     // stuck in the meadow step: after 20 s without a stroke, a finger shows the drag
+    // (on the next game frame: up to 5 s for it, as one software-drawn frame took over the old fixed 300 ms in the full suite)
     await b.waitFor(`window.secondGrowth.ui.state.guide?.step==='meadow'`, 'the meadow step', 15000);
-    const hint = await b.evaluate(`(async()=>{ const G=window.secondGrowth.ui.state.guide; const before=G.hint; G.last-=21000; await new Promise(r=>setTimeout(r,300)); return { before, after:G.hint }; })()`);
+    const hint = await b.evaluate(`(async()=>{ const G=window.secondGrowth.ui.state.guide; const before=G.hint; G.last-=21000; for(let t=0;t<50&&!G.hint;t++)await new Promise(r=>setTimeout(r,100)); return { before, after:G.hint }; })()`);
     assert.ok(!hint.before && hint.after, 'after 20 s without a stroke, the drag hint shows');
     const d0 = await b.evaluate(`window.secondGrowth.game.day`);
     await b.evaluate(`(()=>{ const g=window.secondGrowth.game; window.sprout=null; const d0=g.day; const t=setInterval(()=>{ if(g.goalsDone.sprout){ window.sprout=g.day-d0; clearInterval(t); } },20); })()`);

@@ -39,6 +39,7 @@ function fixture(light, speed = 0) {
     syncStructures() {},
     terrain: { hv: w.hv, refreshWater() {}, refreshFlood() {},
       updateHeights() { this.hv = w.hv; },
+      reshape() { this.hv = w.hv; return { area: null, water: 'same' }; },
       updateSurface(g, patch) { paints.push(patch ? { ...patch } : null); },
       // (a day's repaint in four bands of rows, as the real terrain does within a world)
       dayBands() { return [0, 1, 2, 3].map(k => ({ x0: 0, y0: k * w.h / 4, x1: w.w - 1, y1: (k + 1) * w.h / 4 - 1, band: k })); },

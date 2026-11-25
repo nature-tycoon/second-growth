@@ -88,6 +88,11 @@ check('Renderer exports CPU fields, including the draw call, through perfSample 
     assert.equal(peek.cpu_submit_ms, 1.5, 'the gl.render share of render is reported on its own');
     assert.equal(r.perfSample().cpu_frames, 2); assert.equal(r.perfSample(false).cpu_frames, 0);
     assert.equal(peek.draw_calls, 2, 'existing performance payload remains available');
+    // the slower frames' processor work (75th percentile) and the sample's length in seconds
+    r.perf = { frames: 4, time: 2500, slow: 0 };
+    for (const work of [4, 6, 8, 20]) r.recordCpuFrame({ ...sample, work });
+    const w = r.perfSample(); assert.equal(w.work_p75_ms, 20); assert.equal(w.sample_s, 2.5);
+    assert.equal(r.perfSample(false).work_p75_ms, null, 'a new sample starts its work afresh');
   } finally { if (previousDocument === undefined) delete globalThis.document; else globalThis.document = previousDocument; }
 });
 check('Vegetation isolation hides view and shadow batches, retains scenery, and restores visibility after errors', () => {

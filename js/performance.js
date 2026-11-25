@@ -69,7 +69,7 @@ export function probeGpu() {
 // (Safari, some locked-down ones) report nothing.
 export class GpuTimer {
   constructor(gl, every = 15) {
-    this.gl = gl; this.every = every; this.n = 0; this.active = null; this.pending = [];
+    this.gl = gl; this.every = every; this.n = 0; this.active = null; this.pending = []; this.recent = [];
     try { this.ext = gl.getExtension?.('EXT_disjoint_timer_query_webgl2') || null; } catch (e) { this.ext = null; }
     this.stats = new FrameCpuStats(['frame'], 'gpu');
   }
@@ -90,7 +90,11 @@ export class GpuTimer {
     while (this.pending.length) {
       const q = this.pending[0];
       if (!disjoint && !gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE)) break;
-      if (!disjoint) this.stats.record({ timings: { frame: gl.getQueryParameter(q, gl.QUERY_RESULT) / 1e6 } });
+      if (!disjoint) {
+        const ms = gl.getQueryParameter(q, gl.QUERY_RESULT) / 1e6;
+        this.stats.record({ timings: { frame: ms } });
+        if (this.recent.length < 60) this.recent.push(ms); // (read and cleared by Renderer.autoQuality)
+      }
       gl.deleteQuery(q); this.pending.shift();
     }
   }

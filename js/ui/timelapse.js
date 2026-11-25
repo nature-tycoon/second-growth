@@ -11,12 +11,14 @@
 // At the end the clock goes back to normal speed, the animals come back, and one newcomer that
 // arrived meanwhile is shown for a few seconds before control comes back with one line on what changed.
 // Any click, tap, key or wheel ends it at once (and does nothing else). Money running out or a fire
-// reaching the planting stops it early and pauses.
+// reaching the planting stops it early and pauses, and so do beavers cutting a tree that was planted (once
+// per farm: the tree guards are offered there, while the rest can still be saved: sim/tree-guard.js).
 //
 // The ecology is unchanged: each day is the same day a headless run steps (Game.lapseDay).
 // timelapse_started { map, from: 'auto'|'menu', first_visit, year },
-// timelapse_watched { map, seconds, years, ended: 'done'|'input'|'money'|'fire'|'time', from, fps, days_per_s }.
+// timelapse_watched { map, seconds, years, ended: 'done'|'input'|'money'|'fire'|'guards'|'time', from, fps, days_per_s }.
 
+import { MOMENT_HOLD_MS } from '../sim/moments.js';
 import { DAYS_PER_YEAR, money } from '../config.js';
 import { track } from '../analytics.js';
 
@@ -69,7 +71,7 @@ export class Timelapse {
     this.frames = 0; this.slow = 0; this.lastFrame = this.t0;
     this.speedBefore = g.speed || 1;
     this.before = this.snapshot();
-    this.fireCheckAt = 0;
+    this.fireCheckAt = 0; this.guardsOffered = !!g.flags.guardOffered;
     // (after the guided planting, where its steps were shown: the cleared banks, the young trees, the meadow beside them)
     ui.watch.start({ lapse: { tiles: [...this.planted], at: from === 'auto' ? ui.opening.site : null }, from: 'timelapse' });
     ui.setSpeed(LAPSE_SPEED);
@@ -93,21 +95,29 @@ export class Timelapse {
     window.removeEventListener('keydown', this.input, true);
     window.removeEventListener('wheel', this.input, true);
     if (ui.watch.on) ui.watch.stop();
-    ui.setSpeed(ended === 'money' || ended === 'fire' ? 0 : this.speedBefore === LAPSE_SPEED ? 1 : this.speedBefore);
+    const halted = ended === 'money' || ended === 'fire' || ended === 'guards';
+    ui.setSpeed(halted ? 0 : this.speedBefore === LAPSE_SPEED ? 1 : this.speedBefore);
     const years = (g.day - this.day0) / DAYS_PER_YEAR;
     const secs = ((this.lapseEnd || performance.now()) - this.t0) / 1000;
     track('timelapse_watched', { map: g.map, seconds: Math.round((performance.now() - this.t0) / 1000), years: Math.round(years * 10) / 10, ended, from: this.from,
       fps: this.frames ? Math.round(this.frames / Math.max(0.1, secs)) : null, days_per_s: Math.round((g.day - this.day0) / Math.max(0.1, secs)) });
     this.lapseEnd = 0;
+    ui.momentHoldUntil = performance.now() + MOMENT_HOLD_MS; // (keystone moments wait: the player gets their farm back first)
     if (!say) return;
     if (ended === 'fire' && this.fireAt != null) {
       const w = g.world; ui.renderer.flyTo(this.fireAt % w.w + 0.5, Math.floor(this.fireAt / w.w) + 0.5, 1.4, 1.6);
       ui.toast({ text: 'Fire has reached what you planted. The time-lapse stopped here so you can act.', kind: 'fire', date: g.dateString(), life: 14000, loc: { x: this.fireAt % w.w + 0.5, y: Math.floor(this.fireAt / w.w) + 0.5 } });
+    } else if (ended === 'guards') {
+      const w = g.world, j = g.flags.guardAt;
+      if (j != null) ui.renderer.flyTo(j % w.w + 0.5, Math.floor(j / w.w) + 0.5, 1.4, 1.6);
+      ui.offerGuards(j ?? 0);
     } else if (ended === 'money') {
       ui.toast({ text: `Money is down to ${money(g.money)}. The time-lapse stopped here so you can look at the books.`, kind: 'warn', date: g.dateString(), life: 14000 });
     }
+    // (beavers cut a planted tree on the last day, in the newcomer's few seconds, or the frame it stopped for money or fire: offer them now)
+    if (ended !== 'guards' && !this.guardsOffered && g.flags.guardOffered) ui.offerGuards(g.flags.guardAt ?? 0);
     ui.toast({ text: this.summary(years), kind: 'goal', date: g.dateString(), life: 20000 }); // ('goal': the payoff isn't routine news, so notices arriving just after don't push it off a phone's two-toast stack)
-    if (ended !== 'fire' && ended !== 'money') ui.spotlightGoal(); // (what's next stands out for a few seconds: ui.js renderGoalTracker)
+    if (!halted) ui.spotlightGoal(); // (what's next stands out for a few seconds: ui.js renderGoalTracker)
   }
 
   // Each frame (ui.frame): the start on its own, then while it runs the clock and the reasons to stop.
@@ -131,6 +141,8 @@ export class Timelapse {
       const w = g.world;
       for (const i of this.planted) if (w.fire[i]) { this.fireAt = i; this.stop('fire'); return; }
     }
+    // (beavers have cut a tree the player planted: tree guards are offered here, while the rest can still be saved)
+    if (!this.guardsOffered && g.flags.guardOffered) { this.stop('guards'); return; }
   }
 
   // The years are up (or the time, on a slow machine): the clock back to normal speed and the animals drawn again, and one that has

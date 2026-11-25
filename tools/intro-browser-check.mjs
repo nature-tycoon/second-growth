@@ -2,7 +2,7 @@
 // a first visit plays it over the loading screen with the game paused underneath, and when it ends
 // fades into the farm at the film's last camera, with one line, then the fence prompt; a second visit
 // doesn't play it, and its start menu (Continue, New farm, Watch intro, Settings) replays it over the
-// paused farm (Esc skips); a skip (a tap) lands in the farm; the menu's "Watch intro" replays it (Skip);
+// paused farm (Esc skips); a skip (the Skip button; a tap elsewhere only pulses it) lands in the farm; the menu's "Watch intro" replays it (Skip);
 // a film that can't load is dropped without a word; on an upright phone it plays and the turn prompt
 // follows; a big screen gets the 1080p, and a missing 1080p falls back to the 720p. Checks run under webdriver, where the film is off unless the address asks (?intro=1).
 // The film is played at 8x speed so a run takes minutes, not hours (the check's server answers no
@@ -74,7 +74,7 @@ const key = (b, k, code) => b.send('Input.dispatchKeyEvent', { type: 'keyDown', 
     await key(b, 'Escape', 'Escape');
     await b.waitFor(`!document.getElementById('intro') && !!document.querySelector('.start-menu')`, 'Esc skips back to the start menu', 15000);
     const sk = await b.evaluate(ev('intro_skipped'));
-    assert.equal(sk.length, 1, 'intro_skipped'); assert.equal(sk[0].first, false); assert.ok(Number.isFinite(sk[0].second));
+    assert.equal(sk.length, 1, 'intro_skipped'); assert.equal(sk[0].first, false); assert.ok(Number.isFinite(sk[0].second)); assert.equal(sk[0].how, 'key');
     assert.equal(await b.evaluate('window.secondGrowth.game.speed'), 0, 'still paused at the start menu: nothing chosen yet');
     // Settings from the start menu comes back to it (closing it must not start an unchosen farm)
     await b.evaluate(`document.querySelector('.start-menu [data-a=settings]').click()`);
@@ -93,9 +93,14 @@ const key = (b, k, code) => b.send('Input.dispatchKeyEvent', { type: 'keyDown', 
     await b.navigate('/?ph&intro=1');
     await b.waitFor(`!!document.querySelector('#intro.playing')`, 'the film starts playing', 60000);
     await pause(800);
+    // (a stray tap only pulses Skip: a skip must be meant)
     await b.evaluate(`document.getElementById('intro').click()`);
+    assert.equal((await b.evaluate(ev('intro_skipped'))).length, 0, 'a tap on the film does not skip');
+    assert.ok(await b.evaluate(`document.querySelector('.intro-skip').classList.contains('nudge') && !!document.getElementById('intro')`), 'a tap pulses Skip');
+    await b.evaluate(`document.querySelector('.intro-skip').click()`);
     const sk = await b.evaluate(ev('intro_skipped'));
-    assert.equal(sk.length, 1, 'a tap skips'); assert.equal(sk[0].first, true); assert.ok(sk[0].second >= 0, `skipped at ${sk[0].second} s`);
+    assert.equal(sk.length, 1, 'Skip skips'); assert.equal(sk[0].first, true); assert.ok(sk[0].second >= 0, `skipped at ${sk[0].second} s`);
+    assert.deepEqual([sk[0].how, sk[0].taps], ['button', 1], 'intro_skipped says how and counts the stray tap');
     await b.waitFor(booted + ` && !document.getElementById('intro')`, 'the farm after a skip');
     await b.waitFor(fencePrompt, 'the fence prompt after a skip', 30000);
     assert.equal(await b.evaluate(`window.secondGrowth.game.flags.opening?.stage`), 'fence');
@@ -122,6 +127,8 @@ const key = (b, k, code) => b.send('Input.dispatchKeyEvent', { type: 'keyDown', 
     await b.waitFor(`!document.getElementById('intro')`, 'the missing film is dropped', 15000);
     await b.waitFor(fencePrompt, 'the fence prompt as usual', 30000);
     assert.equal((await b.evaluate(ev('intro_started'))).length, 0, 'no intro_started for a film that never played');
+    const failed = await b.evaluate(ev('intro_failed'));
+    assert.equal(failed.length, 1, 'intro_failed once'); assert.ok(['error', 'no_source', 'not_ready'].includes(failed[0].reason), `intro_failed reason ${failed[0].reason}`);
     b.assertHealthy();
   } finally { await b.close(); }
 }

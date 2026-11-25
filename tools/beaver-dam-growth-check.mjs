@@ -17,7 +17,7 @@ const { mulberry32 } = await import('../js/rng.js');
 let checks = 0;
 const check = (name, fn) => { fn(); checks++; console.log('PASS ' + name); };
 const farm = () => { Math.random = mulberry32(1987); const g = new Game(); g.newGame(1987, 'free', 'standard', 'pnw'); g.autosave = false; return g; };
-const GOOD = [54, 46]; // (a slow stretch of Hollis Farm's creek: beaver-pond-check)
+const GOOD = [60, 45]; // (a slow stretch of Hollis Farm's creek: beaver-pond-check)
 const damOf = (g, site) => g.water.basins.find(b => b.kind === 'dam' && b.site === site);
 const pondTiles = (g, b) => b.cells.filter(v => g.world.terrain[v.i] === T.POND).length;
 const rain = (g, days) => { g.weather = 'rain'; for (let k = 0; k < days; k++) g.water.step(g); g.weather = 'clear'; };

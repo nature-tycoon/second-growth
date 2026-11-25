@@ -163,3 +163,29 @@ Jacob (RTX 5070 laptop, Windows, Chrome, Sharp) found Hollis steadily laggier as
 Still open: the GPU at play zoom over a full forest (16 ms on the M5 at Retina High, 4M triangles: mid-detail tree models at zoom 0.7), and zoom-out frames still pick every plant again.
 
 **Hybrid graphics.** The game can tell which chip it got (`renderer.gpuName()`, e.g. `ANGLE (Intel, Intel(R) Arc(TM) Graphics ...)` vs `ANGLE (NVIDIA, ... RTX 5070 Laptop GPU ...)`), but not that a faster one exists. The context already asks for `powerPreference: 'high-performance'`, which Chrome on Windows may ignore. A hint is worthwhile only when the frame rate is low and the renderer is Intel/AMD integrated on Windows: "if your laptop has a separate graphics card, set Chrome to High performance in Windows Graphics settings". `game_loaded` already records `gpu`, so PostHog can show how many players on Windows run on integrated chips before building it. Not built.
+
+## Land edits, 2026-11-23: every height change rebuilds the whole map
+
+Measured dragging the creek tool on PNW (fast Mac, headless Chrome with the GPU): each dug tile bumps
+`w.hv`, and `Scene.refreshWorld` then runs `Terrain.updateHeights` for the whole map (~30 ms JS:
+positions and normals of every drawn tile, skirt, line, `buildWater` ~20 ms, overlay) and a whole-map
+`updateSurface` (~12 ms; a patch is refused once the heights changed). That was 50-90 ms for every
+frame of the drag. Stopgap (ideas batch phone-creeks-fish s2): during a creek stroke the rebuild waits
+three times its last cost (`creekStroke`, scene.js); 11 rebuilds in a 14-tile drag fell to 4, and the
+stroke shows at once as the brush preview. Raise/Lower still rebuild every frame (the brush aims at
+the world's heights, so a held mesh would slide the brush off the cursor).
+
+**Patch redraw (s7, same batch, 2026-11-24).** `Terrain.reshape` redraws only the ground round the
+corners that changed, and the water only near water; output byte-identical to a whole redraw
+(`terrain-patch-check`). In node: a drag frame of any land tool 1-4 ms against a whole rebuild of 44-119
+ms; the end of a stroke away from water costs nothing more. **Still open**: near water, the end of the
+stroke (and a paced mid-drag frame) still rebuilds the water mesh whole, 15-85 ms (cold the first time a
+new stretch is drawn): riverbank stones re-scattered (~24% of it), the current's coordinates
+(`flowCoords`, ~16%), the ribbon (~7%). An incremental water mesh would remove it.
+
+**Water patch (s11, same batch, 2026-11-25): done.** The water redraws only what an edit reaches
+(`js/render3d/water-build.js`, decision 0048): 1.6-4.7 ms against a whole water build of 6.6-15 ms (itself
+down from 8-25), byte-identical (`terrain-patch-check`'s fuzz). What's left of a patch is mostly whole by
+choice: the riverbanks' fingerprints and instanced meshes (~1-2.5 ms), the channel flow field (~1-1.5 ms).
+Since the drag pacing waits three times the last water cost, the water now follows a Raise/Lower drag
+nearly every frame on a desktop.

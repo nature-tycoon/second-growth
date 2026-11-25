@@ -172,10 +172,15 @@ export function homeWater(wl, a, def) {
 // How long between drinks: a water trip (there and back, plus the drink) may take only the
 // species' share of the animal's time. Far water means rarer, not endless, trips.
 export function drinkEvery(wl, a, def) {
-  const base = def.drinkEvery ?? 5 + (a.id % 5), h = a.home, w = wl.game.world;
+  // (a follower in a herd that lives in its water, move 'semi', holds no home of its own: it drinks on
+  // its leader's home's pace, or a hippo lying in its pool sips at the bank beside it every few days.
+  // A walking herd's followers keep their own pace, so they drink when the herd reaches a bank:
+  // 2026-11-24, ideas phone-creeks-fish s5b)
+  const lead = !a.home && a.herdOf != null && def.move === 'semi' ? wl.ids?.get(a.herdOf) : null, owner = lead?.home ? lead : a;
+  const base = def.drinkEvery ?? 5 + (a.id % 5), h = owner.home, w = wl.game.world;
   const drink = def.familyHerd ? 1.2 : 3.5, share = def.behavior.water?.share ?? 0.08;
   if (def.move === 'fly') return Math.max(base, drink / share); // (a flight to water is quick; the drink is what takes time)
-  if (!h || homeWater(wl, a, def) < 0) return base;
+  if (!h || homeWater(wl, owner, def) < 0) return base;
   const travel = dist(w, h.center, h.water) / Math.max(0.2, travelSpeed(def));
   return Math.max(base, (2 * travel + drink) / share);
 }

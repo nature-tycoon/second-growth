@@ -8,13 +8,15 @@ import { Game } from '../js/game.js';
 import { Terrain,buildAtlas } from '../js/render3d/terrain.js';
 import { Flora } from '../js/render3d/flora.js';
 import { Actors } from '../js/render3d/actors.js';
-import { createTrailFixture,runTrailDays } from './animal-trails-fixtures.mjs';
+import { createTrailFixture,runTrailDays,strongestTrailSeed } from './animal-trails-fixtures.mjs';
 import { snow } from '../js/render3d/snow.js';
-// (the herd's run seed: the elk draw from game.wildRng, not Math.random, and this one wears a trail
-// across about 150 tiles in 220 days; most runs wear 30-100, too faint to judge the drawing by.
-// Any change to how elk walk reshuffles which seed does: re-pick by counting trailDensity tiles
-// over seeds (the old 11*7919 dropped to 90 tiles with e5a1a53's steering change))
-const {g}=createTrailFixture(Game);g.wildRng.setState(24*7919);runTrailDays(g,220);
+import { TRAIL_THRESHOLD } from '../js/data/animal-trails.js';
+// (the herd's run seed: the elk draw from game.wildRng, not Math.random. Most runs wear a faint trail,
+// too faint to judge the drawing by, and any change to how elk walk or to the land under the fixture
+// reshuffles which seed wears a strong one (24*7919, picked by hand, fell to 2 drawn samples after
+// 0054). So the page runs a few seeds and keeps the one that wears the most drawn trail)
+const seed=strongestTrailSeed(Game,Array.from({length:30},(_,k)=>(k+1)*7919),220,TRAIL_THRESHOLD);
+const {g}=createTrailFixture(Game);g.wildRng.setState(seed);runTrailDays(g,220);
 g.speed=0;g.weather='clear';g.snow=0;snow.uSnow.value=0;
 const w=g.world,canvas=document.querySelector('canvas'),gl=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});
 gl.setSize(innerWidth,innerHeight-76);gl.outputColorSpace=THREE.SRGBColorSpace;gl.toneMapping=THREE.NeutralToneMapping;

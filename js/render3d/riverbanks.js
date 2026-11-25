@@ -29,9 +29,17 @@ export function bankAllowed(world, border, terrainAt, x, z) {
 export function bankDetails(world, border, cells, waterAt, terrainAt, underwater = false, month = 2) {
   const out = { stones: [], grasses: [], wood: [] };
   if (underwater) return out;
+  for (const [x, z] of cells) cellDetails(world, border, x, z, waterAt, terrainAt, month, out);
+  return out;
+}
+
+// One bank tile's stones, sedge and driftwood, added to out. It reads the water and the ground at its own
+// corners and the tiles round it, their terrain, buildings and features, its own planting and the trees
+// round it (Riverbanks.refresh fingerprints all but the water and the ground).
+export function cellDetails(world, border, x, z, waterAt, terrainAt, month, out) {
   const groundAt = (x, z) => surfaceHeight((xx, zz) => world.vert(xx, zz) * LEVEL, x, z);
-  for (const [x, z] of cells) {
-    if (!bankAllowed(world, border, terrainAt, x, z)) continue;
+  {
+    if (!bankAllowed(world, border, terrainAt, x, z)) return;
     // a marsh is a sheet of sedge and mud, not a gravel bar: no stones or driftwood in it or on its edge
     const marshy = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => terrainAt(x + dx, z + dz) === T.MARSH);
     const i = world.inb(x, z) ? world.idx(x, z) : -1, bi = i < 0 ? border.bi(x, z) : -1;
@@ -64,28 +72,30 @@ export function bankDetails(world, border, cells, waterAt, terrainAt, underwater
       }
     }
     // Short washed-up branches, sparse and restricted to wooded banks.
-    if (marshy || hash2(x, z, 503) > .045) continue;
+    if (marshy || hash2(x, z, 503) > .045) return;
     let wooded = false;
     for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
       const xx = x + dx, zz = z + dz, inside = world.inb(xx, zz);
       const j = inside ? world.idx(xx, zz) : border.bi(xx, zz), s = inside ? world : border;
       if (j >= 0 && s.tree[j] && (s.treeG[j] || (inside ? 0 : .9)) > .55) wooded = true;
     }
-    if (!wooded) continue;
+    if (!wooded) return;
     const px = x + .5, pz = z + .5, water = waterAt(px, pz), ground = groundAt(px, pz);
-    if (!Number.isFinite(water) || ground - water < -.015 || ground - water > .14) continue;
+    if (!Number.isFinite(water) || ground - water < -.015 || ground - water > .14) return;
     const angle = hash2(x, z, 504) * Math.PI * 2, length = .35 + hash2(x, z, 505) * .38;
     const dx = Math.cos(angle) * length / 2, dz = Math.sin(angle) * length / 2;
     const ends = [[px - dx, pz - dz], [px + dx, pz + dz]];
     if (ends.some(([xx, zz]) => !bankAllowed(world, border, terrainAt, Math.floor(xx), Math.floor(zz))
-      || !Number.isFinite(waterAt(xx, zz)) || groundAt(xx, zz) - waterAt(xx, zz) < -.03)) continue;
+      || !Number.isFinite(waterAt(xx, zz)) || groundAt(xx, zz) - waterAt(xx, zz) < -.03)) return;
     const slope = groundAt(...ends[1]) - groundAt(...ends[0]);
-    if (Math.abs(slope) > .12) continue;
+    if (Math.abs(slope) > .12) return;
     out.wood.push({ x: px, y: (groundAt(...ends[0]) + groundAt(...ends[1])) / 2 + .02,
       z: pz, angle, length, slope });
   }
-  return out;
 }
+
+// (a float's bits, for the per-cell fingerprints: Riverbanks.refresh)
+const F64 = new Float64Array(1), U32 = new Uint32Array(F64.buffer);
 
 function driftwoodGeometry() {
   const log = prep(new THREE.CylinderGeometry(.028, .038, 1, 6)).rotateZ(Math.PI / 2);
@@ -105,36 +115,67 @@ export class Riverbanks {
     this.materials = this.geometries.map((_, k) => withClouds(withSnowTops(
       new THREE.MeshLambertMaterial({ vertexColors: true, side: k === 1 ? THREE.DoubleSide : THREE.FrontSide }), k === 1 ? 1.2 : .8)));
   }
-  bind(world, border, cells, waterAt, terrainAt, underwater) {
+  // redo: null to scatter every cell again (a whole water build); else which cells the water or ground
+  // changed under (a patch, water-build.js), the others kept unless what they read changed
+  bind(world, border, cells, waterAt, terrainAt, underwater, redo = null) {
+    if (world !== this.world) this.memo = null;
     this.world = world; this.border = border; this.cells = cells;
     this.waterAt = waterAt; this.terrainAt = terrainAt; this.underwater = underwater;
-    this.key = null; this.refresh();
+    this.redo = redo || (() => true); this.key = null; this.refresh(); this.redo = null;
+  }
+  // Each cell's details, kept from the last scatter where neither its water nor what it reads changed.
+  scatter(month) {
+    const out = { stones: [], grasses: [], wood: [] }, memo = new Map(), was = this.memo;
+    if (!this.underwater) for (let c = 0; c < this.cells.length; c++) {
+      const [x, z] = this.cells[c], id = (z + 1024) * 4096 + x + 1024, h = this.cellH[c];
+      let m = was?.get(id);
+      if (!m || m.h !== h || this.redo?.(x, z)) {
+        m = { h, d: { stones: [], grasses: [], wood: [] } };
+        cellDetails(this.world, this.border, x, z, this.waterAt, this.terrainAt, month, m.d);
+      }
+      memo.set(id, m);
+      for (const p of m.d.stones) out.stones.push(p);
+      for (const p of m.d.grasses) out.grasses.push(p);
+      for (const p of m.d.wood) out.wood.push(p);
+    }
+    this.memo = memo;
+    return out;
   }
   refresh(month = this.month ?? 2) {
     this.version++;
     this.month = month;
     // Only the bank tiles' planting and feature changes require re-scattering.
     // (checked on every ground repaint, so it allocates nothing per tile)
-    let key = 2166136261 ^ month;
-    const mix = n => { key = Math.imul(key ^ n, 16777619) >>> 0; };
-    for (const [x, z] of this.cells || []) {
-      const inside = this.world.inb(x, z), i = inside ? this.world.idx(x, z) : this.border.bi(x, z);
-      const source = inside ? this.world : this.border;
-      if (i < 0) continue;
-      mix(this.terrainAt(x, z)); mix(inside ? this.world.feature[i] : 0); mix(inside ? this.world.struct[i] : -1);
-      mix(source.ground[i]); mix(inside ? Math.round(this.world.groundG[i] * 16) : 16);
+    // Each cell's own fingerprint takes the same values unrounded (cellH): a cell is scattered again only
+    // where what it reads changed (scatter), so it's what scattering every cell would give.
+    let key = 2166136261 ^ month, h = 0;
+    const mix = n => { key = Math.imul(key ^ n, 16777619) >>> 0; h = Math.imul(h ^ n, 16777619) >>> 0; };
+    const mixH = n => { h = Math.imul(h ^ n, 16777619) >>> 0; };
+    const mixR = (v, k) => { key = Math.imul(key ^ Math.round(v * 16), 16777619) >>> 0; F64[0] = v; mixH(U32[0]); mixH(U32[1]); };
+    const cells = this.cells || [];
+    if (!this.cellH || this.cellH.length < cells.length) this.cellH = new Uint32Array(cells.length + 256);
+    const H = this.cellH, world = this.world, border = this.border;
+    for (let c = 0; c < cells.length; c++) {
+      const [x, z] = cells[c];
+      h = 2166136261 ^ month;
+      const inside = world.inb(x, z), i = inside ? world.idx(x, z) : border.bi(x, z);
+      const source = inside ? world : border;
+      if (i < 0) { H[c] = 0; continue; }
+      mix(this.terrainAt(x, z)); mix(inside ? world.feature[i] : 0); mix(inside ? world.struct[i] : -1);
+      mix(source.ground[i]); if (inside) mixR(world.groundG[i]); else mix(16);
       for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
-        const xx = x + dx, zz = z + dz, within = this.world.inb(xx, zz);
-        const j = within ? this.world.idx(xx, zz) : this.border.bi(xx, zz), s = within ? this.world : this.border;
+        const xx = x + dx, zz = z + dz, within = world.inb(xx, zz);
+        const j = within ? world.idx(xx, zz) : border.bi(xx, zz), s = within ? world : border;
         if (j >= 0) {
-          mix(s.tree[j]); mix(Math.round(s.treeG[j] * 16)); mix(this.terrainAt(xx, zz));
-          mix(within ? this.world.feature[j] : 0); mix(within ? this.world.struct[j] : -1);
+          mix(s.tree[j]); mixR(s.treeG[j]); mix(this.terrainAt(xx, zz));
+          mix(within ? world.feature[j] : 0); mix(within ? world.struct[j] : -1);
         }
       }
+      H[c] = h;
     }
     if (key === this.key) return;
     this.key = key;
-    this.details = bankDetails(this.world, this.border, this.cells, this.waterAt, this.terrainAt, this.underwater, month);
+    this.details = this.scatter(month);
     this.clear();
     const matrix = new THREE.Matrix4(), q = new THREE.Quaternion(), pos = new THREE.Vector3(), scale = new THREE.Vector3();
     const color = new THREE.Color(), direction = new THREE.Vector3(), axis = new THREE.Vector3(1, 0, 0);

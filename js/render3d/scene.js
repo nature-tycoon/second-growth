@@ -135,6 +135,10 @@ export class Renderer {
     this.dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer });
     this.gl.debug.checkShaderErrors = CHECK_SHADERS;
+    // (the frame's triangle and draw counts add up every pass drawn in it, reset at the top of draw:
+    // three.js resets them in each render call, so the lens's and tree-card passes after the main
+    // view left perf_sample reading 0 triangles and 1-10 draws)
+    this.gl.info.autoReset = false;
     // (submit: the gl.render call alone, part of render. The rest of render is getting the frame
     // ready, plants above all, so a slow laptop shows which side of the hand-off holds it up.)
     this.cpuPerf = new FrameCpuStats([...CPU_STAGES, 'submit']);
@@ -218,11 +222,12 @@ export class Renderer {
     const fast = s.quality === 'fast';
     this.quality = s.quality; this.qualityChosen = !!s.qualityChosen;
     this.qualityAt = s.autoQualityAt || 0; this.upFailedAt = s.autoUpFailedAt || 0; // (see autoQuality)
+    this.slowHinted = !!s.fastHintAt;
     // (every setting comes through here, the volume sliders included: only a change to the
     // detail or shadows starts the automatic resolution over)
     const gfx = `${s.quality}|${s.shadows}`, fresh = gfx !== this.gfx;
     this.gfx = gfx;
-    if (fresh) { this.sun.castShadow = !!s.shadows; this.shadowsDropped = false; }
+    if (fresh) { this.sun.castShadow = !!s.shadows; this.shadowsDropped = false; this.chosenSlow = 0; } // (a new level gets its own minute before the Fast hint)
     // Fast: a smaller shadow map (it's redrawn every frame)
     const shadowRes = fast ? 1024 : 2048;
     if (this.sun.shadow.mapSize.x !== shadowRes) {
@@ -362,35 +367,64 @@ export class Renderer {
   // - Each step up is on trial for two minutes: slow spells in that time put it straight back,
   //   and it doesn't try again for a day. (Running slow later in the session, after a step up,
   //   drops it to Fast as usual and counts as a failed try too.)
-  // A frame rate held to 30 (Auto on battery, or the setting) never shows room, so it stays put.
+  // - A frame rate held to 30 (Auto on a laptop running on battery, or the setting) can't show 50, so there room is judged by the work itself: the slower frames' processor work and
+  //   the GPU's time both within 16 ms, half the 33 ms a frame has at 30, for the same minute.
+  //   Without a GPU timer that can't be judged, so it stays put, except on Apple chips (Safari's
+  //   included), where the GPU timer is ignored and the processor's work alone decides: under Chrome it reads 3-9 ms with
+  //   nothing drawn, so 10-16 ms where the chip's own work is 5-8 (fps-plan section 8), and a
+  //   reading over 16 now and then broke the minute in a row. The two-minute trial still undoes it.
+  // - On a screen of 1.5 pixels a point or less Sharp and Balanced draw the same picture, so the
+  //   step up from Fast goes straight to Sharp there.
+  // - A level the player chose is never changed. But if they chose Sharp or Balanced and it runs
+  //   under 20 frames a second for a minute in a row, it says once (ever: settings.fastHintAt)
+  //   that Fast would be smoother (onSlowChosen, ui.js). Phones too.
+  // (Goal, Cole 2026-11-22: as many players as possible at a sharp 30 frames a second;
+  // docs/ideas/2026-11-22-creeks-fps/fps-plan.md.)
   autoQuality(game) {
-    if (TOUCH || !this.onQuality || this.qualityChosen) return;
+    if (!this.onQuality) return;
+    if (this.qualityChosen ? this.quality === 'fast' || this.slowHinted || !this.onSlowChosen : TOUCH) return;
     const now = performance.now(), A = this.qWin;
     this.qStart ??= now;
-    if (!A || now - A.last > 3000) { this.qWin = { t0: now, last: now, gaps: [] }; return; }
+    const timer = this.gpuTimer;
+    if (!A || now - A.last > 3000) { this.qWin = { t0: now, last: now, gaps: [] }; this.qWork = []; if (timer) timer.recent = []; return; }
     A.gaps.push(now - A.last); A.last = now;
     if (now - A.t0 < 3000) return;
     this.qWin = { t0: now, last: now, gaps: [] };
+    const work = this.qWork || [], gpu = timer?.ext ? timer.recent : [];
+    this.qWork = []; if (timer) timer.recent = [];
     if (now - this.qStart < 8000) return;
     const g = A.gaps.sort((a, b) => a - b), fps = 1000 / Math.max(1, g[Math.floor(g.length * 0.75)]);
+    const p75 = v => v.length ? [...v].sort((a, b) => a - b)[Math.floor(v.length * 0.75)] : null;
+    const workMs = p75(work), gpuMs = p75(gpu);
+    this.qLast = { work_ms: workMs == null ? null : +workMs.toFixed(1), gpu_ms: gpuMs == null ? null : +gpuMs.toFixed(1) };
+    if (this.qualityChosen) {
+      this.chosenSlow = fps < 20 ? (this.chosenSlow || 0) + 1 : 0;
+      if (this.chosenSlow >= 20) { this.chosenSlow = 0; this.slowHinted = true; this.onSlowChosen(Math.round(fps), this.qLast); }
+      return;
+    }
     const trial = this.qTrial;
     if (trial) {
       this.qBad = fps < 26 ? (this.qBad || 0) + 1 : 0;
-      if (this.qBad >= 3) { this.qTrial = null; this.qBad = 0; this.qStart = null; this.onQuality(trial.from, Math.round(fps), 'undo'); }
+      if (this.qBad >= 3) { this.qTrial = null; this.qBad = 0; this.qStart = null; this.onQuality(trial.from, Math.round(fps), 'undo', this.qLast); }
       else if (now - trial.at > 120000) this.qTrial = null;
       return;
     }
     this.qSlow = fps < 20 && this.quality !== 'fast' ? (this.qSlow || 0) + 1 : 0;
-    if (this.qSlow >= 3) { this.qSlow = 0; this.qGood = 0; this.qStart = null; this.onQuality('fast', Math.round(fps), this.qRaised ? 'undo' : 'slow'); return; }
-    const up = { fast: 'balanced', balanced: 'high' }[this.quality];
-    const room = up && game?.speed > 0 && fps >= 50 && this.resScale >= 0.999 && !this.shadowsDropped;
+    if (this.qSlow >= 3) { this.qSlow = 0; this.qGood = 0; this.qStart = null; this.onQuality('fast', Math.round(fps), this.qRaised ? 'undo' : 'slow', this.qLast); return; }
+    const flat = (window.devicePixelRatio || 1) <= 1.5;
+    const up = { fast: flat ? 'high' : 'balanced', balanced: 'high' }[this.quality];
+    const capped = (this.frameCap?.().target_fps ?? 60) <= 30;
+    // (held to 30 and keeping up, with both sides of the frame done in half the time it has)
+    const apple = /\bApple\b/.test(this.gpuName() || '');
+    const roomy = fps >= 50 || (capped && fps >= 27 && workMs != null && workMs <= 16 && (apple || (gpuMs != null && gpuMs <= 16)));
+    const room = up && game?.speed > 0 && roomy && this.resScale >= 0.999 && !this.shadowsDropped;
     this.qGood = room ? (this.qGood || 0) + 1 : 0;
     const wall = Date.now();
     if (this.qGood >= 20 && wall - (this.qualityAt || 0) >= 180000 && wall - (this.upFailedAt || 0) >= 86400000) {
       this.qGood = 0; this.qStart = null;
       this.qTrial = { from: this.quality, at: now };
       this.qRaised = true;
-      this.onQuality(up, Math.round(fps), 'room');
+      this.onQuality(up, Math.round(fps), 'room', { ...this.qLast, capped, base_dpr: window.devicePixelRatio || 1, ...(capped && apple ? { gpu_ignored: true } : null) });
     }
   }
   setRes(sc) {
@@ -438,6 +472,18 @@ export class Renderer {
         }
       }
       if (!body) body = reach = Math.max(pose.h, pose.foot || 0, .12) * .6;
+      // the meal it holds or eats (a hawk's fish on a branch, a snake's catch: drawCatch in
+      // actors-common.js) is part of it for the lens: without this the bird showed through the
+      // leaves eating nothing (Cole, 2026-11-22)
+      const meal = pose.meal;
+      if (meal?.r > 0) {
+        const point = this.focusCorner ||= new THREE.Vector3(), r = meal.r;
+        point.set(meal.x, meal.y, meal.z).sub(focus.uFocus.value);
+        const along = point.dot(V), height = point.dot(U), across = Math.sqrt(Math.max(0, point.lengthSq() - along * along));
+        bottom = Math.min(bottom, height - r - .025); back = Math.min(back, along - r - .025); front = Math.max(front, along + r + .025);
+        body = Math.max(body, (across + r) / Math.max(.05, 1 - along * invD));
+        reach = Math.max(reach, point.length() + r);
+      }
       // the gap's core: the body's outline across the screen (its box's corners, a little inside them,
       // which a body rarely fills); and how far in front of it cover is seen through rather than
       // opened (look-through.js): its own size and a little more
@@ -941,6 +987,10 @@ export class Renderer {
     if (document.hidden) { this.cpuSkipNext = true; return; }
     if (this.cpuSkipNext) { this.cpuSkipNext = false; return; }
     this.cpuPerf.record({ timings: { ...sample.timings, submit: this.submitMs ?? 0 } });
+    // (each frame's processor work, for autoQuality's step-up test on a frame rate held to 30)
+    if (this.qWork && this.qWork.length < 600 && sample.work >= 0) this.qWork.push(sample.work);
+    // (and for perfSample's work_p75_ms, the slower frames' work in tenths of a millisecond)
+    if (sample.work >= 0) { const W = this.workBins ||= new Map(), bin = Math.round(sample.work * 10); W.set(bin, (W.get(bin) || 0) + 1); }
   }
   // How smoothly the game has been drawing since the last sample, and with what: for the analytics,
   // so we can see how real phones cope. reset = false peeks without starting a new window.
@@ -950,6 +1000,9 @@ export class Renderer {
       ...this.cpuPerf?.sample(reset),
       ...this.gpuTimer?.sample(reset),
       fps: P.time ? +(P.frames * 1000 / P.time).toFixed(1) : null,
+      // (seconds of drawing this sample covers, so shadow_redraws reads as a rate; the slower frames'
+      // processor work, the 16 ms test autoQuality makes for a frame rate held to 30)
+      sample_s: +(P.time / 1000).toFixed(1), work_p75_ms: this.workP75(),
       slow_frames_pct: P.frames ? Math.round(P.slow / P.frames * 100) : null,
       quality: this.quality ?? null, res_scale: +(this.resScale ?? 1).toFixed(2), pixel_ratio: +(this.dpr ?? 1).toFixed(2),
       shadows: !!this.sun.castShadow, shadows_dropped: !!this.shadowsDropped, far_models: this.flora?.view?.[0] === 3,
@@ -970,8 +1023,15 @@ export class Renderer {
       plant_shadow_batches: this.flora.plantShadows.stats.batches,
       shadow_redraws: this.shadowRedraws || 0,
     };
-    if (reset) { P.frames = 0; P.time = 0; P.slow = 0; this.shadowRedraws = 0; }
+    if (reset) { P.frames = 0; P.time = 0; P.slow = 0; this.shadowRedraws = 0; this.workBins = null; }
     return out;
+  }
+  workP75() {
+    const W = this.workBins; if (!W) return null;
+    let n = 0; for (const c of W.values()) n += c;
+    let count = 0;
+    for (const [bin, c] of [...W].sort((a, b) => a[0] - b[0])) { count += c; if (count > Math.floor(n * .75)) return bin / 10; }
+    return null;
   }
   // the graphics chip, e.g. "Adreno (TM) 610" or "Apple GPU": a better guide to a phone's power than its model
   gpuName() {
@@ -986,9 +1046,30 @@ export class Renderer {
   refreshWorld(game, swapped, now) {
     const w = this.world;
     let surface = false, flora = false;
-    if (w.hv !== this.terrain.hv) { this.terrain.updateHeights(); surface = flora = true; }
+    // Reshaped land redraws only the patch that moved (Terrain.reshape): the ground at once, so the
+    // brush stays on the cursor, and the water only if the edit is near it. While a brush stroke is
+    // dragged, a water rebuild waits until three times its last cost has passed, so the drag stays
+    // smooth; the creek stroke shows at once as the brush preview (input.js), and the water catches up
+    // as soon as the stroke ends (0054). Since the water redraws only its patch (water-build.js, 2-5 ms
+    // on a fast Mac, a whole one 7-15) that wait is over by the next frame on a desktop, so the new bank
+    // no longer shows under the old water while dragging; a slow phone still skips a frame or two.
+    const t0 = performance.now(), held = this.brushStroke && t0 - (this.heavyAt || 0) < 3 * (this.heavyMs || 0);
+    let heavy = false; // (this frame rebuilt the water or the whole map: timed to the end of the surface repaint below)
+    const edited = a => { this.editDirty = true; if (this.editArea === 'all') return; const e = this.editArea ||= { ...a }; e.x0 = Math.min(e.x0, a.x0); e.y0 = Math.min(e.y0, a.y0); e.x1 = Math.max(e.x1, a.x1); e.y1 = Math.max(e.y1, a.y1); };
+    // (a water rebuild moves the shore heights the ground's wet fringe reads: that patch repaints too)
+    const rebuildWater = () => { const was = this.terrain.water; this.terrain.refreshWater(); if (this.terrain.water !== was) { heavy = true; if (this.terrain.shoreMoved) edited(this.terrain.shoreMoved); } };
+    if (w.hv !== this.terrain.hv) {
+      const r = this.terrain.reshape(held);
+      flora = true; this.previewKey = null; // (the brush preview sits on the new ground too)
+      if (r === 'all') heavy = surface = true;
+      else {
+        if (r.area) edited(r.area);
+        if (r.water === 'built') heavy = true; else if (r.water === 'held') this.waterHeld = true;
+      }
+    }
+    if (this.waterHeld && !held) { this.waterHeld = false; rebuildWater(); }
     this.frameN = (this.frameN || 0) + 1;
-    if (game.day !== this.lastDay) { this.lastDay = game.day; this.dayDirty = this.frameN; flora = true; this.terrain.refreshWater(); this.terrain.refreshFlood(); }
+    if (game.day !== this.lastDay) { this.lastDay = game.day; this.dayDirty = this.frameN; flora = true; rebuildWater(); this.terrain.refreshFlood(); }
     else if (game.dayRun && this.dayDirty) this.dayDirty = this.frameN; // (and wait while the day is still being worked through: Game.update)
     // A new day repaints the ground and rebuilds the plants. They wait a frame or two so they don't
     // land in the same frame as the day's simulation and each other (a visible hitch), and at fast
@@ -1005,16 +1086,18 @@ export class Renderer {
     } else if (this.groundBands?.length && !this.editDirty) surface = true;
     if (surface && this.groundBands?.length) { patch = this.groundBands.shift(); band = true; }
     if (this.editDirty) {
+      if (held) this.waterHeld = true; else if (!heavy) rebuildWater();
       // (just the edited patch, unless something else this frame needs the whole map)
       if (!surface && this.editArea && this.editArea !== 'all') patch = this.editArea;
       else if (surface) { patch = null; band = false; this.groundBands = null; }
-      surface = flora = true; this.editDirty = false; this.editArea = null; this.terrain.refreshWater();
+      surface = flora = true; this.editDirty = false; this.editArea = null;
     }
     if (surface) {
       this.terrain.updateSurface(game, patch);
       if (!band || newDay) this.syncStructures(); // (buildings once a day, not once a band)
       this.lastSurface = now;
     }
+    if (heavy) { this.heavyAt = performance.now(); this.heavyMs = this.heavyAt - t0; }
     if (flora) this.floraPending = true;
     // Player edits must not wait for the growth cooldown or an idle surface frame: a continuous
     // stroke repaints ground every frame and used to prevent any plants from catching up.
@@ -1043,6 +1126,7 @@ export class Renderer {
       const ms = t - P.last; P.last = t;
       if (!document.hidden && ms > 0) { P.frames++; P.time += ms; if (ms > 34) P.slow++; } // (slower than 30 fps; a hidden tab's gap doesn't count, and a laptop's long stalls do)
     }
+    this.gl.info.reset(); // (see the constructor: one count for the whole frame)
     if (dt > 0) { this.autoResolution(); this.autoQuality(game); }
     const swapped = game.world !== this.world; // (a new world, or then-and-now's day-one farm: paint it all this frame)
     if (swapped) this.setWorld(game);
@@ -1253,8 +1337,11 @@ export class Renderer {
   updateOverlay(game, ui, now) {
     const mode = ui.clean ? 'none' : ui.overlay || 'none';
     if (mode === 'none') { if (this.overlayMode !== 'none') this.terrain.setOverlay(null); this.overlayMode = 'none'; return; }
-    if (mode === this.overlayMode && ui.overlaySpecies === this.overlaySpecies && ui.densitySpecies === this.densitySpecies && now - this.overlayAt < 800) return;
-    this.overlayMode = mode; this.overlaySpecies = ui.overlaySpecies; this.densitySpecies = ui.densitySpecies; this.overlayAt = now;
+    // (elevation colours come from the ground's heights, so they're redone as soon as it's reshaped)
+    // (flood risk reads the heights too: floodRisk costs about half a millisecond, so it follows an edit within 0.1 s, not up to 0.8)
+    const reshaped = (mode === 'elevation' || (mode === 'flood' && now - this.overlayAt > 100)) && this.overlayHv !== game.world.hv;
+    if (!reshaped && mode === this.overlayMode && ui.overlaySpecies === this.overlaySpecies && ui.densitySpecies === this.densitySpecies && now - this.overlayAt < 800) return;
+    this.overlayMode = mode; this.overlaySpecies = ui.overlaySpecies; this.densitySpecies = ui.densitySpecies; this.overlayAt = now; this.overlayHv = game.world.hv;
     const w = game.world, out = new Float32Array(w.n * 4);
     const suit = mode === 'species' && ui.overlaySpecies != null ? game.wildlife.suit[ui.overlaySpecies] : null;
     let hmin = Infinity, hmax = -Infinity;

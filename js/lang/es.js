@@ -129,6 +129,7 @@ addStrings({
   Snag: 'Árbol muerto', 'A standing dead tree. Woodpeckers carve it, then owls, bats and ducks move into the holes.': 'Un árbol muerto en pie. Los carpinteros le hacen huecos, y después llegan loras, lechuzas y murciélagos a vivir en ellos.',
   'Fallen log': 'Tronco caído', 'Basking spot for turtles, cover for wrens and newts, and a nursery for hemlock and huckleberry. Can go in ponds.': 'Lugar para asolearse de los garrobos, refugio de lagartijas e insectos, y buena tierra para que nazcan árboles. Se puede poner en lagunas.',
   'Rock pile': 'Montón de piedras', 'Sun-warmed shelter for snakes and lizards.': 'Refugio calientito al sol para culebras y garrobos.',
+  'Tree guard': 'Protector de árbol', "A wire cage round a young tree. Beavers can't fell it and deer and elk can't browse it, until it outgrows the cage in about 8 years and the cage comes off.": 'Una jaula de malla alrededor de un árbol joven. Los castores no lo pueden talar ni los venados comérselo, hasta que en unos 8 años crece más que la jaula y se le quita.',
   'Brush pile': 'Montón de ramas', 'Instant cover for rabbits and wrens while shrubs grow in. Rots into soil over a few years.': 'Refugio inmediato para conejos y pajaritos mientras crecen los arbustos. Se vuelve tierra en unos años.',
   'Nest box': 'Caja nido', 'Stand-in tree cavity for wood ducks and roosting bats until the forest grows old.': 'Un hueco de árbol de mientras, para loras, chocoyos y murciélagos, hasta que el bosque se haga viejo.',
   'Pull invasives': 'Arrancar invasoras', 'Controlled burn': 'Quema controlada', 'Clear vegetation': 'Limpiar vegetación',
@@ -173,6 +174,12 @@ addStrings({
   'Plowed field': 'Campo arado', 'Forest floor': 'Suelo del bosque', 'Structures & roads': 'Construcciones y caminos', Home: 'Casa',
 
   // ---------------------------------------------------------------- overlays
+  Land: 'Tierra', 'Turn the overlay off': 'Quitar la capa', 'Where animals are': 'Dónde están los animales',
+  'What grows where': 'Qué crece dónde', 'Hollows hold water, rises stay dry': 'Los bajos juntan agua, los altos quedan secos',
+  'Wet and dry ground': 'Suelo húmedo y seco', 'Worn out to rich': 'De cansada a rica', 'Shade under the trees': 'La sombra bajo los árboles',
+  'Where floodwater reaches': 'Hasta dónde llega la llena', 'Water fish can reach, and how clean': 'El agua que alcanzan los peces, y qué tan limpia',
+  'Every animal, right now': 'Todos los animales, ahora', 'Where one species could live': 'Dónde podría vivir una especie',
+  'Busy trails scare shy animals': 'Los senderos con gente asustan a los animales tímidos',
   'worn out': 'cansada', rich: 'rica', 'low (wetter)': 'bajo (más húmedo)', 'high (drier)': 'alto (más seco)', 'Sunlight at ground level': 'Luz del sol en el suelo',
   'deep shade': 'sombra fuerte', 'a little': 'poca', 'a lot': 'mucha', saturated: 'empapado',
   'Shy species avoid busy trails. Screening shrubs and viewing blinds help.': 'Las especies tímidas evitan los senderos con gente. Los arbustos y los escondites ayudan.',
@@ -219,7 +226,7 @@ addStrings({
 
   // ---------------------------------------------------------------- menu and settings
   'Field journal': 'Diario de campo', 'See through trees': 'Ver a través de los árboles', 'Show trees normally': 'Ver los árboles normal', 'Photo mode': 'Modo foto',
-  'Send feedback': 'Enviar opinión', 'How to play': 'Cómo jugar', 'Save game': 'Guardar partida', 'Start a new game (campaign or free play)': 'Empezar una partida nueva (campaña o juego libre)',
+  'Send feedback': 'Enviar opinión', 'Contact': 'Contacto', 'How to play': 'Cómo jugar', 'Save game': 'Guardar partida', 'Start a new game (campaign or free play)': 'Empezar una partida nueva (campaña o juego libre)',
   'Story mode (guided chapters)': 'Modo historia (capítulos guiados)', 'Story mode': 'Modo historia',
   'Other places to restore': 'Otros lugares para restaurar', 'Start here →': 'Empezar aquí →', 'Continue there ': 'Seguir allá ', 'See them': 'Verlos', 'Your farm at ': 'Tu finca, ',
   'Your seeds are in. Watch the new shoots fill in over the coming weeks; animals come to the food and cover they make.': 'Tus semillas ya están en la tierra. Mirá cómo crecen los brotes en las próximas semanas; los animales vienen por la comida y el refugio que dan.',
@@ -587,6 +594,7 @@ addPatterns([
     let out = `${head} Después de días de lluvia el agua cubrió ${n} cuadros de tierra baja.`;
     const soak = / Your wetlands soaked up about (\d+)% of it\./.exec(rest);
     out += soak ? ` Tus esteros y manglares absorbieron cerca del ${soak[1]}%.` : / More marshes and ponds would soak some of it up\./.test(rest) ? ' Más esteros y manglares absorberían parte del agua.' : '';
+    if (/ It also cut a new channel across a tight bend of the creek/.test(rest)) out += ' La llena también abrió un cauce nuevo a través de una curva cerrada de la quebrada, y el meandro viejo quedó como estero.';
     return out;
   }],
   [/^The floodwaters have gone down, leaving fresh silt\. (.+)$/, 'El agua de la llena bajó y dejó tierra nueva. $1'],

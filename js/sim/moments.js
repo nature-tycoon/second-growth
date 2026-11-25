@@ -169,6 +169,8 @@ export function momentsUpdate(game) {
 // Keystone moments never pile up: each is at least MOMENT_GAP game days after the last. One that
 // comes up too soon waits its turn (momentsDaily plays it once the gap has passed).
 export const MOMENT_GAP = 20;
+// After a time-lapse hands back control, moments wait this long of the player's own play (real ms: ui.momentHoldUntil, ui.js canPlayMoment).
+export const MOMENT_HOLD_MS = 90e3;
 const lastDay = game => game.flags.lastMomentDay ?? -1e9;
 // Whether a moment could play today (for events a map times around its moment, like a hatching).
 export const momentFree = game => game.day - lastDay(game) >= MOMENT_GAP && !game.flags.momentQueue?.length && game.canPlayMoment?.() !== false;

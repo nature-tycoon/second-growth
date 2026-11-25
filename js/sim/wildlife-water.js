@@ -8,7 +8,7 @@ import { restless } from './animal-life.js';
 import { fishStrike, fishing, fishFed } from './fishing.js';
 import { aimDrink } from './steering.js';
 import { walkToWater, drinkEvery, homeEligible, waterReach } from './home-range.js';
-import { passable, canLand, shallowsFor } from './animal-terrain.js';
+import { passable, canLand, shallowsFor, overWater } from './animal-terrain.js';
 import { simRandom } from './sim-random.js';
 import { inCrossing } from './wildlife-shared.js';
 import { trait } from '../data/animal-kinds.js';
@@ -16,18 +16,6 @@ import { isFall } from '../maps/landform.js';
 
 // A creek wader (fastWater) walks only in the creek and along its edge.
 const creekSide = (w, j) => w.terrain[j] === T.CREEK || w.distWater[j] <= 1 && !isWater(w.terrain[j]);
-// Every point of the straight line from (x0, y0) to (x1, y1) is over water or the bank beside it:
-// a dipper's flight follows the creek and never cuts across land.
-function overWater(w, x0, y0, x1, y1) {
-  const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 0.4);
-  for (let s = 1; s < n; s++) {
-    const x = Math.floor(x0 + (x1 - x0) * s / n), y = Math.floor(y0 + (y1 - y0) * s / n);
-    if (!w.inb(x, y)) return false;
-    const j = w.idx(x, y);
-    if (!isWater(w.terrain[j]) && w.distWater[j] > 1) return false;
-  }
-  return true;
-}
 // The nest of a creek bird in the nesting months: the nearest fall within reach of its home (it
 // nests on the wet rock beside or behind the curtain), else none (a bank or a bridge anywhere along
 // its reach does). Read from the land each time, nothing saved.

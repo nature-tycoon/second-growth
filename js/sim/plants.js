@@ -1,6 +1,6 @@
 // Daily plant life: growth, decline, natural seeding, competition, succession, soil building.
 
-import { T, F, PLACED, isWater, clamp } from '../config.js';
+import { T, F, PLACED, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
 import { layerLight } from './environment.js';
 import { stressYoungPlant } from './ecological-pressure.js';
 import { grazedRecruitOdds, grazedSeedlingLost, grazedGrowth, overgrazedLoss, grazedForbEdge, elephantFelled, trampledSeedling } from './grazing.js';
@@ -8,6 +8,7 @@ import { plantAffinity } from '../plant-patterns.js';
 import { hash2 } from '../rng.js';
 import { tileWaterLevel, groundAt } from './waterline.js';
 import { trunkSpot } from './ground-obstacles.js';
+import { GUARDED, GUARD_YEARS } from './tree-guard.js';
 
 const rangeFit = (v, lo, hi, soft) => v < lo ? Math.max(0, 1 - (lo - v) / soft) : v > hi ? Math.max(0, 1 - (v - hi) / soft) : 1;
 
@@ -522,9 +523,12 @@ export function updatePlants(game) {
       // (treeHazard's suppression still weighs the saplings below the canopy).
       const s = plantSuit(w, i, p, g >= CANOPY_G ? p.light[1] : undefined);
       w.treeAge[i] += 1;
+      // a wire guard (sim/tree-guard.js) keeps browsers and treading hooves off; it comes off once the trunk has outgrown it
+      const caged = w.guard[i] === GUARDED;
+      if (caged && w.treeAge[i] >= GUARD_YEARS * DAYS_PER_YEAR) w.guard[i] = 0; // (PLANTED stays: beavers cut grown planted trees too, and the offer follows the first)
       let dies = null, lost = 'stress'; // dies: the cause of a death that leaves deadwood; lost: why g fell to 0
       if (g < 0.95) {
-        if (s >= 0.3) g += p.grow * gf * (s - 0.3) / 0.7 * 1.4 * grazedGrowth(w, i, p, g) * swardGrowth(w, i, p, g);
+        if (s >= 0.3) g += p.grow * gf * (s - 0.3) / 0.7 * 1.4 * (caged ? 1 : grazedGrowth(w, i, p, g)) * swardGrowth(w, i, p, g);
         else if (g < 0.5) g -= p.grow * 0.5 * (0.3 - s) / 0.3 * (gf > 0.1 ? 1 : 0.3);
       } else if (s >= 0.3) g = Math.min(1, g + p.grow * gf * 0.5);
       // Sustained inundation, rather than the day a dam is built, creates snags; so does a trunk
@@ -534,7 +538,7 @@ export function updatePlants(game) {
       const haz = r < ageHazard(p, ageY, mort) + droughtCap + hazCap ? treeHazard(w, i, p, s, g, ageY, mort) : null;
       if (haz && r < haz.h) dies ||= r < haz.age ? 'age' : r < haz.age + haz.drought ? 'drought' : 'stress';
       else if (droughtKills(w, i, g, gf, rng)) { g = 0; lost = 'drought'; }
-      else if (grazedSeedlingLost(w, i, p, g, rng) || trampledSeedling(w, i, p, g, rng)) { g = 0; lost = 'browse'; }
+      else if (!caged && (grazedSeedlingLost(w, i, p, g, rng) || trampledSeedling(w, i, p, g, rng))) { g = 0; lost = 'browse'; }
       else if (elephantFelled(w, i, p, g, rng)) { if (g < 0.7) { g = 0; lost = 'browse'; } else dies = 'browse'; } // (pushed over or ring-barked: 0033)
       else if (bank && p.invasive && bank[i] && bankK > 0 && w.ground[i] && !game.catalog.plants[w.ground[i]].invasive && w.groundG[i] > 0.5 && rng() < 0.0012 * bankK) g = 0;
       // savanna: in the dry months, trees packed into a thicket run short of water and some die back
@@ -610,7 +614,7 @@ export function removeTree(w, i, cause, rng, { snagOdds = SNAG_ODDS[cause] ?? 0.
   const all = w.treeDeaths, est = w.treeDeathsEst;
   all[cause] = (all[cause] || 0) + 1;
   if (g > ESTABLISHED_TREE) est[cause] = (est[cause] || 0) + 1;
-  w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0;
+  w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; w.guard[i] = 0; // (the guard goes with its tree: a sapling released below starts without one)
   // advance regeneration (0028 §3): a sapling waiting underneath takes the slot at its own size,
   // a head start no new seed can match
   const u = w.understory[i];

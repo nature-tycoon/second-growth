@@ -38,6 +38,8 @@ try {
       }
     }
     for (const field of ['fps', 'slow_frames_pct', 'draw_calls', 'triangles']) assert.ok(field in result.event.props, `${field} remains in the event`);
+    // (the slower frames' work, and the sample's length so shadow_redraws reads as a rate)
+    for (const field of ['work_p75_ms', 'sample_s']) assert.ok(Number.isFinite(result.event.props[field]) && result.event.props[field] >= 0, `${field} is numeric`);
     // the frame cap and battery state, so a capped 29 fps doesn't read as slow; the release stays 'dev' locally
     assert.ok([30, 60].includes(result.event.props.target_fps), 'target_fps is the frame cap');
     assert.ok([true, false, null].includes(result.event.props.on_battery), 'on_battery is known or null');

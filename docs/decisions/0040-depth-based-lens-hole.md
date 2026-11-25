@@ -8,6 +8,7 @@
 - Cover beyond that opens over the animal's outline, a little wider the nearer the camera, with a soft rim of world-fixed leaf clumps (`render3d/focus.js`, sizes set in `Renderer` in `scene.js`). Trunks are never cut.
 - Any cut round the animal showed as its shape: don't bring one back. Wave 3's ellipsoid cut (`claude/wave3-s5-tracker-lens-aaed29`) was dropped for this lens when wave 3 was merged.
 - Water is not cover. It writes no depth, so the look-through pass skips what lies under the creek, river or pond surface at the animal while the eye is above it, in every view (`focus.uLookWater`, set in `Renderer.updateFocus` from `terrain.waterAt`); watch mode's follow shot from above showed it too. Not the reef's sea, where the lens shows fish through coral. Without it every swimmer looked to swim on top of the water in watch mode (2026-11-14).
+- What it holds is part of it: a held or eaten catch (`drawCatch` in `actors-common.js`, any animal with `a.prey` in `carry` or `feed`) is added as tracked while its holder is followed or selected, so it shows through cover with it, and `pose.meal` widens the opening (`Renderer.updateFocus`). A hawk eating a fish in a crown looked to eat nothing (Cole, 2026-11-22). Only while tracked: two more draws then, none otherwise.
 - `tools/canopy-support-check.mjs` matches the shader's discard lines as text (the leaves' and the water's): update it with the shader.
 - Check: `node tools/lens-depth-browser-check.mjs`; also `canopy-reveal-browser-check`.
 

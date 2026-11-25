@@ -251,3 +251,24 @@ export function wallowWater() {
   g.rotateX(-Math.PI / 2);
   return g;
 }
+
+// A wire tree guard (sim/tree-guard.js): a cage of galvanised mesh round a young tree, tied to a stake,
+// about a metre tall (fence posts are 0.34). Drawn as its wires: uprights and rings of thin bars, no
+// texture or transparency. lod 1 has fewer of them; the far model is a plain six-sided band.
+export function treeGuard(lod = 0) {
+  const R = 0.085, H = 0.3, SIDES = 6, parts = [], wire = 0xb8bfbb; // (galvanised: light, so it reads as wire against the grass)
+  const ups = lod ? 3 : SIDES, rings = lod ? [0.02, H] : [0.02, H / 2, H];
+  for (let k = 0; k < ups; k++) {
+    const a = (k / ups) * Math.PI * 2;
+    parts.push(at(prep(new THREE.BoxGeometry(0.007, H, 0.007), wire), Math.cos(a) * R, H / 2, Math.sin(a) * R));
+  }
+  const side = 2 * R * Math.sin(Math.PI / SIDES);
+  for (const y of rings) for (let k = 0; k < SIDES; k++) {
+    const a = ((k + 0.5) / SIDES) * Math.PI * 2, bar = prep(new THREE.BoxGeometry(side, 0.007, 0.007), wire);
+    bar.rotateY(-a - Math.PI / 2);
+    parts.push(at(bar, Math.cos(a) * R * Math.cos(Math.PI / SIDES), y, Math.sin(a) * R * Math.cos(Math.PI / SIDES)));
+  }
+  if (!lod) parts.push(at(prep(new THREE.BoxGeometry(0.014, H + 0.06, 0.014), 0x7a6450), R + 0.012, (H + 0.06) / 2 - 0.03, 0)); // (the stake)
+  return merge(parts);
+}
+export function treeGuardFar() { return at(prep(new THREE.CylinderGeometry(0.085, 0.085, 0.3, 6, 1, true), 0xb8bfbb), 0, 0.15, 0); }

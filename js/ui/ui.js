@@ -16,6 +16,7 @@ import { LAYER_NAMES } from '../data/plants.js';
 import { many, isMaleVariant, animalDef } from '../data/animals.js';
 import { passageGuide } from '../sim/bird-passage.js';
 import { CATEGORIES, PLANT_TABS, BRUSH_SIZES, listPrice } from '../tools.js';
+import { guardOffer } from '../sim/tree-guard.js';
 import { plantSuit, plantLimits } from '../sim/plants.js';
 import { disturbanceTileNote } from '../sim/disturbance.js';
 import { speciesPresent } from '../sim/goals.js';
@@ -44,7 +45,7 @@ import { saves } from '../saves.js';
 import { CHALLENGE_TOOL_ADVICE, pressureTileNotes } from '../sim/ecological-pressure.js';
 import { openShare } from './share.js';
 import { track, setAnalyticsEnabled, sendFeedback, feedbackPossible, loadState } from '../analytics.js';
-import { watchForOffer, openNewsletter, newsletterAvailable } from './newsletter.js';
+import { watchForOffer, updatesInto, newsletterAvailable } from './newsletter.js';
 import { otherPlacesReady, otherPlacesShown, openOtherPlaces, watchOtherPlacesNote } from './other-places.js';
 
 export { animalThumb, plantThumb } from './thumbnails.js';
@@ -53,6 +54,8 @@ const $ = sel => document.querySelector(sel);
 // A phone or tablet (no mouse), and a screen too short for the full layout.
 const TOUCH = matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
 const COMPACT = () => innerHeight <= 520;
+const CREEK_HINT = 'sg-creek-bend-hint'; // (the creek tool's one-time "swing wider" hint, per device)
+const CUT_MARK_MS = 120000; // (how long a fresh flood cut shows on the minimap)
 const STORY_OFFERED = 'sg-story-offered'; // (offered once per device, after the first Free Play goal)
 // A first visit's opening minutes (docs/ideas/2026-11-21-first-minutes/s2.md): what the simulation
 // announces on its own is held back this long (alarms go to the journal only, good news one at a
@@ -115,6 +118,15 @@ const PILL = {
   follow: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="4.8" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="1.6" fill="currentColor"/></svg>',
 };
 
+// The map overlays, grouped as the picker and the top bar's dropdown show them, each with a one-line hint.
+const OVERLAY_GROUPS = [
+  ['Land', [['habitat', 'Habitat types', 'What grows where'], ['elevation', 'Elevation', 'Hollows hold water, rises stay dry'],
+    ['moisture', 'Moisture', 'Wet and dry ground'], ['soil', 'Soil health', 'Worn out to rich'], ['light', 'Sunlight', 'Shade under the trees']]],
+  ['Water', [['flood', 'Flood risk', 'Where floodwater reaches'], ['fish', 'Fish passage', 'Water fish can reach, and how clean']]],
+  ['Wildlife', [['animals', 'Where animals are', 'Every animal, right now'], ['species', 'Species habitat', 'Where one species could live'],
+    ['disturb', 'Visitor disturbance', 'Busy trails scare shy animals']]],
+];
+
 export class UI {
   constructor(game, renderer) {
     this.game = game;
@@ -124,7 +136,7 @@ export class UI {
       hover: null, previewTiles: null, inspect: null,
       clean: false, // a keystone moment or photo mode: no brush, previews, overlays or selection markers
     };
-    this.journal = [];
+    this.journal = []; this.cutMarks = [];
     this.lastTop = 0; this.lastInfo = 0; this.lastMini = 0;
     this.toastCount = 0;
     this.dismissedBanners = {};
@@ -155,9 +167,11 @@ export class UI {
     this.bindMinimap();
     game.on('notify', n => this.toast(n));
     game.on('moment', m => this.playMoment(m));
-    game.canPlayMoment = () => !this.moment && !this.modalOpen && !this.photo && performance.now() - (this.momentEnded ?? -1e9) >= 25000;
-    game.on('reset', () => { this.moment?.end(false); this.undo.clear(); this.journal = []; this.dismissedBanners = {}; this.bannerKey = null; this.closeInfo(); this.buildToolbar(); this.refreshTop(true); this.renderQuest(true); });
+    // (a time-lapse, and MOMENT_HOLD_MS after it, keep keystone moments waiting: they queue or retry, never drop, so the cinematic never lands on the lapse's hand-back)
+    game.canPlayMoment = () => !this.moment && !this.modalOpen && !this.photo && !this.timelapse?.on && performance.now() >= (this.momentHoldUntil ?? 0) && performance.now() - (this.momentEnded ?? -1e9) >= 25000;
+    game.on('reset', () => { this.moment?.end(false); this.undo.clear(); this.journal = []; this.cutMarks = []; this.dismissedBanners = {}; this.bannerKey = null; this.closeInfo(); this.buildToolbar(); this.refreshTop(true); this.renderQuest(true); });
     game.on('chapter', e => this.onChapterDone(e));
+    game.on('guardOffer', j => { if (!this.timelapse?.on) this.offerGuards(j); }); // (in the time-lapse, it stops there first: ui/timelapse.js)
     watchForOffer(this, game, () => !!currentChapter(game)); // (a guided chapter is on screen)
     watchOtherPlacesNote(this); // (once per device, at the first new year played through: ui/other-places.js)
     // the first goal's follow-up ("watch it grow"), once its grant has had a moment on screen
@@ -168,7 +182,11 @@ export class UI {
       if (this.state.cat !== 'inspect') this.renderToolPanel();
       this.refreshWildlifeGuide?.();
     });
+    game.on('creek-cut', at => this.cutMarks.push({ ...at, until: performance.now() + CUT_MARK_MS })); // (a quiet ring on the minimap: 0054)
     game.on('event', kind => {
+      // (a flood cut a creek's bend: undo puts the whole height grid back, which would take the new
+      // channel's heights back from under it, so the strokes before it can't be undone: 0054)
+      if (kind === 'creek-cut') this.undo.clear();
       if (kind === 'fire' || kind === 'flood') {
         if (this.quietNow() || this.timelapse.on) { this.dismissedBanners[kind] = true; this.bannerKey = null; return; } // (no banner or pause in a first visit's opening minutes, or in the time-lapse: it plays out)
         delete this.dismissedBanners[kind]; this.bannerKey = null;
@@ -196,6 +214,14 @@ export class UI {
     this.refreshUndo();
     this.renderInfo();
     if (stroke.tool.cat === 'visitors') this.renderToolPanel();
+    if (stroke.stoppedShort) this.creekBendHint();
+  }
+
+  // The creek tool stopped short of the cursor because the turn was too tight (0054): said once per device.
+  creekBendHint() {
+    try { if (localStorage.getItem(CREEK_HINT)) return; localStorage.setItem(CREEK_HINT, '1'); } catch { if (this.creekHinted) return; }
+    this.creekHinted = true;
+    this.toast({ text: 'Creeks bend gently: swing the stroke wider.', kind: 'info', date: this.game.dateString() });
   }
 
   // Render the field-guide portraits one at a time in idle moments, so the guide opens instantly.
@@ -228,8 +254,10 @@ export class UI {
     document.body.classList.toggle('menu-effects-off', settings.quality === 'fast');
     // the renderer asks for a lighter Detail level when this computer can't keep up, and a
     // sharper one again once it has had room for a while (see Renderer.autoQuality)
-    this.renderer.onQuality ??= (quality, fps, reason) => {
-      track('auto_quality', { from: settings.quality, to: quality, fps, reason });
+    this.renderer.onQuality ??= (quality, fps, reason, measured = {}) => {
+      // (measured: the slower frames' processor and GPU ms that decided it, and on a step up whether
+      // the frame rate was held to 30: see Renderer.autoQuality)
+      track('auto_quality', { from: settings.quality, to: quality, fps, reason, ...measured });
       const name = { high: 'Sharp', balanced: 'Balanced', fast: 'Fast' }[quality];
       settings.quality = quality; settings.autoQualityAt = Date.now();
       if (quality === 'fast') settings.slowFps = fps;
@@ -238,6 +266,15 @@ export class UI {
       if (reason === 'slow') this.game.notify('The game was running slowly on this computer, so Detail is now Fast. You can change it back in Settings.', 'info');
       else if (reason === 'room') this.game.notify(`The game has been running smoothly, so Detail is back up to ${name}.`, 'info');
       else this.game.notify(`That was too much for this computer, so Detail is back to ${name}.`, 'info');
+    };
+    // a Detail level the player chose is never changed, but if it runs very slowly for a minute the
+    // game says once that Fast would be smoother (see Renderer.autoQuality)
+    this.renderer.onSlowChosen ??= (fps, measured = {}) => {
+      if (settings.fastHintAt) return;
+      settings.fastHintAt = Date.now(); saveSettings();
+      track('quality_hint', { quality: settings.quality, fps, ...measured });
+      const name = { high: 'Sharp', balanced: 'Balanced' }[settings.quality] || settings.quality;
+      this.game.notify(`The game is running at about ${fps} frames a second on ${name} here. Detail: Fast in Settings would make it much smoother.`, 'warn'); // ('warn': said once, so it must not be filtered out)
     };
     this.renderer.applySettings(settings);
     this.game.autosave = settings.autosave;
@@ -317,6 +354,7 @@ export class UI {
     $('#btn-overlay').addEventListener('click', () => this.openOverlayPicker()); // (phones, and narrow top bars: the menu as a button)
     // "Where animals are": a legend row shows just that species (tap it again for every animal)
     $('#legend').addEventListener('click', e => {
+      if (e.target.closest('[data-overlay-off]')) { this.setOverlay('none'); return; }
       const row = e.target.closest('[data-density]');
       if (!row) return;
       const sp = row.dataset.density === '' ? null : +row.dataset.density;
@@ -915,6 +953,17 @@ export class UI {
   // A first visit's opening minutes: the simulation runs as usual, but what it says on its own
   // (n.sim: floods, fires, invasives, warnings) stays in the journal, and its good news pops up one
   // at a time. Replies to the player (a refused stroke, an undo), goals, tips and offers still show.
+  // Tree guards, offered once after beavers first cut a tree the player planted (sim/tree-guard.js;
+  // flags.guardOffered also opens the tool in the campaign). The button puts the tool in hand.
+  offerGuards(j) {
+    const g = this.game, w = g.world, tool = g.catalog.tools.guard;
+    if (!tool) return;
+    if (campaignOn(g)) this.buildToolbar(); // (the Habitat group may only now have a tool open)
+    if (this.state.cat === 'features') this.renderToolPanel();
+    this.toast({ text: guardOffer(listPrice(g, tool)), kind: 'info', date: g.dateString(), life: 24000, loc: { x: j % w.w + 0.5, y: Math.floor(j / w.w) + 0.5 },
+      action: { label: 'Tree guard', run: () => { this.state.cat = ''; this.openCategory('features'); this.selectTool('guard'); } } });
+  }
+
   holdInFirstMinutes(n) {
     if (n.sim && !ALARMS.has(n.kind) && n.kind !== 'goal' && !n.action && this.goalSpotOn()) return true; // (the next goal has the screen for a moment after the time-lapse; it's in the journal)
     if (!n.sim || n.kind === 'goal' || n.action || !this.quietNow()) return false;
@@ -972,6 +1021,12 @@ export class UI {
         ctx.fillRect((i % w.w) * sx, ((i / w.w) | 0) * sy, sx + 0.5, sy + 0.5);
       }
     }
+    const now = performance.now();
+    this.cutMarks = this.cutMarks.filter(m => m.until > now);
+    for (const m of this.cutMarks) { // (a fresh flood cut: a ring that breathes, then goes)
+      ctx.strokeStyle = `rgba(255,255,255,${(0.55 + 0.4 * Math.sin(now / 350)).toFixed(2)})`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(m.x * sx, m.y * sy, 7 + 2 * Math.sin(now / 350), 0, 7); ctx.stroke();
+    }
     const vp = this.renderer.viewportPolygon();
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath();
     vp.forEach(([x, z], k) => { const px = x * sx, py = z * sy; k ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
@@ -984,6 +1039,7 @@ export class UI {
     if (mode === 'none') { lg.classList.add('hidden'); return; }
     lg.classList.remove('hidden');
     const grad = (cols, a, b) => `<div class="grad" style="background:linear-gradient(90deg,${cols.join(',')})"></div><div class="ends"><span>${a}</span><span>${b}</span></div>`;
+    const note = t => `<div class="lg-note">${t}</div>`;
     let html = '';
     if (mode === 'habitat') {
       const counts = this.game.world.stats.counts || [];
@@ -993,16 +1049,17 @@ export class UI {
     else if (mode === 'soil') html = '<b>Soil health</b>' + grad(['#c8b89a', '#8a6a3a', '#3a2614'], 'worn out', 'rich');
     else if (mode === 'light') html = '<b>Sunlight at ground level</b>' + grad(['#1c2a3a', '#6a8a6a', '#f2e08a'], 'deep shade', 'full sun');
     else if (mode === 'elevation') html = '<b>Elevation</b>' + grad(['#2f6a5a', '#c8c07a', '#f4f0e8'], 'low (wetter)', 'high (drier)');
-    else if (mode === 'disturb') html = '<b>Visitor disturbance</b>' + grad(['#f2e08a', '#e0843a', '#b8302a'], 'a little', 'a lot') + '<div class="small" style="margin-top:4px">Shy species avoid busy trails. Screening shrubs and viewing blinds help.</div>';
-    else if (mode === 'flood') html = '<b>Flood risk</b><div class="row"><span class="chip" style="background:#1f6bf2"></span>Underwater right now</div><div class="row"><span class="chip" style="background:#3380d9"></span>Floods most winters</div><div class="row"><span class="chip" style="background:#8cc7f2"></span>Only in a big flood</div><div class="small" style="margin-top:4px">Marshes, ponds and beaver dams soak up floodwater and shrink these zones.</div>';
+    else if (mode === 'disturb') html = '<b>Visitor disturbance</b>' + grad(['#f2e08a', '#e0843a', '#b8302a'], 'a little', 'a lot') + note('Shy species avoid busy trails. Screening shrubs and viewing blinds help.');
+    else if (mode === 'flood') html = '<b>Flood risk</b><div class="row"><span class="chip" style="background:#1f6bf2"></span>Underwater right now</div><div class="row"><span class="chip" style="background:#3380d9"></span>Floods most winters</div><div class="row"><span class="chip" style="background:#8cc7f2"></span>Only in a big flood</div>' + note('Marshes, ponds and beaver dams soak up floodwater and shrink these zones.');
     else if (mode === 'fish') html = '<b>Fish passage</b><div class="row"><span class="chip" style="background:#c83c32"></span>Cut off from the river</div>' + grad(['#d88a4a', '#e8d86a', '#5ad0a0'], 'connected, poor', 'connected, clean & shaded');
     else if (mode === 'animals') html = this.animalsLegendHTML();
     else if (mode === 'species') {
       const def = this.game.catalog.animals[this.state.overlaySpecies];
-      html = `<b>Where ${many(def)} could live</b>` + grad(['#c8584a', '#e8c85a', '#4ac86a'], 'poor', 'ideal') + `<div class="small" style="margin-top:4px">${def.hint}</div>`;
+      html = `<b>Where ${many(def)} could live</b>` + grad(['#c8584a', '#e8c85a', '#4ac86a'], 'poor', 'ideal') + note(def.hint);
     }
     const list = lg.querySelector('.density-list'), top = list ? list.scrollTop : 0;
-    lg.innerHTML = html;
+    // (the first bold line is the title, set beside a × that turns the overlay off)
+    lg.innerHTML = html.replace(/^<b>(.*?)<\/b>/, '<div class="lg-head"><b>$1</b><button class="lg-off" data-overlay-off title="Turn the overlay off">×</button></div>');
     if (list) { const l2 = lg.querySelector('.density-list'); if (l2) l2.scrollTop = top; }
   }
   // Each species on the map: its minimap colour, how many there are, and the change over the past year
@@ -1240,31 +1297,47 @@ export class UI {
 
   // The overlay menu as a list (on a phone, or wherever the top bar has no room for the dropdown)
   openOverlayPicker() {
-    const opts = [...$('#overlay').options].map(o => [o.value, o.value === 'none' ? 'No overlay' : o.textContent]);
-    const m = this.modal('Map overlay', `<div class="menu-list">${opts.map(([v, t]) => `<button class="btn ${v === this.state.overlay ? '' : 'secondary'}" data-v="${v}">${t}</button>`).join('')}</div>`, { narrow: true });
+    const cur = this.state.overlay;
+    const label = (v, t) => v === 'species' ? $('#overlay option[value="species"]').textContent : t;
+    const item = ([v, t, hint]) => `<button class="btn ${v === cur ? '' : 'secondary'}" data-v="${v}"><b>${label(v, t)}</b><small>${hint}</small></button>`;
+    const m = this.modal('Map overlay', `<div class="overlay-pick">
+      <button class="btn ${cur === 'none' ? '' : 'secondary'} overlay-off" data-v="none"><b>No overlay</b></button>
+      <div class="menu-groups">${OVERLAY_GROUPS.map(([g, list]) => `<div class="menu-group"><div class="section-title">${g}</div><div class="menu-list">${list.map(item).join('')}</div></div>`).join('')}</div></div>`, {});
     m.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', () => { this.setOverlay(b.dataset.v); this.closeModal(); }));
   }
 
   openMenu() {
     const places = otherPlacesReady(this);
-    const m = this.modal('Menu', `<div class="menu-list">
-      <button class="btn secondary" data-a="overlay">Map overlay</button>
-      <button class="btn secondary" data-a="settings">Settings</button>
-      <button class="btn secondary" data-a="journal">Field journal</button>
-      <button class="btn secondary" data-a="trees">${this.renderer.fadeTrees ? 'Show trees normally' : 'See through trees'}</button>
-      <button class="btn secondary" data-a="photo">Photo mode</button>
-      <button class="btn secondary" data-a="share">Share this farm</button>
-      <button class="btn secondary" data-a="watch">Watch (the camera finds the wildlife)</button>
-      <button class="btn secondary" data-a="lapse">Watch 10 years (a time-lapse)</button>
-      <button class="btn secondary" data-a="feedback">Send feedback</button>
-      ${newsletterAvailable() ? '<button class="btn secondary" data-a="news">Get updates by email</button>' : ''}
-      <button class="btn secondary" data-a="help">How to play</button>
-      <button class="btn secondary" data-a="intro">Watch intro</button>
-      <button class="btn secondary" data-a="save">Save game</button>
-      <button class="btn secondary" data-a="backups">Restore an earlier save</button>
-      ${this.game.mode !== 'campaign' && this.game.catalog.definition.campaign ? `<button class="btn ${this.storyPending ? '' : 'secondary'}" data-a="story">${this.storyPending ? 'Want a guided start? Story mode, on this farm' : 'Story mode (guided chapters)'}</button>` : ''}
-      ${places ? '<button class="btn secondary" data-a="places">Other places to restore</button>' : ''}
-      <button class="btn secondary" data-a="new">Start a new game (campaign or free play)</button></div>`, { narrow: true });
+    const item = (a, label, hint = '', primary = false) => `<button class="btn ${primary ? '' : 'secondary'}" data-a="${a}"><b>${label}</b>${hint ? `<small>${hint}</small>` : ''}</button>`;
+    const story = this.game.mode !== 'campaign' && this.game.catalog.definition.campaign
+      ? item('story', this.storyPending ? 'Story mode: a guided start' : 'Story mode', 'Guided chapters, on this farm', this.storyPending) : '';
+    const m = this.modal('Menu', `<div class="menu-groups">
+      <div class="menu-group"><div class="section-title">Look around</div><div class="menu-list">
+        ${item('watch', 'Watch wildlife', 'The camera follows the animals')}
+        ${item('lapse', 'Time-lapse', 'Watch 10 years go by')}
+        ${item('photo', 'Photo mode')}
+        ${item('trees', this.renderer.fadeTrees ? 'Show trees normally' : 'See through trees')}
+        ${item('overlay', 'Map overlay')}
+      </div></div>
+      <div class="menu-group"><div class="section-title">Your farm</div><div class="menu-list">
+        ${item('journal', 'Field journal')}
+        ${item('save', 'Save game')}
+        ${item('share', 'Share this farm')}
+        ${story}
+        ${item('new', 'New game', 'Campaign or free play')}
+        <details class="menu-more"><summary>More</summary><div class="menu-list">
+          ${item('backups', 'Restore an earlier save')}
+          ${places ? item('places', 'Other places to restore') : ''}
+        </div></details>
+      </div></div>
+      <div class="menu-group"><div class="section-title">Help</div><div class="menu-list">
+        ${item('help', 'How to play', 'Controls and a good first year')}
+        ${item('settings', 'Settings', 'Sound, graphics, gameplay')}
+        ${item('feedback', 'Contact', newsletterAvailable() ? 'Send feedback or get updates by email' : 'Send feedback, or email info@secondgrowth.earth')}
+        <details class="menu-more"><summary>More</summary><div class="menu-list">
+          ${item('intro', 'Watch the intro film')}
+        </div></details>
+      </div></div></div>`, {});
     if (places) otherPlacesShown(this, 'menu');
     m.querySelector('[data-a=places]')?.addEventListener('click', () => openOtherPlaces(this, 'menu'));
     // (the waiting Story offer is made here too: opening the menu is a pause)
@@ -1280,7 +1353,6 @@ export class UI {
     m.querySelector('[data-a=journal]').addEventListener('click', () => this.openJournal());
     m.querySelector('[data-a=trees]').addEventListener('click', () => { this.toggleTrees(); this.closeModal(); });
     m.querySelector('[data-a=feedback]').addEventListener('click', () => this.openFeedback());
-    m.querySelector('[data-a=news]')?.addEventListener('click', () => openNewsletter(this));
     m.querySelector('[data-a=share]').addEventListener('click', () => openShare(this));
     m.querySelector('[data-a=photo]').addEventListener('click', () => { this.closeModal(); this.togglePhoto(); });
     m.querySelector('[data-a=watch]').addEventListener('click', () => { this.closeModal(); this.watch.start(); });
@@ -1420,7 +1492,7 @@ export class UI {
 
   openFeedback() {
     const faces = ['😞', '😕', '😐', '🙂', '😍'];
-    const m = this.modal('Send feedback', `<div class="feedback">
+    const m = this.modal('Contact', `<div class="feedback">
       <p class="info-desc" style="margin-top:0">Second Growth is a work in progress, and every note gets read. What's fun, what's confusing, what broke?</p>
       <div class="section-title">How are you liking it?</div>
       <div class="fb-rate">${faces.map((f, k) => `<button type="button" data-r="${k + 1}" title="${k + 1} of 5">${f}</button>`).join('')}</div>
@@ -1428,7 +1500,8 @@ export class UI {
       <textarea class="ph-mask" rows="6" maxlength="4000" placeholder="I wish I could… / I got stuck when… / The best part was…"></textarea>
       <label class="fb-contact"><span class="small">Want a reply? Leave an email or Reddit username (optional)</span><input type="text" class="ph-mask" maxlength="200"></label>
       <div class="small fb-status"></div>
-      <div class="small" style="margin-top:6px">Prefer email? Write to <a href="mailto:info@secondgrowth.earth">info@secondgrowth.earth</a>. <a href="https://secondgrowth.earth/privacy/" target="_blank" rel="noopener">${tr('Privacy')}</a>.${newsletterAvailable() ? ' <a href="#" data-a="news">Get updates by email</a>' : ''}</div>
+      ${newsletterAvailable() ? '<div class="fb-updates" style="margin-top:14px"></div>' : ''}
+      <div class="small" style="margin-top:6px">Prefer email? Write to <a href="mailto:info@secondgrowth.earth">info@secondgrowth.earth</a>. <a href="https://secondgrowth.earth/privacy/" target="_blank" rel="noopener">${tr('Privacy')}</a>.</div>
       </div>`, { narrow: true, foot: '<button class="btn secondary" data-a="cancel">Cancel</button><button class="btn" data-a="send">Send</button>' });
     let rating = 0;
     m.querySelectorAll('[data-r]').forEach(b => b.addEventListener('click', () => {
@@ -1436,7 +1509,7 @@ export class UI {
       m.querySelectorAll('[data-r]').forEach(o => o.classList.toggle('on', o === b));
     }));
     const ta = m.querySelector('textarea'), status = m.querySelector('.fb-status');
-    m.querySelector('a[data-a=news]')?.addEventListener('click', e => { e.preventDefault(); openNewsletter(this); });
+    const upd = m.querySelector('.fb-updates'); if (upd) updatesInto(upd);
     setTimeout(() => ta.focus(), 30);
     m.querySelector('[data-a=cancel]').addEventListener('click', () => this.closeModal());
     const sendBtn = m.querySelector('[data-a=send]');
@@ -1500,10 +1573,11 @@ export class UI {
       <div class="section-title">Difficulty</div>
       <div class="seg" data-seg="diff">${Object.entries(DIFFICULTY).map(([k, d]) => `<button data-d="${k}" class="${k === diff ? 'on' : ''}">${d.name}</button>`).join('')}</div>
       <p class="small diff-desc">${DIFFICULTY[diff].desc}</p>
-      <div class="section-title">Mode</div><div class="modes">
-      <button class="mode-card" data-m="campaign"><b>Campaign</b><span></span></button>
+      
+      <div class="mode-head"><div class="section-title">Mode</div><label class="sandbox-row" title="Build anything with no budget, to try things out. Sandbox farms stay out of ratings and the numbers we share."><span><b>Sandbox</b><small>unlimited money</small></span><input type="checkbox" data-sandbox></label></div><div class="modes">
       <button class="mode-card" data-m="free"><b>Free play</b><span>Every tool from the start and no chapters, just the land, the grants and the milestone goals.</span></button>
-      </div><label class="set-row sandbox-row"><span><b>Sandbox: unlimited money</b><small>Build anything with no budget, to try things out. Sandbox farms stay out of ratings and the numbers we share.</small></span><input type="checkbox" data-sandbox></label>
+      <button class="mode-card" data-m="campaign"><b>Campaign</b><span></span></button>
+      </div>
       <p class="small replace-note" style="margin:10px 2px 0" hidden>This replaces your saved farm.</p>`, { narrow: true, dismissible: !this.startPause });
     if (this.startPause) m.classList.add('startup-selector');
     const pickerLang = shownLang();
@@ -1941,8 +2015,10 @@ export class UI {
         <li>Pick a tool on the left, then <b>drag one finger</b> to brush it across the land, or tap to place things or inspect a tile or animal. With Inspect, one finger moves the map too.</li>
         <li>Touching the map folds the tool panel away; tap its tool group again to open it. The ☰ menu has the journal and see-through trees.</li>
         <li>For the most room, use full screen (the corner button at the top) or add the game to your home screen.</li>` : ''}
-        <li${TOUCH ? ' hidden' : ''}>Pick a tool on the left, then <b>click and drag to brush</b> it across the land. <kbd>[</kbd> <kbd>]</kbd> change brush size.</li>
-        <li${TOUCH ? ' hidden' : ''}>Right-drag or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to pan, scroll to zoom, <kbd>Q</kbd> <kbd>E</kbd> to rotate by 15°. Hold <kbd>Shift</kbd> for a 90° turn. <kbd>Space</kbd> pauses, <kbd>1</kbd>–<kbd>3</kbd> set speed, <kbd>0</kbd> slows to watch pace, <kbd>T</kbd> sees through trees, <kbd>Tab</kbd> hides the panels, <kbd>P</kbd> is photo mode, <kbd>C</kbd> sits back and watches (<kbd>F</kbd> there for eye level).</li>
+        <li${TOUCH ? ' hidden' : ''}>Pick a tool on the left, then <b>click and drag</b> to brush it across the land. <kbd>[</kbd> <kbd>]</kbd> change brush size.</li>
+        <li${TOUCH ? ' hidden' : ''}><b>Move:</b> right-drag or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. <b>Zoom:</b> scroll. <b>Rotate:</b> <kbd>Q</kbd> <kbd>E</kbd> (hold <kbd>Shift</kbd> for a big turn).</li>
+        <li${TOUCH ? ' hidden' : ''}><b>Time:</b> <kbd>Space</kbd> pauses, <kbd>1</kbd>–<kbd>3</kbd> set speed, <kbd>0</kbd> slows to watch pace.</li>
+        <li${TOUCH ? ' hidden' : ''}><b>Views:</b> <kbd>T</kbd> see through trees, <kbd>Tab</kbd> hide the panels, <kbd>P</kbd> photo mode, <kbd>C</kbd> watch wildlife (<kbd>F</kbd> there for eye level).</li>
         <li>Use <b>Inspect</b> to click any tile or animal. The <b>Overlay</b> menu shows moisture, soil, sunlight, fish passage, or where a species could live.</li>
       </ul>
       <h3>A good first year</h3>

@@ -7,6 +7,8 @@ import { plantLimits, plantSuit } from './sim/plants.js';
 import { toolUnlocked } from './sim/campaign.js';
 import { assertToolCost, assertToolResult } from './data/contracts.js';
 import { simRandom } from './sim/sim-random.js';
+import { steerCourse, finishCourse, creekEndHeading } from './maps/water-shape.js';
+import { shapeShoreNear } from './terrain-edit.js';
 
 /**
  * @typedef {Object} ToolStroke
@@ -58,6 +60,14 @@ export class ToolActions {
     stroke.last = { x, y };
     const w = stroke.world;
     if (!Number.isInteger(x) || !Number.isInteger(y) || !w.inb(x, y)) return [];
+    // (a creek follows the stroke the way water would cut it, bending no tighter than a creek does: 0054)
+    if (stroke.tool.course) {
+      const end = stroke.course ? null : creekEndHeading(w, x, y);
+      const r = end ? steerCourse(null, end.at[0], end.at[1], undefined, end.heading) : steerCourse(stroke.course, x, y);
+      if (end) Object.assign(r, steerCourse(r.head, x, y)); // (from the creek's end, on to where the stroke starts)
+      stroke.course = r.head;
+      return this.applyTiles(stroke, r.tiles.filter(([tx, ty]) => w.inb(tx, ty)).map(([tx, ty]) => w.idx(tx, ty)));
+    }
     const tiles = stroke.tool.brush ? strokeTiles(w, stroke.tool, x, y, radius) : [w.idx(x, y)];
     return this.applyTiles(stroke, tiles);
   }
@@ -98,8 +108,23 @@ export class ToolActions {
   /** Complete a stroke once, refreshing ecology and publishing its outcome. */
   end(stroke) {
     if (!this.current(stroke)) return stroke;
+    // (a creek's head runs a few tiles behind the stroke: it runs on to the stroke's end now)
+    if (stroke.tool.course && stroke.course) {
+      const w = stroke.world, r = finishCourse(stroke.course);
+      stroke.course = r.head;
+      const tiles = r.tiles.filter(([tx, ty]) => w.inb(tx, ty)).map(([tx, ty]) => w.idx(tx, ty));
+      this.applyTiles(stroke, tiles);
+      // (it stopped short: the stroke's end was behind it or inside the tightest turn; the UI says so once)
+      const goal = r.head.trail.at(-1);
+      stroke.stoppedShort = Math.hypot(goal[0] - r.head.x, goal[1] - r.head.y) > 2;
+    }
     stroke.finished = true;
     const tool = stroke.tool;
+    // (the shores the stroke reached follow a smooth line again, not the tiles' steps: 0054)
+    if (tool.cat === 'land' && stroke.changed.length) {
+      stroke.shaped = shapeShoreNear(stroke.world, stroke.changed, tool.key === 'fill' ? stroke.changed : null);
+      if (stroke.shaped.length) stroke.world.hydroDirty = true;
+    }
     this.notifyOutcome(stroke);
     if (this.refreshEnvironment && (stroke.count || tool.cat === 'land' || tool.key === 'demolish' || tool.key === 'log')) this.game.refreshEnvironment();
     this.undo?.end(stroke);

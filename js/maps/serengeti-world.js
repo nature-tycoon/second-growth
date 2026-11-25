@@ -14,6 +14,9 @@ import { mulberry32, hash2, valueNoise } from '../rng.js';
 // granite outcrops: [x, y, radius]
 export const KOPJES = [[96, 22, 6], [38, 60, 5], [104, 64, 4.5]];
 
+// the lugga's line, down from the park to the river
+export const luggaX = y => Math.round(80 + Math.sin(y / 11) * 7 + Math.sin(y / 27 + 2) * 4);
+
 export function generateRange(seed = 2024, catalog = activeCatalog) {
   const w = new World(undefined, undefined, catalog);
   const rng = mulberry32(seed);
@@ -89,7 +92,6 @@ export function generateRange(seed = 2024, catalog = activeCatalog) {
 
   // The lugga: a sand river running down from the park to the main river, dry most of the year
   // except for its pools, its banks trampled and cut back by gullies.
-  const luggaX = y => Math.round(80 + Math.sin(y / 11) * 7 + Math.sin(y / 27 + 2) * 4);
   for (let y = 0; y < Hh; y++) {
     const x = luggaX(y), i = w.idx(x, y);
     if (w.terrain[i] === T.RIVER) break;

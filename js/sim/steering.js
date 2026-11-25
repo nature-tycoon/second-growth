@@ -13,6 +13,7 @@ import { isWater, clamp } from '../config.js';
 import { facePoint, animalRadius, standsStill } from './animal-positioning.js';
 import { settleBody, groundWalker } from './ground-obstacles.js';
 import { wetTest, swimDepth, deepWaterNear, fishDepth, upstreamAt } from './waterline.js';
+import { runDepth } from './swim-routes.js';
 import { reefMoveSafe } from './animal-terrain.js';
 import { trait } from '../data/animal-kinds.js';
 import { drinkEvery } from './home-range.js';
@@ -113,7 +114,13 @@ export function settle(wl) {
     else if (a.headUpKey != null) { a.headUp = false; a.headUpKey = null; } // (looked at afresh next time it stands idle)
     // (a river fish nudged into the shallows, by its neighbours or the water drawing down: back to
     // where it can swim, the same depth its drawing uses)
-    if (a.move === 'swim' && !def.reef && !a.leaving && swimDepth(w, a.x, a.y) < fishDepth(def)) {
+    // (not one in a creek's riffle, water it can swim through: runDepth, swim-routes.js. Stopped there,
+    // it swims on to a pool at its next choice, now, rather than jumping to one. One keeping to deeper
+    // water than that (the catfish's own fishDepth) is put back in its pool at rest, as before)
+    const deepKeeper = trait(def, 'fishDepth') != null;
+    if (a.move === 'swim' && !def.reef && !a.leaving && !deepKeeper && a.state !== 'walk' && a.wait > 0 && runDepth(w, a.x, a.y) >= fishDepth(def) && swimDepth(w, a.x, a.y) < fishDepth(def)) a.wait = 0;
+    // (not one wriggling over the ground to the next water: fish-wriggle.js. Put back, it jumped a tile)
+    if (a.move === 'swim' && !def.reef && !a.leaving && !a.wriggle && (deepKeeper && a.state !== 'walk' ? swimDepth(w, a.x, a.y) : runDepth(w, a.x, a.y)) < fishDepth(def)) {
       const p = deepWaterNear(w, a.x, a.y, 1.2, fishDepth(def));
       if (p) { a.x = p[0]; a.y = p[1]; }
       continue;

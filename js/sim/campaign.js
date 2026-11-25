@@ -145,6 +145,7 @@ export function unlockedTools(g) {
   if (!campaignOn(g) || campaignDone(g)) return null;
   const set = new Set();
   for (let k = 0; k <= g.campaign.chapter; k++) for (const t of g.catalog.chapters[k].unlock) set.add(t);
+  if (g.flags.guardOffered) set.add('guard'); // (tree guards come with their offer, after beavers first cut a planted tree: sim/tree-guard.js)
   return set;
 }
 export function toolUnlocked(g, key) { const s = unlockedTools(g); return !s || s.has(key); }

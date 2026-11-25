@@ -9,6 +9,7 @@
 - Tree `browse` is both forage value and palatability, one number on purpose; no value counts as 0.3. `thorny` and `resprout` flags shelter and spare plants.
 - Shelters (brush, fences, thorny shrubs, thicket edges, nurse logs, `UNDER_CANOPY`) cut browsing; trampling (`trampledSeedling`), elephants (`elephantFelled`) and rut rubbing (`rubSapling`) are general rules on every map (the savanna-only trample is gone). Trees killed go through `removeTree` (0028).
 - `w.herbivory` is declared in the `World` constructor and isn't saved; a loaded farm rebuilds it from that day's animals.
+- A tree in a wire guard (0057, `guarded(w, i)`) is spared browsing, treading and rubbing, not elephants.
 - Checks: `node tools/herbivore-pressure-check.mjs`; long runs `node tools/herbivore-pressure.mjs pnw,serengeti,atlanta 200 7,11,23 [--exclosure]`; seeded `balance-sim restore 15`.
 
 ## History

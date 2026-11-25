@@ -395,7 +395,9 @@ export class HollisWater {
     this.publish();
   }
   level(b) {
-    if (b.volume <= 0 || b.capacity <= 0) return b.lo;
+    // (empty: its floor, but never over its crest: a dam on a diagonal reach of a creek laid in curves
+    // (0054) can have its crest under the lowest corner of its basin, which then holds nothing)
+    if (b.volume <= 0 || b.capacity <= 0) return Math.min(b.lo, b.crest ?? b.lo);
     let low = 0, high = b.table.length - 1;
     while (high - low > 1) { const k = (low + high) >> 1; if (b.table[k] <= b.volume) low = k; else high = k; }
     const fraction = (b.volume - b.table[low]) / Math.max(1e-12, b.table[high] - b.table[low]);

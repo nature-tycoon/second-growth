@@ -151,6 +151,15 @@ try {
       },
     };
     window.measureLens = (name, kind) => cases[name](kind);
+    // a selected bird eating (state feed, a.prey): its meal is tracked with it, so the lens shows it through cover too (0040)
+    window.measureMeal = () => {
+      const game = bare(), a = game.wildlife.spawn(game.catalog.animal.owl, 40, 30, { silent: true, age: 900 });
+      Object.assign(a, { x: 40.2, y: 30.5, state: 'feed', wait: 99, prey: { id: -1, sp: game.catalog.animal.rabbit.index ?? game.catalog.animals.findIndex(d => d.key === 'rabbit'), age: 200, juvenile: false } });
+      const st = stage(game), run = () => { st.actors.pose.clear(); for (let f = 0; f < 30; f++) st.actors.update(game, new THREE.Vector3(1, 0, 0), f / 30); };
+      game.selectedAgent = null; run(); const none = st.actors.fauna.tracked.length;
+      game.selectedAgent = a; run();
+      return { none, tracked: st.actors.fauna.tracked.length, r: st.actors.pose.get(a.id)?.meal?.r ?? 0 };
+    };
   })()`);
   for (const [name, kind] of [['canopy', 'deer'], ['canopy', 'rabbit'], ['bush', 'rabbit'], ['bush', 'deer']]) {
     const rows = await b.evaluate(`window.measureLens(${JSON.stringify(name)}, ${JSON.stringify(kind)})`);
@@ -174,4 +183,10 @@ try {
     console.log(`PASS ${name} ${kind}: the selected animal shows through the lens`);
     b.assertHealthy();
   }
+  const meal = await b.evaluate('window.measureMeal()');
+  assert.equal(meal.none, 0, 'an unselected bird with a meal tracks nothing');
+  assert.equal(meal.tracked, 2, `a selected bird eating tracks the bird and its meal (got ${meal.tracked})`);
+  assert.ok(meal.r > 0, 'the meal has a size for the lens opening (pose.meal.r)');
+  console.log('PASS selected bird with a meal: the meal is tracked with it');
+  b.assertHealthy();
 } finally { await b.close(); }

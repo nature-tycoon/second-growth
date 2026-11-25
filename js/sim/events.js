@@ -5,6 +5,7 @@ import { removeTree, trySeed, clearUnderstory, fellSnag, snagLife, rottenLog } f
 import { disturbanceOn } from './campaign.js';
 import { disturbanceDaily } from './disturbance.js';
 import { forestDamp } from './environment.js';
+import { floodCutoff } from './creek-cutoff.js';
 
 const GRAZED_FUEL = 0.8, GRAZED_LAWN = 0.5; // a grazing lawn has 80% less grass fuel
 const GRASSY = { grass: 1, tallgrass: 1, sedge: 0.5, forb: 0.6, tallforb: 0.7 };
@@ -14,6 +15,7 @@ const CROWN_BARE = 0.3; // how well a crown fire carries through big trees with 
 const LADDER_FULL = 0.4; // ladder fuel that carries a crown fire fully
 const RX_TORCH = 0.08; // a controlled burn's chance, per tile, of climbing a shrub layer into a dry canopy (see rxTorch)
 const SHADE_DAMP = 0.5; // how much of a surface fire's dryness a full canopy in leaf takes away
+const FLOOD_SAPLING_ODDS = 1 / 8; // a flood-intolerant sapling's daily odds of drowning while the flood stands on it
 
 // A tree that sprouts back from the root (p.resprout: savanna trees, mesquite, broadleaves; not
 // conifers) is burned to the ground but not killed, once it's past seedling age (0035): it comes
@@ -490,32 +492,38 @@ export class Events {
     this.finishFlood(intensity, sponge, flooded);
   }
 
-  // Walk out from the river and connected creeks over land that sits only a little above them
-  // ("height above nearest drainage"): wide on the river's floodplain, narrow along creeks.
+  // Walk out from the river and every creek over land that sits only a little above them
+  // ("height above nearest drainage"): wide on the river's floodplain, narrow along creeks. Every
+  // creek, above a culvert or below, dug or the map's: storm water runs in all of them, and a culvert
+  // passes water though it stops fish (w.connected is fish passage only, 0034). The river's floodplain
+  // and the creeks' banks are walked apart and joined, so a creek beside the river never takes a tile
+  // the river would have flooded (each walk keeps the first source to reach a tile, as before). The
+  // river's walk runs on over a creek too, as high water backs up a creek's mouth.
   reachFrom(eff, visit) {
-    const w = this.game.world;
-    const srcH = new Float32Array(w.n).fill(NaN), srcRiver = new Uint8Array(w.n), dist = new Uint8Array(w.n).fill(255);
+    const w = this.game.world, seen = new Uint8Array(w.n);
+    this.walkFrom(eff, true, j => { seen[j] = 1; visit(j); });
+    this.walkFrom(eff, false, j => { if (!seen[j]) visit(j); });
+  }
+
+  walkFrom(eff, river, visit) {
+    const w = this.game.world, src = river ? T.RIVER : T.CREEK;
+    const reach = river ? 9 : 3, limit = eff * (river ? 1.1 : 0.45);
+    const srcH = new Float32Array(w.n), dist = new Uint8Array(w.n).fill(255);
     const q = [];
     for (let i = 0; i < w.n; i++) {
-      const t = w.terrain[i];
-      if (t === T.RIVER || (t === T.CREEK && w.connected[i])) {
-        srcH[i] = w.tileH(i % w.w, (i / w.w) | 0); srcRiver[i] = t === T.RIVER ? 1 : 0; dist[i] = 0; q.push(i);
-      }
+      if (w.terrain[i] === src) { srcH[i] = w.tileH(i % w.w, (i / w.w) | 0); dist[i] = 0; q.push(i); }
     }
     for (let h = 0; h < q.length; h++) {
       const i = q[h];
-      const x = i % w.w, y = (i / w.w) | 0;
-      const reach = srcRiver[i] ? 9 : 3;
       if (dist[i] >= reach) continue;
+      const x = i % w.w, y = (i / w.w) | 0;
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const xx = x + dx, yy = y + dy;
         if (!w.inb(xx, yy)) continue;
         const j = w.idx(xx, yy);
         if (dist[j] !== 255 || w.struct[j] >= 0) continue;
-        dist[j] = dist[i] + 1; srcH[j] = srcH[i]; srcRiver[j] = srcRiver[i];
-        const above = w.tileH(xx, yy) - srcH[j];
-        const limit = eff * (srcRiver[j] ? 1.1 : 0.45);
-        if (above > limit) continue;
+        dist[j] = dist[i] + 1; srcH[j] = srcH[i];
+        if (w.tileH(xx, yy) - srcH[j] > limit) continue;
         visit(j);
         q.push(j);
       }
@@ -536,15 +544,25 @@ export class Events {
       if (w.featureAge[i] > 30 || !g.water) { g.wildlife.breakDam(i); broke++; }
       else g.water.breachDam(i); // (its pond drops, and it stands lower until they raise it again)
     }
+    // a big flood may cut across a tight bend of a creek, leaving the old loop as marsh (0054)
+    const cut = floodCutoff(g, intensity, sponge);
     const soak = Math.round(sponge * 100);
     // point the notice at the middle of the flooded ground
     let sx = 0, sy = 0, n = 0;
     for (let i = 0; i < w.n; i++) if (w.flood[i]) { sx += i % w.w; sy += (i / w.w) | 0; n++; }
     g.notify(`${this.mapDefinition.text.flood} After days of rain the river spilled over ${flooded} tiles of low ground.` +
       (soak >= 10 ? ` Your wetlands soaked up about ${soak}% of it.` : ' More marshes and ponds would soak some of it up.') +
-      (broke ? ` The high water broke ${broke} beaver dam${broke > 1 ? 's' : ''}.` : ''), 'flood',
+      (broke ? ` The high water broke ${broke} beaver dam${broke > 1 ? 's' : ''}.` : '') +
+      (cut ? ' It also cut a new channel across a tight bend of the creek, leaving the old loop as marsh.' : ''), 'flood',
       n ? { x: sx / n + 0.5, y: sy / n + 0.5 } : null);
     g.emit('event', 'flood');
+    if (cut) {
+      // a quiet journal line and a short-lived minimap ring where it was cut (the notice points at the flooded ground's middle)
+      const mid = cut.course[(cut.course.length / 2) | 0], at = { x: (mid % w.w) + 0.5, y: ((mid / w.w) | 0) + 0.5 };
+      g.notify('A flood cut a new channel across a tight bend of the creek. The old loop is marsh now.', 'info', at, { journal: true });
+      g.emit('creek-cut', at);
+      g.emit('event', 'creek-cut');
+    }
   }
 
   updateFlood() {
@@ -557,7 +575,10 @@ export class Events {
       const gi = w.ground[i], si = w.shrub[i], ti = w.tree[i];
       if (gi) { const p = this.game.catalog.plants[gi]; if (!p.wetOK && !p.aquatic) { w.groundG[i] -= 0.05; if (w.groundG[i] <= 0) { w.ground[i] = 0; w.groundG[i] = 0; } } }
       if (si && !this.game.catalog.plants[si].wetOK && w.shrubG[i] < 0.35) { w.shrub[i] = 0; w.shrubG[i] = 0; }
-      if (ti && !this.game.catalog.plants[ti].wetOK && this.game.catalog.plants[ti].moist[1] < 0.95 && w.treeG[i] < 0.3) removeTree(w, i, 'flood', rng, { deadwood: false });
+      // a sapling that can't take wet feet may drown over the days the water stands, not on the first
+      // day: a young riparian tree may ride out a short winter flood (1/8 a day: an 8-day flood takes about
+      // two thirds; at 1/25 PNW's weedy floodplain cover rose against a control, ideas phone-creeks-fish s5b)
+      if (ti && !this.game.catalog.plants[ti].wetOK && this.game.catalog.plants[ti].moist[1] < 0.95 && w.treeG[i] < 0.3 && rng() < FLOOD_SAPLING_ODDS) removeTree(w, i, 'flood', rng, { deadwood: false });
       w.flood[i]--;
       if (!w.flood[i]) {
         // receding water leaves fresh silt and a scatter of floodplain seeds

@@ -18,7 +18,9 @@ steep steps, no player tool.
   below (`FALL_MIN_DROP` > `POOL_RISE`). Edits can't change it: Raise, Lower and Fill never move a creek's
   corners (0048). A pond dug beside the pool joins it and takes it down 0.08.
 - Fish: the fall's upper part stands far over its own water, so `swimRoute`'s depth test refuses the lip
-  both ways (no species leaps; don't add one here). Beavers: `damCrest` passes over a head whose pond
+  both ways (no species leaps; don't add one here). A fall keeps its own flat sheet in `runDepth` and lends
+  its level to no tile, while the steep reach below the pool is passable riffle both ways (0034), so the
+  pool holds a few fish, not all: `fish-falls-marsh-check`. Beavers: `damCrest` passes over a head whose pond
   would stand more than 0.12 over a fall's foot (it would stand flat up the face).
 - Drawing (`terrain.js`): the bank ring takes the water beside it before the water at its corner (it took
   the highest of all eight, so beside any steep creek the drawn water stood up to 0.6 over the creek's own,
@@ -35,6 +37,12 @@ steep steps, no player tool.
   icicle columns (at most 0.3 of the width each side: the middle always runs), puts shelf ice round the foam
   disc's rim, and glazes the rock where `aIce` says spray wets it (`rockIce`); the rock's dry tops take snow
   (`withSnowTops`). There is no temperature in the game: the snowpack is the cold signal.
+- Water round a fall reads as running downhill (all creeks, drawing only, `terrain-materials.js`): the
+  ripple noise (`r1`, `r2`, `broken`) is read at `p - vFlow t`, which moves it downstream (`+` ran it
+  upstream), and on moving water `waves()` is laid out along `aCurrent` and turned so the waves' mean travel
+  (`WAVE_DOWNSTREAM`) points downstream; each of `WAVES` travels within 25 degrees of it. Still water keeps
+  its one-way drift. `waterfall-check` measures the current and every wave against the bed's downhill at
+  each corner within 8 tiles of the fall, on the fresh map and with creeks and a pond dug beside it.
 - Sound: `sampleSoundLand` (`js/audio/land.js`) gives `falls`: full within a tile or two of the camera's focus,
   none `FALL_EARSHOT` (8) tiles off, scaled by zoom (`FALL_ZOOM`: none from the default overhead view) or full
   at eye level; `natureMix.falls` plays a recorded bed (`RECORDED_BEDS.falls`). Real recordings only (0002).

@@ -1,0 +1,16 @@
+# 0057 Wire tree guards
+
+## Rules
+
+- A wire guard (Habitat → Tree guard, `GUARD_COST` $5 a tree at Standard) goes on any land tree younger than `GUARD_YEARS - 1` years, planted or wild; not on the reef (its trees are corals). Everything about it lives in `js/sim/tree-guard.js`.
+- `w.guard` per tile (`EXTRA_ARRAYS`: saved, carried by undo; older saves load with none): 0, `PLANTED` (a tree the player planted, only so the guards can be offered), `GUARDED`. It means something only while the tile has a tree: `removeTree`, `World.clearPlants` and `setPlant` clear it, and a load drops any on a tile with no tree. Read it with `guarded(w, i)`.
+- A guarded tree is skipped by the beaver chew (`beaverDay`: they try another), by browsing and treading in `updatePlants` (`grazedGrowth`, `grazedSeedlingLost`, `trampledSeedling`), by `browseSapling` (ecology difficulty) and by `rubSapling`. Not by `elephantFelled` (a cage doesn't stop an elephant), not by `fellAtDam` (the mound's own bank is cleared), not by fire, flood or drought. Unguarded tiles draw the same random numbers as before, so a run without guards is unchanged.
+- It comes off by the tree's age, `GUARD_YEARS` (8): beavers fell grown cottonwood and alder too (on the opening's planting most trees they took were full grown, years 4 to 10), and treeG is full in about three years, so a size limit would protect almost nothing. `PLANTED` stays for life on an unguarded tree; a guard takes its place and, coming off, leaves 0 (so a player who guarded a planting before beavers came may never see the offer: harmless, they know the tool).
+- Per 0001 it protects habitat and never grows wildlife: beavers still eat unguarded trees and wild seedlings, and `beaverFood` still counts guarded trees (a colony may stay beside food it can't eat and cut more wild trees: real, and left so).
+- Offered once per farm, on the first `PLANTED` tree beavers cut (`offerGuards`: `flags.guardOffered`, `flags.guardAt`, the `guardOffer` event; `ui.offerGuards` toasts it with a button that puts the tool in hand). In the campaign the tool opens with the offer (`unlockedTools`). The time-lapse stops on it, once, like a fire in the planting (`ended: 'guards'`), so the rest of the planting can still be saved; if it ended some other way the same frame, `stop()` makes the offer.
+- Drawn as a wire cage at the trunk spot (`treeGuard`, a `treeguard` pool in flora.js; a band at the far LOD); `guard` is in flora-changes `FIELDS`.
+- Checks: `node tools/tree-guard-check.mjs`; `node tools/opening-lapse-check.mjs [years] [--seeds=…] [--no-guards]` (the player takes the offer the day it comes; `--no-guards` checks the old, unguarded planting).
+
+## History
+
+2026-11-25 (ideas phone-creeks-fish s10). Session 5b found beavers felling 20–30 of the ~45 trees the opening plants on about a third of seeds, so `opening-lapse-check` passed on its median only. Cole chose a cheap guard offered after the first beaver cut over making beavers ignore planted trees. With the offer taken, over run seeds 1, 2, 3, 4, 5, 7, 11, 13 the planted stretch keeps 29–51 trees after ten years (median 38); without guards the low seeds ended at 14–19. On a seed where beavers first cut a planted tree in year 8, most of the planting is already too old for a guard.

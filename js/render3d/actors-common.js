@@ -48,7 +48,9 @@ export function salmonLeap(a, time) {
 // A raptor's or owl's catch (sim/bird-behavior.js carryCatch): hanging limp below its feet in
 // flight (a fish carried level, back up) and lying under its feet while it eats.
 const CARRY_FORWARD = 0.18;
-function drawCatch(F, game, a, def, st, sc, mo) {
+// tracked: the holder is followed or selected; the meal is then drawn as part of it, through cover
+// by the lens (look-through.js), and st.meal (centre, radius) widens the lens's opening (Renderer.updateFocus).
+function drawCatch(F, game, a, def, st, sc, mo, tracked) {
   const pdef0 = game.catalog.animals[a.prey.sp];
   if (!pdef0) return;
   const pdef = drawDef(pdef0, a.prey, game.month);
@@ -66,17 +68,27 @@ function drawCatch(F, game, a, def, st, sc, mo) {
     const u = swallowed(a);
     if (u >= 0.97) return;
     const half = len(pdef) * psc * 0.5, k = 1 - 0.75 * u, f = mo.slither.nose * sc + half * k * (1 - u * 0.6);
-    F.add(pdef, st.x + fx * f, st.y + lie * k, st.z + fz * f, st.yaw + Math.PI, psc * k, 0, 0, 0, 0.6, 0, Math.PI / 2);
+    held(st, pdef, st.x + fx * f, st.y + lie * k, st.z + fz * f, psc * k, tracked);
+    F.add(pdef, st.x + fx * f, st.y + lie * k, st.z + fz * f, st.yaw + Math.PI, psc * k, 0, 0, 0, 0.6, 0, Math.PI / 2, null, tracked);
     return;
   }
   const aloft = a.state === 'carry' && a.carry?.phase !== 'mantle';
   if (aloft) {
     const f = len(def) * sc * CARRY_FORWARD * 0.5, y = st.center.y - st.h * 0.35 - (a.prey.fish ? (pdef.sprite.h || 8) * psc * 0.6 : lie * 1.4); // (in the feet, tucked under the body)
-    F.add(pdef, st.x + fx * f, y, st.z + fz * f, st.yaw, psc, 0, 0, 0, 0.6, 0, a.prey.fish ? 0 : Math.PI / 2);
+    held(st, pdef, st.x + fx * f, y, st.z + fz * f, psc, tracked);
+    F.add(pdef, st.x + fx * f, y, st.z + fz * f, st.yaw, psc, 0, 0, 0, 0.6, 0, a.prey.fish ? 0 : Math.PI / 2, null, tracked);
   } else {
     const f = len(def) * sc * CARRY_FORWARD;
-    F.add(pdef, st.x + fx * f, st.y + lie, st.z + fz * f, st.yaw + 0.5, psc, 0, 0, 0, 0.6, 0, Math.PI / 2);
+    held(st, pdef, st.x + fx * f, st.y + lie, st.z + fz * f, psc, tracked);
+    F.add(pdef, st.x + fx * f, st.y + lie, st.z + fz * f, st.yaw + 0.5, psc, 0, 0, 0, 0.6, 0, Math.PI / 2, null, tracked);
   }
+}
+
+// Where the held meal is, for the lens: its centre and about half its length (only while tracked).
+function held(st, pdef, x, y, z, psc, tracked) {
+  if (!tracked) return;
+  st.meal ||= { x: 0, y: 0, z: 0, r: 0 };
+  Object.assign(st.meal, { x, y, z, r: (pdef.sprite.len || pdef.sprite.size || 10) * psc * 0.5 });
 }
 
 // How far a snake's meal has gone in, 0 to 1: the first third it holds its catch in its coils, the
@@ -266,7 +278,8 @@ export function finishAnimal(A, c) {
   st.revealBounds = mo.revealBounds; // (the body's box, for the tracking lens: see focus.js)
   if (st.revealBounds) { st.revealMatrix ||= new THREE.Matrix4(); st.revealMatrix.copy(F.m); }
   // (after the reads of F.m above, which must still hold this animal's own instance)
-  if (a.prey && (a.state === 'carry' || a.state === 'feed')) drawCatch(F, game, a, def, st, sc, mo);
+  if (st.meal) st.meal.r = 0; // (none held unless drawCatch says so)
+  if (a.prey && (a.state === 'carry' || a.state === 'feed')) drawCatch(F, game, a, def, st, sc, mo, a === A.followAgent || a === game.selectedAgent);
   // (no shadow afloat: on a seabird resting on the sea it lay on the seabed, a dark bird on the bottom)
   if (!st.branch && def.move !== 'swim' && !swimming && c.fl == null && !(surf != null && trait(def, 'floats'))) {
     // (a shaped shadow fades and softens a little the higher the animal is above the ground)

@@ -2,6 +2,8 @@
 // Every few steps, every river fish (move 'swim', not the reef) must stand in at least FISH_DEPTH
 // (or its own fishDepth: the catfish, which lies on the bed and keeps its back under) of its tile's water (swimDepth, which the drawing uses too), and its drawn body must be under the
 // surface and over the ground. PNW (cutthroat, coho), Amazon, Chinandega and Serengeti, two seeds.
+// A fish on its way (walking) across a creek's riffle is judged by runDepth, the running water there,
+// and drawn in it (actors-swim.js); at rest, by swimDepth (2026-11-23, fish-falls-marsh-check).
 import assert from 'node:assert/strict';
 globalThis.localStorage = { getItem() { return null; }, setItem() {}, removeItem() {} };
 const root = new URL('../js/', import.meta.url).href;
@@ -11,6 +13,8 @@ const FISH_DEPTH = 0.07, need = d => waterline.fishDepth?.(d) ?? FISH_DEPTH;
 // (the same as waterline.js swimDepth; written out so the check runs on older code too)
 const swimDepth = (w, x, y) => { const L = tileWaterLevel(w, w.idx(Math.floor(x), Math.floor(y))); return L == null ? -Infinity : L - groundAt(w, x, y); };
 const { LEVEL } = await import(root + 'config.js');
+const routes = await import(root + 'sim/swim-routes.js').catch(() => ({}));
+const runLevel = routes.runLevel || (() => null);
 const report = process.argv.includes('--report');
 let fails = 0;
 for (const map of ['pnw', 'amazon', 'chinandega', 'serengeti']) for (const seed of [1987, 91]) {
@@ -31,14 +35,14 @@ for (const map of ['pnw', 'amazon', 'chinandega', 'serengeti']) for (const seed 
       for (const a of g.wildlife.agents) {
         const d = g.catalog.animals[a.sp]; if (d.move !== 'swim' || d.reef || a.leaving || a.state === 'carried') continue;
         if (!w.inb(Math.floor(a.x), Math.floor(a.y))) continue;
-        samples++; const depth = swimDepth(w, a.x, a.y); worst = Math.min(worst, depth);
+        samples++; const run = a.state === 'walk' ? runLevel(w, a.x, a.y) : null, depth = run != null ? Math.max(swimDepth(w, a.x, a.y), run - groundAt(w, a.x, a.y)) : swimDepth(w, a.x, a.y); worst = Math.min(worst, depth);
         // (a fish keeping to deeper water is drawn covered down to a hundredth of a level under its fishDepth:
         // held up at a creek's lip, the known river-fish stall, it may sit a hair under)
         if (depth < need(d) - (need(d) > FISH_DEPTH ? 0.01 : 0) - 1e-6) { shallow++; (shallowBy[d.key] ||= 0); shallowBy[d.key]++; }
         // drawn as actors.js does: at its tile's surface, down by its sink but no more than half the water
         const L = tileWaterLevel(w, w.idx(Math.floor(a.x), Math.floor(a.y))), gy = groundAt(w, a.x, a.y) * LEVEL;
         if (L == null) { buried++; oldBuried++; continue; }
-        const surf = L * LEVEL, y = surf - Math.max(0, Math.min(0.06, (surf - gy) * 0.5));
+        const rl = runLevel(w, a.x, a.y), surf = Math.max(L, rl ?? -Infinity) * LEVEL, y = surf - Math.max(0, Math.min(0.06, (surf - gy) * 0.5));
         if (y < gy - 1e-6) buried++;
         if (surf - 0.06 < gy) oldBuried++; // (the old drawing: always 0.05 + its sink under the surface)
       }

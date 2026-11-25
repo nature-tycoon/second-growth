@@ -5,12 +5,18 @@
 // Its last frame is the live first view (intro-film.json, held by tools/intro-film-check.mjs), so when
 // it ends, and the game is ready, it fades straight into the farm. If the game is ready first, the
 // game waits for the film; if the film hasn't started (slow network, no codec, an error) by the time
-// the game is ready, it is dropped without a word. Skip at any moment: the Skip button, Esc, or a
-// tap/click anywhere. Sound is tried first (itch.io's "Run game" click may allow it); where the
+// the game is ready, it is dropped without a word (to the player; intro_failed says why). Skip at any
+// moment with the Skip button or Esc. A tap/click anywhere else only pulses the Skip button: 3 of the
+// first 4 players skipped at about 2 s (2026-11-23), maybe a stray click, so a skip must be meant.
+// Sound is tried first (itch.io's "Run game" click may allow it); where the
 // browser refuses, it plays muted with a sound button. Once per device (INTRO_SEEN); "Watch intro"
 // in the menus replays it over the paused game.
 //
-// Events: intro_started { first }, intro_skipped { second, first }, intro_finished { first }.
+// Events: intro_started { first, ... }, intro_skipped { second, first, how: 'button'|'key', taps },
+// intro_finished { first, taps }, intro_failed { first, reason, second, waited_s, buffered_s, size,
+// downsized } (reason: no_source, error, play_blocked, play_error, not_ready, stalled), and from
+// main.js intro_not_offered { reason } for a first visit that never gets the film (introBlocked).
+// taps: stray taps on the film that only pulsed the Skip button.
 
 import { track } from '../analytics.js';
 import { music } from '../audio/music.js';
@@ -26,7 +32,7 @@ const START_GRACE_MS = 4000; // (the game is ready but the film hasn't started: 
 // on, and is gone before the last shot (the 'start' layer, 30.2 s) and the line over the farm.
 // Drawn here over the video, not baked in, so it is sharp at any size. tools/intro-film-check.mjs
 // holds these to the cut.
-export const TITLE_IN = 23.4, TITLE_OUT = 28.4;
+export const TITLE_IN = 22.9, TITLE_OUT = 27.9; // (0.5 s earlier with the shorter stalk, 2026-11-23)
 // When the film may start (film-playback.md): never on a few frames that then freeze. It starts once
 // it is all here, or once its download, measured over MEASURE_MS while arriving, will stay ahead of
 // playback to the end with MARGIN to spare and MIN_AHEAD seconds in hand, or once the browser stops
@@ -49,11 +55,14 @@ const bufferedEnd = v => { const b = v.buffered; for (let i = b.length - 1; i >=
 // Does this first visit get the film? Automated browsers (navigator.webdriver: every headless check
 // and capture tool) don't get it unless the address asks (?intro=1, tools/intro-browser-check.mjs),
 // and neither do Save-Data connections (5 MB). ?intro=0 turns it off. Once per device either way.
-export function introWanted(map) {
+// introBlocked says why not ('' when it plays), for intro_not_offered.
+export function introBlocked(map) {
   const asked = new URLSearchParams(location.search).get('intro');
-  if (asked === '0' || map !== FILM_MAP) return false;
-  if (asked !== '1' && (navigator.webdriver || navigator.connection?.saveData)) return false;
-  try { return !localStorage.getItem(INTRO_SEEN); } catch { return false; } // (no storage: it would play on every visit)
+  if (asked === '0') return 'off';
+  if (map !== FILM_MAP) return 'map';
+  if (asked !== '1' && navigator.webdriver) return 'automated';
+  if (asked !== '1' && navigator.connection?.saveData) return 'save_data';
+  try { return localStorage.getItem(INTRO_SEEN) ? 'seen' : ''; } catch { return 'no_storage'; } // (no storage: it would play on every visit)
 }
 
 // Which copy of the film: the 1080p only where it would show (drawn at least 600 CSS pixels and 900
@@ -75,6 +84,7 @@ export class IntroFilm {
     this.first = first;
     this.ready = !first;      // (the game behind it: a replay plays over a game already running)
     this.ended = false; this.started = false; this.closed = false;
+    this.taps = 0; this.t0 = performance.now();
     this.done = new Promise(resolve => { this.resolve = resolve; });
     // (settles once the film is playing or has gone: main.js keeps the loading screen up until then)
     this.decided = new Promise(resolve => { this.decide = resolve; });
@@ -90,10 +100,9 @@ export class IntroFilm {
   build() {
     const el = this.el = document.createElement('div');
     el.id = 'intro'; el.className = 'intro';
-    el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Intro film. Press Escape or tap to skip.');
+    el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Intro film. Press Escape or the Skip button to skip.');
     el.innerHTML = `<video playsinline preload="auto" disablepictureinpicture disableremoteplayback></video>
       <div class="intro-bar"><button type="button" class="intro-sound" hidden></button><button type="button" class="intro-skip">Skip <span aria-hidden="true">›</span></button></div>
-      <p class="intro-hint" hidden>Tap to skip</p>
       <p class="intro-title" aria-hidden="true">Sec<i class="intro-o"></i>nd Growth</p>`;
     const v = this.video = el.querySelector('video');
     // H.264 + AAC MP4 (every browser plays it; the VP9 WebM was dropped: at the same quality it was 2-3x
@@ -111,21 +120,27 @@ export class IntroFilm {
     v.addEventListener('timeupdate', () => title.classList.toggle('on', v.currentTime >= TITLE_IN && v.currentTime < TITLE_OUT));
     v.addEventListener('playing', () => this.onPlaying(), { once: true });
     // (a <source> that fails: the browser tries the next one, so only the last one's error ends it)
-    v.addEventListener('error', e => { if (e.target === v || e.target === v.querySelector('source:last-of-type')) this.fail(); }, true);
+    v.addEventListener('error', e => { if (e.target === v || e.target === v.querySelector('source:last-of-type')) this.fail('error'); }, true);
     this.soundBtn = el.querySelector('.intro-sound');
     this.soundBtn.addEventListener('click', e => { e.stopPropagation(); this.setMuted(!v.muted); });
-    el.querySelector('.intro-skip').addEventListener('click', e => { e.stopPropagation(); this.skip(); });
-    el.addEventListener('click', () => this.skip()); // (a tap anywhere else)
+    const skipBtn = el.querySelector('.intro-skip');
+    skipBtn.addEventListener('click', e => { e.stopPropagation(); this.skip('button'); });
+    // (a tap anywhere else only points at Skip: the pulse restarts on every tap)
+    el.addEventListener('click', () => {
+      if (!this.started || this.closed || this.fading) return;
+      this.taps++;
+      skipBtn.classList.remove('nudge'); void skipBtn.offsetWidth; skipBtn.classList.add('nudge');
+    });
     for (const type of ['pointerdown', 'pointerup', 'wheel', 'touchstart', 'contextmenu']) el.addEventListener(type, e => e.stopPropagation(), { passive: true }); // (the camera stays at the film's last view)
     this.onKey = e => {
       if (this.closed || this.fading) return;
       e.stopImmediatePropagation(); // (the game behind it hears no keys while the film plays)
-      if (e.key === 'Escape' && e.type === 'keydown') { e.preventDefault(); this.skip(); }
+      if (e.key === 'Escape' && e.type === 'keydown') { e.preventDefault(); this.skip('key'); }
     };
     for (const type of ['keydown', 'keyup']) window.addEventListener(type, this.onKey, true);
     document.body.append(el);
     document.documentElement.classList.add('intro-on');
-    if (!v.querySelector('source')) this.fail();
+    if (!v.querySelector('source')) this.fail('no_source');
   }
 
   // Plays once enough of the film is here to play through (the rule above MIN_AHEAD).
@@ -186,9 +201,9 @@ export class IntroFilm {
     try { await v.play(); }
     catch (err) {
       if (this.closed) return;
-      if (err?.name !== 'NotAllowedError') { if (err?.name !== 'AbortError') this.fail(); return; }
+      if (err?.name !== 'NotAllowedError') { if (err?.name !== 'AbortError') this.fail('play_error'); return; }
       v.muted = true;
-      try { await v.play(); } catch { this.fail(); return; }
+      try { await v.play(); } catch { this.fail('play_blocked'); return; }
     }
     this.showSound();
   }
@@ -207,7 +222,6 @@ export class IntroFilm {
     this.started = true;
     this.el.classList.add('playing');
     this.decide();
-    if (matchMedia('(pointer: coarse)').matches) this.el.querySelector('.intro-hint').hidden = false;
     track('intro_started', { first: this.first, muted: this.video.muted, size: this.size, played: /-1080\./.test(this.video.currentSrc) ? 1080 : 720, downsized: !!this.downsized });
   }
 
@@ -219,7 +233,7 @@ export class IntroFilm {
     // (not started yet: a fast computer can be ready before the film has buffered its first frames,
     // so it gets a few seconds more, the loading screen still up; after that it isn't coming)
     if (!this.started) {
-      this.grace = setTimeout(() => { if (!this.started) this.fail(); else this.gameReady(); }, START_GRACE_MS);
+      this.grace = setTimeout(() => { if (!this.started) this.fail('not_ready'); else this.gameReady(); }, START_GRACE_MS);
       this.video.addEventListener('playing', () => { clearTimeout(this.grace); this.gameReady(); }, { once: true });
       return;
     }
@@ -233,27 +247,37 @@ export class IntroFilm {
       if (document.hidden || this.ended) return;
       const t = this.video.currentTime;
       still = t === last ? still + 1 : 0; last = t;
-      if (still >= 6) { clearInterval(this.watchdog); this.fadeOut('failed'); }
+      if (still >= 6) { clearInterval(this.watchdog); this.trackFail('stalled'); this.fadeOut('failed'); }
     }, 1000);
   }
 
   maybeFinish() {
     if (!this.ended || !this.ready || this.closed || this.fading) return;
-    track('intro_finished', { first: this.first });
+    track('intro_finished', { first: this.first, taps: this.taps });
     this.fadeOut('finished');
   }
 
-  skip() {
+  skip(how) {
     if (this.closed || this.fading) return;
-    if (!this.started) { this.fail(); return; }
-    track('intro_skipped', { second: Math.round(this.video.currentTime * 10) / 10, first: this.first });
+    if (!this.started) { this.fail('skipped_unstarted'); return; }
+    track('intro_skipped', { second: Math.round(this.video.currentTime * 10) / 10, first: this.first, how, taps: this.taps });
     // (skipped before the game is ready: the loading screen behind it shows until it is)
     this.fadeOut('skipped', this.ready ? 350 : 0);
   }
 
-  fail() {
+  fail(reason) {
     if (this.closed) return;
+    this.trackFail(reason);
     this.close('failed'); // (silently: the farm opens as it would without the film)
+  }
+
+  // Why the film didn't play (or stopped): what had arrived and how long the player waited for it.
+  trackFail(reason) {
+    if (this.failSent) return;
+    this.failSent = true;
+    const v = this.video, r10 = x => Math.round(x * 10) / 10;
+    track('intro_failed', { first: this.first, reason, second: r10(v.currentTime || 0), waited_s: r10((performance.now() - this.t0) / 1000),
+      buffered_s: r10(bufferedEnd(v)), size: this.size, downsized: !!this.downsized, error: v.error?.code ?? null });
   }
 
   // The farm underneath gets two frames drawn before the film fades off it (main.js stops drawing

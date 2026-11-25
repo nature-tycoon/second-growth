@@ -281,3 +281,14 @@ tiles apart, so the Serengeti's northward migration wears a broad band of parall
   Population trajectories differ; these runs are not an output-preserving timing
   comparison. The machine had Low Power Mode enabled, so no target-hardware frame
   rate claim is made.
+
+### 2026-11-25: the review page picks its own seed
+
+`animal-trails-browser-check` saw 0 pixels of trail in Fast and High. The drawing was fine:
+9add1d3 (0054's shore pass reshaped PNW's land under the fixture) changed how the fixture's elk
+walk, and the hand-picked run seed 24×7919 fell from 29 drawn trail samples to 2 (peak wear 0.29 to
+0.095, just over `TRAIL_THRESHOLD`). Over 30 seeds the median stayed 13 drawn samples before and
+after, so trails aren't weaker, only reshuffled. `tools/animal-trails-review.html` now runs seeds
+1–30 (×7919) through `strongestTrailSeed` (`tools/animal-trails-fixtures.mjs`) and keeps the one
+that wears the most drawn trail; the check sees about 1,300 pixels change (the old seed passed at 147), a plain path from the
+bedding trees to the feeding grass.

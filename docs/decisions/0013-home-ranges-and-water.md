@@ -5,6 +5,7 @@
 - Movement comes from natural causes (food, territory, predators, each animal's own nearest water), never from rules written to spread animals out. A need must not run on a timer shorter than the trip it sets off.
 - Resident land mammals that drink hold a home range (`a.home`, `js/sim/home-range.js`, `homeEligible`); migrants, river patrollers and reef animals don't. A group's leader holds it; young stay with their mother. A 0010 range or 0007 territory is that animal's home.
 - Settling is a bounded search (2,500 tiles) scored by habitat over overlap with homes of its own kind; animals spread because homes are scored against homes.
+- A follower in a herd that lives in its water (`move: 'semi'`, the hippo) holds no home and drinks on its leader's home's pace; a walking herd's followers keep their own pace and drink when the herd reaches a bank (`animal-positioning-check`) (`drinkEvery` reads the leader's `home` through `a.herdOf`); without that a hippo standing in its pool sipped at the bank beside it every 5–9 days (2026-11-24: 22% of its time, after 0054's smooth shores gave more bank spots).
 - Water: the home's nearest reachable bank within `clamp(√hr × 2, 6, 40) × water.reach` tiles; none in reach means no water trips (recheck every 20 days). `drinkEvery` fits trip and drink within `water.share` of time (8%, 15% for water-dependent grazers).
 - The water route is learned once and reused both ways through `followRoute` (shared with resource trips in `animal-trails.js`).
 - Population, food, breeding, K and predation formulas are unchanged by homes.

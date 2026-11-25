@@ -6,7 +6,7 @@
 import { clamp, isWater, DAYS_PER_YEAR, lifeAge, F } from '../config.js';
 import { preyFor, isMale, isMaleVariant } from '../data/animals.js';
 import { facePoint, animalRadius } from './animal-positioning.js';
-import { passable, canLand } from './animal-terrain.js';
+import { passable, canLand, overWater } from './animal-terrain.js';
 import { inRiver } from './animals.js';
 import { followCervid } from './cervid-groups.js';
 import { travelSpeed } from './climb-pace.js';
@@ -209,7 +209,11 @@ export function huntStep(wl, a, def, b, sp) {
       if (H.best == null || d < H.best - 0.05) { H.best = d; H.since = 0; } else H.since = (H.since || 0) + t;
       if (H.stamina <= 0 || H.since > S.patience || d > H.best + 2) return letGo(wl, a, def, b, sp);
       const P = pounceFor(wl, def, S, b);
-      if (P && touch && d < P.from && d > 0.55) return startLeap(wl, a, def, b, S, P, H, d, t, sp);
+      // (it springs only out of a burst of speed, at no more than twice the pace it runs: crept up
+      // close it pounced at once from a walk, 3.6 times as fast in one frame, a jaguar 2026-11-24.
+      // Started very close, it still pounces, capped the same way in startLeap. The cheetah's pounce
+      // starts within 0.9 anyway: for it only the cap applies)
+      if (P && touch && d < P.from && d > 0.55 && ((H.v || 0) >= S.sprint * P.fast / 2 || d < 0.9)) return startLeap(wl, a, def, b, S, P, H, d, t, sp);
       if (d < 1.2) mul *= 1.3; // (the last bound or lunge onto it)
       H.lunge = !P && d < 1.2 ? 1 - d / 1.2 : 0; // (a dog or hyena drives its head and forequarters in to grab)
     }
@@ -260,12 +264,13 @@ export function huntStep(wl, a, def, b, sp) {
 // the ground here (the drawing lifts it on its arc: actors.js reads H.leap). It lands on the prey,
 // or just short of it: a hunter that comes down out of reach stumbles and runs on, or lets it go.
 function startLeap(wl, a, def, b, S, P, H, d, t, sp) {
-  const fast = def.speed * S.sprint * P.fast, T0 = d / fast;
+  const fast = def.speed * Math.min(S.sprint * P.fast, 2 * Math.max(H.v || 0, 1)), T0 = d / fast; // (never over twice the pace it springs from)
   let tx = b.x + H.vx * T0, ty = b.y + H.vy * T0;
   const L = Math.hypot(tx - a.x, ty - a.y), cap = P.from * 1.25;
   if (L > cap) { tx = a.x + (tx - a.x) / L * cap; ty = a.y + (ty - a.y) / L * cap; }
   const len = Math.min(L, cap);
-  H.leap = { u: 0, T: Math.max(0.05, len / fast), len, tx, ty, arc: P.arc };
+  // (a slower leap goes lower, or it hangs in the air: from a creep it's a low spring)
+  H.leap = { u: 0, T: Math.max(0.05, len / fast), len, tx, ty, arc: P.arc * fast / (def.speed * S.sprint * P.fast) };
   H.line = Math.atan2(ty - a.y, tx - a.x); H.lunge = 0;
   return leapStep(wl, a, def, b, H, t, sp);
 }
@@ -501,16 +506,22 @@ export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
     // Take off immediately, then prefer a safe landing farther from the threat.
     // If enclosed by unsuitable landing terrain, remain airborne and try again later.
     let best = null, score = -Infinity;
+    const creekFlyer = trait(def, 'fastWater');
     for (let k = 0; k < 12; k++) {
       const ang = Math.atan2(fy, fx) + (simRandom() - 0.5) * 1.4, r = range + simRandom() * range;
       const x = clamp(a.x + Math.cos(ang) * r, 0.5, w.w - 0.5), y = clamp(a.y + Math.sin(ang) * r, 0.5, w.h - 0.5);
       const j = w.idx(Math.floor(x), Math.floor(y));
       if (!canLand(w, j, def) || w.fire[j]) continue;
+      // (a creek bird, fastWater, escapes along its creek, never across land: the dipper)
+      if (creekFlyer && !overWater(w, a.x, a.y, x, y)) continue;
       const d = Math.hypot(x - threat.x, y - threat.y);
       if (d <= l) continue;
       const value = d + preyCover(w, { sp: a.sp, x, y }, wl.game.catalog.animals[threat.sp]) * 2;
       if (value > score) { best = [x, y]; score = value; }
     }
+    // (a creek bird with no way off along the water stays on its creek, as a dipper ducks under,
+    // rather than hanging in the air and then cutting across land)
+    if (!best && creekFlyer && !a.flying) { a.threat = threat.id; a.state = 'idle'; a.wait = 0.2; a.path = null; return; }
     a.threat = threat.id; a.flying = true; a.alt = Math.max(0.3, a.alt || 0); a.path = null;
     if (best) { [a.tx, a.ty] = best; a.state = 'fly'; }
     else { a.state = 'idle'; a.wait = 0.2; }
