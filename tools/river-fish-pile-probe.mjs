@@ -12,6 +12,8 @@
 // from three causes the 11-20 fix never covered: an escape's waypoint nudged into deep water in the next
 // tile past a dry band, roam/disperse routes with no swimRoute test, and fleeing fish all taking the one
 // tile farthest from the hunter. Covered by tools/fish-marsh-pile-check.mjs. Measure over 10+ seeds.
+// 2026-11-25 (s12): seed 37's pile was snakeheads stranded in a one-tile puddle the dry season cut off;
+// air-breathers now wriggle over wet ground to bigger water (fish-wriggle.js, fish-wriggle-check). 50 -> 0.4.
 import { restoredGame } from './map-audit-fixtures.mjs';
 import { mulberry32 } from '../js/rng.js';
 import { animalRadius } from '../js/sim/animal-positioning.js';

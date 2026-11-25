@@ -23,6 +23,7 @@ import { ensureHome, homeChoose, homeFalloff } from './home-range.js';
 import { markRisk, safety } from './predation-risk.js';
 import { passable, canLand, wader, shallowsFor } from './animal-terrain.js';
 import { swimRoute } from './swim-routes.js';
+import { wriggleOut, wriggleOn } from './fish-wriggle.js';
 import { simRandom } from './sim-random.js';
 import { routeWeight, stepWeight, driftRow, grassGone, greenSpot } from './migration-route.js';
 import { swimmer, territory, standable, inRiver, inCrossing, WITH_MOM } from './wildlife-shared.js';
@@ -303,6 +304,7 @@ export class WildlifeIntent {
     a.fruitMeal = null; a.fruitGoal = null;
     const w = this.game.world;
     const map = this.suit[a.sp];
+    if (wriggleOn(this, a, def)) return; // (a stranded fish part way over the ground goes on: fish-wriggle.js)
     // a migrant left treading water in the river (a crocodile, a scare): swim on to the far bank
     // (before anything else: in the water there's no stopping to stare at a crocodile)
     if (def.crossing && !a.leaving && inRiver(this, a)) {
@@ -478,6 +480,8 @@ export class WildlifeIntent {
         stamp[j] = stampN; parent[j] = i; bfsQ[tail++] = j;
       }
     }
+    // (an air-breather left in a puddle wriggles over wet ground to bigger water: fish-wriggle.js)
+    if (swim && wriggleOut(this, a, def, bfsQ, tail, i => stamp[i] === stampN, swim)) return;
     // nothing better around: now and then it potters off a few steps anyway (foraging, sniffing
     // about), rather than standing on one tile or shuttling between the same two
     // (a river fish always does: it holds in the current a while, then noses on, rather than

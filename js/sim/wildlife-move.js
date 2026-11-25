@@ -20,6 +20,7 @@ import { turnRate, reefStep } from './steering.js';
 import { shapeCourse, pathPoint } from './animal-course.js';
 import { swimDepth, deepWaterNear, fishDepth } from './waterline.js';
 import { blockSwim, runDepth, swimPoint } from './swim-routes.js';
+import { wetGround, outOfWater, WRIGGLE_PACE } from './fish-wriggle.js';
 import { drinkEvery } from './home-range.js';
 import { passable, reefMoveSafe } from './animal-terrain.js';
 import { simRandom } from './sim-random.js';
@@ -113,7 +114,8 @@ export class WildlifeMove {
     a.pressT = pressed ? (a.pressT || 0) + dt : 0;
     if (pressed === 'ground' && a.follow) { a.pressT = 0; a.path.length = 0; a.slot = null; a.bachelorSlot = null; a.momSlot = null; return; }
     if (a.pressT >= 0.7) { a.pressT = 0; this.recoverMovement(a); return; } // (on along its new way next step)
-    const pace = (wading ? sp * 0.55 : sp) * (a.pace || 1) * (a.run || 1); // (a.run: a startled animal dashing for cover)
+    const pace = (wading ? sp * 0.55 : sp) * (a.pace || 1) * (a.run || 1) // (a.run: a startled animal dashing for cover)
+      * (a.wriggle && outOfWater(w, a, def) ? WRIGGLE_PACE : 1); // (a fish wriggling over the ground: fish-wriggle.js)
     // curve round anyone in the way rather than walking into them (not on a dash for cover)
     const round = a.run ? null : this.spacing.steer(a, tx, ty, standable);
     if (smoothWalker(def)) { if (smoothWalk(this, a, def, tx, ty, pace, dt, round)) a.path.pop(); }
@@ -290,6 +292,25 @@ const TO = { x: 0, y: 0 };
 function riverFishStep(w, a, def, nx, ny, dx, dy, step, was) {
   // (runDepth: the water it can swim through, a creek's riffles too, swim-routes.js)
   const here = runDepth(w, a.x, a.y), need = fishDepth(def), swims = (x, y) => { const t = runDepth(w, x, y); return t >= need || t > here || here < need && t >= here; };
+  // (an air-breather wriggling out of a puddle crosses wet ground too, never dry land: fish-wriggle.js)
+  // (back in deep water in the tile it headed for, the crossing is over)
+  if (a.wriggle && here >= need && w.idx(Math.floor(a.x), Math.floor(a.y)) === a.wriggle.to) a.wriggle = null;
+  if (a.wriggle && a.state === 'walk') {
+    const ok = (x, y) => runDepth(w, x, y) >= need || wetGround(w, x, y);
+    if (!ok(nx, ny)) {
+      // (round a trunk or a dry hump: the nearest heading either side that stays on wet ground)
+      const h0 = Math.atan2(dy, dx), side = a.detour || 1;
+      let found = false;
+      for (let k = 0; !found && k < 4; k++) {
+        const s = k & 1 ? -side : side, h = h0 + s * ((k >> 1) * 0.5 + 0.5), x = a.x + Math.cos(h) * step, y = a.y + Math.sin(h) * step;
+        if (ok(x, y)) { nx = x; ny = y; found = true; a.detour = s; }
+      }
+      if (!found) { a.heading = was; a.swimHeld = true; return false; }
+      facePoint(a, nx, ny);
+    }
+    TO.x = nx; TO.y = ny; a.swimHeld = false;
+    return true;
+  }
   if (!swims(nx, ny)) {
     // it follows the channel round a shallow bar: the nearest heading either side that keeps to
     // swimmable water. Held up half a day all the same (a creek running downhill is a staircase

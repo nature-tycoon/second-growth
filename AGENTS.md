@@ -64,7 +64,7 @@ Read the record for an area before changing it. Each record in [docs/decisions/]
 - [0031](docs/decisions/0031-ecosystem-report.md) Ecosystem Report (`sim/eco-metrics.js`)
 - [0032](docs/decisions/0032-real-moon-and-clear-sky.md) Real moon and clear-day sky
 - [0033](docs/decisions/0033-herbivore-pressure.md) Herbivore pressure (`sim/herbivory.js`)
-- [0034](docs/decisions/0034-water-and-wetlands.md) Water model, beaver ponds (dams grow over years, `rise`; spill when full), fish depth, wallows
+- [0034](docs/decisions/0034-water-and-wetlands.md) Water model, beaver ponds (dams grow over years, `rise`; spill when full), fish depth, wallows, stranded air-breathing fish wriggle over wet ground to the next water (`breathesAir`, `js/sim/fish-wriggle.js`; `fish-wriggle-check`)
 - [0035](docs/decisions/0035-fire-randomness-deadwood.md) Run seed, deadwood placement, stones, savanna fire
 - [0036](docs/decisions/0036-savanna-grass-recovery.md) Savanna grass recovery
 - [0037](docs/decisions/0037-shared-prey-and-recolonisation.md) Shared prey and recolonisation (`sharePrey`)

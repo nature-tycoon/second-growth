@@ -249,7 +249,7 @@ export class Wildlife {
   // -------------------------------------------------------------- persistence
   serialize() {
     return {
-      agents: this.agents.map(({ moveProgress, pushX, pushY, course, woodLost, squeeze, trampled, dodge, dodgeOff, fleeHd, jink, settleKey, headUp, headUpKey, detour, pressT, waitFam, swimHeld, noDeep, ...a }) => saved({ ...a, territory: a.territory ? { ...a.territory } : a.territory, dormancy: a.dormancy ? { ...a.dormancy } : a.dormancy, range: a.range ? { ...a.range, route: a.range.route?.slice() } : a.range, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : a.home, path: null })),
+      agents: this.agents.map(({ moveProgress, pushX, pushY, course, woodLost, squeeze, trampled, dodge, dodgeOff, fleeHd, jink, settleKey, headUp, headUpKey, detour, pressT, waitFam, swimHeld, noDeep, noWriggle, ...a }) => saved({ ...a, territory: a.territory ? { ...a.territory } : a.territory, dormancy: a.dormancy ? { ...a.dormancy } : a.dormancy, range: a.range ? { ...a.range, route: a.range.route?.slice() } : a.range, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : a.home, path: null })),
       nextId: this.nextId,
       state: this.state.map(s => ({ discovered: s.discovered, lastYear: s.lastYear, blockedNotified: s.blockedNotified, births: s.births, residents: s.residents, since: s.since, lostNoted: s.lostNoted })),
       salmon: this.salmon, dams: this.dams,

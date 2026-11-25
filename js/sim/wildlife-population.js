@@ -19,6 +19,7 @@ import { huntHunger } from '../data/animal-activity.js';
 import { passable, canLand } from './animal-terrain.js';
 import { simRandom } from './sim-random.js';
 import { swimDepth } from './waterline.js';
+import { strandedDies } from './fish-wriggle.js';
 import { crossingColumn } from './migration-route.js';
 import { territory, Animal, inRiver, spotIn, WITH_MOM } from './wildlife-shared.js';
 import { waitAtFence, waitingAtFence, waterGapClosed } from './fence-gate.js';
@@ -604,6 +605,8 @@ export class WildlifePopulation {
       const x = Math.floor(a.x), y = Math.floor(a.y);
       if (!w.inb(x, y)) continue;
       const i = w.idx(x, y);
+      // (a fish left in a pool drying down, with no deep water it can reach, dies: fish-wriggle.js)
+      if (strandedDies(this, a, def)) { this.remove(a, 'natural'); continue; }
       a.hunger += shelteredDormant(this, a, def) ? def.behavior.dormancy.rate : 1;
       if (a.state === 'dormant') continue;
       grazeDay(game, def, x, y);

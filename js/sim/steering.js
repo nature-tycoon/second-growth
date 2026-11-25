@@ -119,7 +119,8 @@ export function settle(wl) {
     // water than that (the catfish's own fishDepth) is put back in its pool at rest, as before)
     const deepKeeper = trait(def, 'fishDepth') != null;
     if (a.move === 'swim' && !def.reef && !a.leaving && !deepKeeper && a.state !== 'walk' && a.wait > 0 && runDepth(w, a.x, a.y) >= fishDepth(def) && swimDepth(w, a.x, a.y) < fishDepth(def)) a.wait = 0;
-    if (a.move === 'swim' && !def.reef && !a.leaving && (deepKeeper && a.state !== 'walk' ? swimDepth(w, a.x, a.y) : runDepth(w, a.x, a.y)) < fishDepth(def)) {
+    // (not one wriggling over the ground to the next water: fish-wriggle.js. Put back, it jumped a tile)
+    if (a.move === 'swim' && !def.reef && !a.leaving && !a.wriggle && (deepKeeper && a.state !== 'walk' ? swimDepth(w, a.x, a.y) : runDepth(w, a.x, a.y)) < fishDepth(def)) {
       const p = deepWaterNear(w, a.x, a.y, 1.2, fishDepth(def));
       if (p) { a.x = p[0]; a.y = p[1]; }
       continue;

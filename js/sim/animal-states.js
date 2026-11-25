@@ -16,7 +16,7 @@
 // state is never renamed without a load step that maps the old name (animals.js `load`).
 export const ANIMAL_STATES = Object.freeze({
   idle: { means: 'standing, resting or drinking; picks what to do next when `wait` runs out', step: 'chooseTarget (wildlife-intent.js)', fields: ['wait', 'drinkT', 'drinkAt', 'restAt', 'stillT', 'hover'] },
-  walk: { means: 'walking a path on the ground, through the trees or in water', step: 'walkStep (wildlife-move.js)', fields: ['path', 'trip', 'walkOn', 'waitFam', 'dash', 'run'] },
+  walk: { means: 'walking a path on the ground, through the trees or in water', step: 'walkStep (wildlife-move.js)', fields: ['path', 'trip', 'walkOn', 'waitFam', 'dash', 'run', 'wriggle'] },
   approach: { means: 'the last steps to a bank to drink', step: 'Wildlife.update', fields: ['localGoal', 'bankGoal', 'waterTrip'] },
   fly: { means: 'flying straight to (tx, ty), then landing', step: 'Wildlife.update', fields: ['tx', 'ty', 'flying', 'alt'] },
   hunt: { means: 'stalking and chasing prey', step: 'huntUpdate (wildlife-intent.js)', fields: ['hunt', 'target', 'huntTime', 'assist', 'run'] },

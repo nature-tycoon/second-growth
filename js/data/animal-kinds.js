@@ -73,6 +73,9 @@
 //                 over land (animal-terrain.js shallowsFor, wildlife-water.js alongCreek)
 //   bobs          standing, it bobs its whole body down and up on its legs every second or so
 //                 (dippers; drawing only: actors-fly.js birdHeight)
+//   breathesAir   a river fish that breathes air: left in a puddle too small for it, it wriggles over a
+//                 tile or two of wet ground (never dry land) to bigger water, mostly at night and in
+//                 the rain; a stranded fish without it dies as its pool dries (fish-wriggle.js)
 //   fishDepth     how much water a river fish keeps to, in height levels (waterline.js fishDepth;
 //                 default FISH_DEPTH): at least its drawn body's height, so it never shows its back
 
@@ -111,4 +114,4 @@ export const trait = (def, name) => def[name] ?? KIND_TRAITS[def.sprite?.kind]?.
 export const climbStyle = def => def.sprite?.ape ? 'swing' : trait(def, 'climb');
 
 // The fields above a species may set (contracts.js checks them).
-export const TRAIT_BOOLEANS = 'floats dabbles alwaysFlying flitsLow sitsInCrowns hops firmSkin groundFeed perches nestHole flocks bathes trunkFeed restless fearsHunters scaresSmallBirds leaps ranges carrionSoar cleans jinks freezes surfaceFish bottomDweller wades fastWater bobs';
+export const TRAIT_BOOLEANS = 'floats dabbles alwaysFlying flitsLow sitsInCrowns hops firmSkin groundFeed perches nestHole flocks bathes trunkFeed restless fearsHunters scaresSmallBirds leaps ranges carrionSoar cleans jinks freezes surfaceFish bottomDweller breathesAir wades fastWater bobs';

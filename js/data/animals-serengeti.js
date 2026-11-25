@@ -288,6 +288,7 @@ export default function buildSerengetiAnimals(def) {
       // (a bottom-dweller of murky pools: it lies on the bed, so it keeps to water deeper than its
       // drawn body, 0.29 levels from the bed to the top of its fins: motion-sweep-check's surfaced count)
       bottomDweller: true, fishDepth: 0.3,
+      breathesAir: true, // (Clarias: breathes air, and wriggles over wet ground between pools)
       suit: (W, i) => w[W.habitat[i]] * (W.connected[i] ? 1 : 0.6),
       sprite: { kind: 'fish', size: 18, back: '#3a3a30', flank: '#5e5e48', belly: '#c8c0a0', whiskers: true, catfish: true, long: true, finColor: '#3a3a2e', show: 1.15 },
       desc: 'Can breathe air and even wriggle across land between pools. It survives in waterholes that nearly dry out.',

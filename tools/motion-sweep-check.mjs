@@ -228,7 +228,7 @@ export function sweep(map, { seed = SEEDS[0], days = DAYS, fps = FPS, onHit } = 
         if (now.side > SUSTAIN) hit(r, 'sideways', a, ` off ${off.toFixed(1)}`);
         // (st.h is size * 0.6 * the drawn scale for a fish: actors.js)
         const mo = actors.fauna.motion(def), surf = waterSurfaceY(w, a.x, a.y), sc = st.h / ((def.sprite.size || def.sprite.len || 10) * 0.6);
-        if (trait(def, 'fishDepth') && mo.top != null && surf != null && !(st.jp >= 0) && st.y + mo.top * sc > surf + 0.002) hit(r, 'surfaced', a, ` ${(st.y + mo.top * sc - surf).toFixed(3)} over`);
+        if (trait(def, 'fishDepth') && mo.top != null && surf != null && !(st.jp >= 0) && !st.wriggle && st.y + mo.top * sc > surf + 0.002) hit(r, 'surfaced', a, ` ${(st.y + mo.top * sc - surf).toFixed(3)} over`);
       }
       const xx = Math.floor(a.x), yy = Math.floor(a.y), tt = w.inb(xx, yy) ? w.terrain[w.idx(xx, yy)] : null;
       if (def.move === 'ground' && !a.flying && !(a.alt > 0.05) && !a.passing && tt != null && isWater(tt) && !(def.crossing && tt === T.RIVER) && (!MOVING.has(a.state) || a.waitFam?.on != null) && a.state !== 'hunt') hit(r, 'wet', a, ` ${tt}`);

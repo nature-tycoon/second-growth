@@ -339,6 +339,7 @@ export default function buildSumatraAnimals(def) {
     const w = habW({ POND: 1, MARSH: 1, CREEK: 0.8, RIVER: 0.6 });
     def({ key: 'snakehead', name: 'Giant snakehead', sci: 'Channa micropeltes', group: 'River life', move: 'swim',
       speed: 1.2, hr: 6, max: 30, minK: 2, groupSize: [2, 4], sources: ['S'], mig: 0.45, breed: [5, 6, 7], litter: [4, 8], life: 8, mature: 1.5,
+      breathesAir: true, // (Channa: gulps air, and crosses wet ground between swamp pools)
       suit: (W, i) => w[W.habitat[i]] * (0.4 + 0.6 * W.waterQ[i]),
       sprite: { kind: 'fish', size: 20, back: '#2a3a30', flank: '#6a7a60', belly: '#d8dcc8', long: true, spots: '#1a2018', tailShape: 'round' },
       desc: 'Toman: a big predatory fish that can breathe air, so it lives even in murky canals and swamp pools. Both parents guard their bright orange fry.',
