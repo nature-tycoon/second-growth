@@ -57,3 +57,11 @@ Sequential in this checkout. Sessions 2 and 4 run `regression-reviewer` (water, 
 | 6 | Dug creeks drawn as a smooth ribbon (+ downhill spoil bank) | opus | medium | [x] df61755 |
 | 7 | Land tools redraw only the edited patch | opus | medium | [x] (ground patched; water still whole near water, logged) |
 | 8 | Sumatra snakehead pile-up in peat marsh | opus | medium | [x] f554e1b |
+
+## Round 3 (Cole's answers, 2026-11-24)
+
+| # | Title | Model | Size | Status |
+|---|---|---|---|---|
+| 9 | Wire tree guards for planted saplings, offered after the first beaver cut | opus | medium | [ ] |
+| 10 | Water redraws only the edited patch | opus | medium | [ ] |
+| 11 | Stranded air-breathing fish wriggle to the next water | opus | small | [ ] |

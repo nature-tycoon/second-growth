@@ -71,3 +71,10 @@ All of round 2 landed: dfb9919 (jaguar), 2fc5da9 (suite green), df61755 (creek r
 - A per-fish "no progress in a day, drop the target" rule, as a safety net for any future pile-up.
 - Solitary prey (duiker, tapir) scatter when they flee rather than all running to one tile, as a trait. Realistic: herds bunch, solitary animals scatter.
 - Tools: `dipper-check` seed luck (restore 6 years or accept K ≥ 0.8), the motion sweep's `sunk` should sample drawn hooves, the end-of-stroke whole-map recolour (6–12 ms) could be patched, the ribbon could be recomputed near the edit only.
+
+## Cole's answers, round 2 (2026-11-24)
+
+- Tree guards: yes, a cheap wire guard offered after the first beaver cut.
+- Water patch redraw: yes.
+- Stranded snakeheads: yes, air-breathers wriggle 1–2 wet tiles to water.
+- Ship: Cole looks at the game first, then says when to push.
