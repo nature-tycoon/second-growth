@@ -22,6 +22,7 @@ const { T, BORDER, LEVEL } = await import('../js/config.js');
 const { mulberry32 } = await import('../js/rng.js');
 const { northCreekAt, outsideCreek } = await import('../js/maps/water-shape.js');
 const { waitAtFence } = await import('../js/sim/fence-gate.js');
+const { creekRibbon } = await import('../js/render3d/creek-ribbon.js');
 
 globalThis.document = { createElement: () => ({
   getContext: () => ({ createImageData: (w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }), putImageData() {} })
@@ -35,6 +36,9 @@ const FENCE_TOL = 0.25;  // (its first two rows past the fence, against the farm
 const STEP_MAX = 0.03;   // (the farm's whole-map shores run 1-8%, creek-ribbon-check; tile steps read 15-25%)
 const FLOAT_MAX = 0.35;  // (height levels, 10 cm: the farm creek's own drawn edge runs 0.21-0.32 over its bank, its ribbon's RIBBON_DEEP guard)
 const DRY_MAX = 0.015;   // (PNW bends round its film stage's uncut corners, pnwNorthKeep: a slight bank bulge there, 0.6%)
+const JOIN_TURN = 45;    // (degrees between one-tile chords of its middle line through the fence, before -> after 2026-11-25:
+// pnw 51 -> 37, chinandega 58 -> 44 (its farm creek zigzags to the fence), serengeti 33 -> 34, sumatra 34 -> 23, atlanta 28 -> 27,
+// amazon 13 -> 9. PNW's is held by its farm creek's own tiles running due south to the fence and the film's stage, 0054)
 const JOIN_MAX = 0.12;   // (height levels between the sheet either side of the fence)
 
 const args = process.argv.slice(2), report = args.includes('--report');
@@ -116,6 +120,22 @@ for (const map of maps) {
   }
   if (report) console.log(`  ${map}: outline turning over 60° within a tile ${sharp} of ${n} (${pct(sharp / Math.max(1, n))})`);
   check(`${map}: its outline has no tile steps (under ${pct(STEP_MAX)} sharp)`, () => assert.ok(n > 40 && sharp <= STEP_MAX * n, `${sharp} of ${n}`));
+  // through the fence: the drawn creek's middle line (its last farm row to 5 rows out; further in, the farm
+  // creeks' own drawn zigzags turn up to 66°) turns gradually, never sharper than JOIN_TURN between
+  // one-tile chords (Cole: "angular, meets the creek in an odd way", PNW 2026-11-25)
+  {
+    const mid = runs(-5, 1).filter(r => r[1]).map(([y, r]) => [(r[0] + r[1]) / 2, y]).reverse(), cum = [0];
+    for (let k = 1; k < mid.length; k++) cum.push(cum[k - 1] + Math.hypot(mid[k][0] - mid[k - 1][0], mid[k][1] - mid[k - 1][1]));
+    const along = d => { let k = 1; while (k < cum.length - 1 && cum[k] < d) k++; const t = (d - cum[k - 1]) / ((cum[k] - cum[k - 1]) || 1); return [mid[k - 1][0] + (mid[k][0] - mid[k - 1][0]) * t, mid[k - 1][1] + (mid[k][1] - mid[k - 1][1]) * t]; };
+    let worst = 0, at0 = 0;
+    for (let d = 1; d <= cum.at(-1) - 1; d += 0.25) {
+      const a = along(d - 1), p = along(d), b = along(d + 1), u = [p[0] - a[0], p[1] - a[1]], v = [b[0] - p[0], b[1] - p[1]];
+      const turn = Math.acos(Math.max(-1, Math.min(1, (u[0] * v[0] + u[1] * v[1]) / Math.hypot(...u) / Math.hypot(...v)))) * 180 / Math.PI;
+      if (turn > worst) { worst = turn; at0 = p[1]; }
+    }
+    if (report) console.log(`  ${map}: through the fence its middle turns at most ${worst.toFixed(0)}° a tile (at row ${at0.toFixed(1)})`);
+    check(`${map}: through the fence it bends gradually (under ${JOIN_TURN}° a tile)`, () => assert.ok(mid.length > 30 && worst <= JOIN_TURN, `${worst.toFixed(0)}° at row ${at0.toFixed(1)}`));
+  }
   // on its banks: the depth at each drawn edge, and ground over the water inside the ribbon
   let float = 0, where = null, dry = 0, inside = 0, farmFloat = 0;
   for (const [y, r] of rs) for (const x of [r[0] + STEP / 2, r[1] - STEP / 2]) { const s = at(x, y); if (s && s.depth > float) { float = s.depth; where = [x, y]; } }
@@ -145,6 +165,23 @@ for (const map of maps) {
         game.wildlife.agents.splice(game.wildlife.agents.indexOf(a), 1);
       }
     }
+  });
+  // (without a creek beyond the fence, as in a dry summer, the farm's rows by the fence keep the farm's own
+  // ribbon: before diff review 2026-11-25 they drew whole tiles of water there)
+  check(`${map}: with none beyond the fence, the farm's ribbon draws its rows by the fence`, () => {
+    const keepNorth = game.border.north;
+    game.border.north = null; terrain.wc = null; terrain.updateHeights();
+    try {
+      const g = terrain.water.geometry, P = g.attributes.position.array, D = g.attributes.aDepth.array, RB = g.attributes.aRibbon.array, rib = creekRibbon(w);
+      let n = 0;
+      for (let v = 0; v < RB.length; v++) {
+        const vx = P[v * 3], vy = P[v * 3 + 2];
+        if (vy < 0 || vy > 3 || vx < 0 || vx > w.w) continue;
+        n++;
+        assert.ok(Math.abs(RB[v] - rib.edge(vy * (w.w + 1) + vx, D[v])) < 1e-4, `corner ${vx}, ${vy}: ${RB[v].toFixed(3)} vs the farm's ${rib.edge(vy * (w.w + 1) + vx, D[v]).toFixed(3)}`);
+      }
+      assert.ok(n > 10, `${n} corners`);
+    } finally { game.border.north = keepNorth; terrain.wc = null; terrain.updateHeights(); }
   });
   check(`${map}: carving it again moves nothing`, () => {
     const vh = w.vh.slice();

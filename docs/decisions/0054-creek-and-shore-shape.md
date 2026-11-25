@@ -124,9 +124,18 @@ cause, not only the creek.
   1987, drawn width farm / beyond): pnw 1.41 / 2.31 -> 1.24, amazon 1.81 / 3.32 -> 1.69, serengeti
   1.85 / 3.32 -> 1.65, atlanta 1.73 / 2.93 -> 1.66, chinandega 1.79 / 2.80 -> 1.64, sumatra 1.76 /
   2.77 -> 1.67; outline steps 0%; edge 0.26-0.32 levels over its bank (the farm creek's own 0.21-0.32).
-  Its line on PNW is held west of the film stage's kept corners (`keep` in `northCreekLine`): a sharp
-  bend at rows -1 to -3, a slight bank bulge there (5 of ~1200 samples), and its fence row necks to ~1.2
-  between the farm's own row-0 corners and the stage (the bed climbs ~2.4 levels in that row).
+  Its line on PNW is held west of the film stage's kept corners (`keep` in `northCreekLine`; on the fence
+  row, kept on one edge only, half a tile less). **The join** (2026-11-25, Cole: "angular, meets the creek
+  in an odd way"): the line's farm points are held only from `NORTH_JOIN` 3 rows in, and the farm creek's
+  corners on those rows, where its own ribbon governs and near the line, are drawn by this ribbon (the
+  farm's bed guard kept: never hiding water over `RIBBON_DEEP`; patch builds read the cached field, which
+  only changes on load); white is capped on the fence row's corners by it (`OUTSIDE_WHITE`; full white
+  there read as a pale apron); `pnwNorthKeep` is only the corners of the tiles the film's animals stand
+  on. Turn through the fence (drawn middle, one-tile chords) pnw 51° -> 37°, width just past it 1.17 ->
+  1.32, no ground over the water (was 5 samples). Still a ~45° bend near the fence: the farm ditch's own
+  tiles run due south to it and the film's stage stands due north. Not done: evening the bed's ~2.4-level
+  climb in the fence row (only lowering, the gorge deeper there) sank the buck's hind feet 0.045 on his
+  run to the fence (intro-film-motion, limit 0.03).
   `MIN_WIDE` still sets the spans the sim and the film read. Earlier (s5-s9 of creeks-fps) it was the
   spans themselves, two tiles wide, each tile's flat sheet, the wall corners lowered halfway (`WALL`). Sunk
   in a shallow gorge (Cole, 2026-11-23: a wide tilted sheet on the hillside looked

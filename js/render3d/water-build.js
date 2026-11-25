@@ -18,8 +18,8 @@ import * as THREE from 'three';
 import { T, LEVEL, isWater } from '../config.js';
 import { WATER_FILL } from '../sim/waterline.js';
 import { surfaceHeight } from './riverbanks.js';
-import { creekRibbon, ribbonKind, RIBBON_CAP, RIBBON_K } from './creek-ribbon.js';
-import { northCreekAt } from '../maps/water-shape.js';
+import { creekRibbon, ribbonKind, RIBBON_CAP, RIBBON_K, RIBBON_DEEP, RIBBON_DEEP_HEAD } from './creek-ribbon.js';
+import { northCreekAt, NORTH_JOIN } from '../maps/water-shape.js';
 
 const FILL = WATER_FILL;
 const lin = v => v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
@@ -310,7 +310,7 @@ export function buildWater(t, whole = false) {
     // the tiles' own levels first (a body's are set as it's filled)
     const X = full ? ALL : grow(unite(D, B), 1, TW, TH);
     if (!full) {
-      // (a wide change, or one reaching the fence row the creek beyond it lays: build whole)
+      // (a wide change, or one reaching the rows by the fence the creek beyond it draws: build whole)
       const W = grow(X, 2, TW, TH);
       if ((W.x1 - W.x0 + 1) * (W.y1 - W.y0 + 1) > TW * TH * PATCH_SHARE || (north && X.y0 + Y0 <= 0)) { t.wc = null; return buildWater(t, true); }
     }
@@ -402,7 +402,7 @@ export function buildWater(t, whole = false) {
   if (full && north && !outsideDry) {
     const northRibbon = c.northRibbon, fill = FILL[T.CREEK], xs = north.line.map(p => p[0]);
     const x0 = Math.max(X0, Math.floor(Math.min(...xs)) - NORTH_REACH), x1 = Math.min(X0 + TW, Math.ceil(Math.max(...xs)) + NORTH_REACH);
-    for (let vy = Y0; vy <= 0; vy++) for (let vx = x0; vx <= x1; vx++) {
+    for (let vy = Y0; vy <= NORTH_JOIN; vy++) for (let vx = x0; vx <= x1; vx++) {
       const { d, bed } = northCreekAt(north, vx, vy);
       if (d > NORTH_REACH) continue;
       northRibbon.set(vy * 100000 + vx, Math.max(-RIBBON_CAP, Math.min(RIBBON_CAP, north.half - d)) * RIBBON_K);
@@ -577,8 +577,17 @@ export function buildWater(t, whole = false) {
       // (on the fence row only where no farm water meets the corner: the border's water spilled over the
       // farm's bare corners there; a two-tile creek's or a pond's own corners keep the farm's edge)
       if (vy === 0 && !farmWetFence(vx)) cRib[vi] = Math.min(cRib[vi], nr);
+      // (the farm creek's last NORTH_JOIN rows, where its own ribbon governs, near the line: the line bends
+      // there into the creek beyond, so they're drawn by it, with the farm ribbon's bed guard: never hiding
+      // water deeper than RIBBON_DEEP on the creek's own corners)
+      else if (vy >= 0 && vy <= NORTH_JOIN && vx >= 0 && vx <= w.w && northRibbon.has(vy * 100000 + vx) && nr > -RIBBON_K && ribbon.field[vy * RW + vx] < RIBBON_CAP) {
+        const b = ribbon.bed[vy * RW + vx];
+        cRib[vi] = b ? Math.max(nr, cDep[vi] - (b === 2 ? RIBBON_DEEP_HEAD : RIBBON_DEEP)) : nr;
+      }
     }
-    cWhite[vi] = vy < 0 ? Math.min(OUTSIDE_WHITE, vWhite(vx, vy)) : vWhite(vx, vy);
+    // (the fence row's corners too, beside the creek beyond it: its bed drops a couple of levels in that
+    // row on PNW, and full white there read as a flat pale apron at the fence, Cole 2026-11-25)
+    cWhite[vi] = vy < 0 || (vy === 0 && northRibbon.has(vx)) ? Math.min(OUTSIDE_WHITE, vWhite(vx, vy)) : vWhite(vx, vy);
     cCol[vi * 4] = lin(cc[0]); cCol[vi * 4 + 1] = lin(cc[1]); cCol[vi * 4 + 2] = lin(cc[2]); cCol[vi * 4 + 3] = vWet(vx, vy) ? cc[3] : 0;
   }
 

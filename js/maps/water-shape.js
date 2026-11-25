@@ -562,21 +562,28 @@ export function northCreekBank(w, course, vy) {
 // NORTH_SIGMA rows and corner-cut (smoothLine, as the farm's ribbon): no tile steps. The carve and the
 // water drawing (terrain.js buildWater) both follow it, so the water lies on the bed it cut.
 const NORTH_SIGMA = 1.5, NORTH_FARM = 4, NORTH_PAST = 3;
+// (the farm's last NORTH_JOIN rows are free to bend with it, drawn by its ribbon too, water-build.js: held
+// to the farm's course right to the fence, the drawn creek turned 50° in the fence row, Cole: "angular")
+export const NORTH_JOIN = 3;
 // keep(vx, vy): corners the carve leaves alone (PNW's film stage, east of the creek): the line keeps
 // its water's edge west of the tiles they're on (the ground climbs to them across the whole tile), or
 // the uncut ground there stood up inside the drawn creek.
 export function northCreekLine(w, course, B, keep = null, half = NORTH_HALF) {
   const pts = [], pin = [];
-  for (let y = NORTH_FARM; y >= 0; y--) { pts.push([course(y) + 0.5, y + 0.5]); pin.push(true); }
+  for (let y = NORTH_FARM; y >= 0; y--) { pts.push([course(y) + 0.5, y + 0.5]); pin.push(y >= NORTH_JOIN); }
   for (let y = -1; y >= -B - NORTH_PAST; y--) {
     let x = (course(y) + course(y + 1)) / 2 + 0.5, held = false;
-    if (keep) for (const vy of [y, y + 1]) if (vy < 0) for (let vx = Math.floor(x) - 3; vx <= Math.ceil(x) + 3; vx++) {
-      if (keep(vx, vy) && vx > x - 1) { if (vx - 1 - half < x) { x = vx - 1 - half; held = true; } break; }
+    if (keep) {
+      // (the first kept corner east of it on each edge of the row; on the fence row the tile's other
+      // corners are the farm's low ones: half a tile nearer, or it turned 50° in one row)
+      const kept = [y, y + 1].filter(vy => vy < 0).map(vy => { for (let vx = Math.floor(x) - 3; vx <= Math.ceil(x) + 3; vx++) if (keep(vx, vy) && vx > x - 1) return vx; return Infinity; }).filter(Number.isFinite);
+      const cap = kept.length ? Math.min(...kept) - 1 - half + (y === -1 ? 0.5 : 0) : Infinity;
+      if (cap < x) { x = cap; held = true; }
     }
     pts.push([x, y + 0.5]); pin.push(held);
   }
-  // (the farm's points held, so the line meets the fence where the farm's own ribbon does, no jog;
-  // and those moved off kept corners, or smoothing drew them back over them)
+  // (the farm's points held from NORTH_JOIN rows in, so the line meets the farm's own ribbon there, no
+  // jog; and those moved off kept corners, or smoothing drew them back over them)
   return smoothLine(pts, pin, NORTH_SIGMA);
 }
 // Its half-width: the farm's ribbon's (RIBBON_HALF in render3d/creek-ribbon.js) unless the map's farm

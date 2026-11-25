@@ -453,9 +453,11 @@ function pondGroups(w, tiles) {
 // cougar's ferns. It turns 45° at most, gentler than 0054's limit. (Its bed's cut reaches the corners
 // of the buck's tiles: run intro-film-motion after changing it or the gorge, GORGE in water-shape.js)
 const PNW_NORTH = [69, 68, 67, 66, 65, 64, 63, 63, 63, 63, 64, 64, 65, 65, 66];
-// (the film's stage keeps its ground on the gorge's east bank: by the fence the creek's own east
-// corners too, so the buck's run and the cougar's stand don't tip into it)
-export const pnwNorthKeep = (vx, vy) => vy >= -7 && vx <= 73 && vx >= (vy === -1 ? 70 : vy === -2 ? 69 : 67);
+// (the film's stage keeps its ground on the gorge's east bank: every corner of the tiles the buck runs
+// and the cougar creeps and stands on, so neither tips into it. Only those: kept a tile wider, by the
+// fence the creek had to turn 50° within one row to clear them, Cole: "angular", batch phone-creeks-fish s9)
+const PNW_KEEP_FROM = { [-1]: 70, [-2]: 70, [-3]: 69, [-4]: 68, [-5]: 67, [-6]: 67, [-7]: 67 };
+export const pnwNorthKeep = (vx, vy) => vy >= -7 && vy <= -1 && vx <= 73 && vx >= PNW_KEEP_FROM[vy];
 export const pnwNorthCreek = y => PNW_NORTH[Math.min(PNW_NORTH.length - 1, Math.max(0, -y))];
 
 // Hollis farm surroundings: conifer forest north and east, fields and blackberry west, the river south.

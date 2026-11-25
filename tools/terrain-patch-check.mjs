@@ -152,6 +152,11 @@ for (const map of maps) {
     // (one stroke from beside the water out onto dry land: the rebuild held near the water is still owed)
     const out = wet && (() => { const w = game.world; for (const d of [1, -1]) { const p = Array.from({ length: 14 }, (_, k) => [wet[0] + d * k, wet[1]]); if (p.every(([x, y]) => w.inb(x, y) && !isWater(w.terrain[w.idx(x, y)]))) return p; } return null; })();
     if (out) plan.push(['raise', out, 0, 'near to dry']);
+    // (one beside the starting creek near the north fence, where the creek beyond it draws the farm creek's
+    // last rows too, from a ribbon laid on whole builds only, batch phone-creeks-fish s9: a patch reaching
+    // those rows must match a whole build)
+    const nc = game.catalog.definition.northCreek;
+    if (nc) { const w = game.world, p = east([nc(0) + 2, 5], 3); if (p.every(([x, y]) => w.inb(x, y) && !isWater(w.terrain[w.idx(x, y)]))) plan.push(['lower', p, 1, 'by the fence']); }
     const road = (() => { const w = game.world; for (let i = 0; i < w.n; i++) if (w.terrain[i] === T.ROAD || w.terrain[i] === T.GRAVEL) return [i % w.w, (i / w.w) | 0]; return null; })();
     if (road) plan.push(['demolish', [road], 0, 'demolish']);
     assert.ok(plan.length >= 5, `${map}: found places for the strokes (${plan.length})`);
