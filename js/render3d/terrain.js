@@ -18,6 +18,7 @@ import { Riverbanks, bankAllowed, surfaceHeight } from './riverbanks.js';
 import { PALETTES, paletteLeafColor, pastureColor } from './palettes.js';
 import { WATER_FILL } from '../sim/waterline.js';
 import { FALL_MIN } from '../maps/landform.js';
+import { creekRibbon, RIBBON_CAP, RIBBON_K } from './creek-ribbon.js';
 
 // Does a water tile have a corner the shore pass lifted out of its water (0054): one above the tile's
 // fill line that no other water tile touches? (A steep creek's high side is shared with the creek above.)
@@ -830,6 +831,9 @@ export class Terrain {
       return d <= 0.9 ? 0 : Math.min(1, (d - 0.9) / 0.8); // (a steep reach's 0.6 a tile stays clear; a fall's 2 runs white)
     };
     const white = new Float32Array(tiles.length * 6);
+    // A one-tile creek's outline follows a smooth ribbon along its course, not the tiles (creek-ribbon.js,
+    // 0055): where the shader's edge is cut, off the map's corners, nothing is (RIBBON_CAP)
+    const ribbon = creekRibbon(w), ribbonOut = new Float32Array(tiles.length * 6);
     let o = 0, oc = 0, od = 0;
     for (const k of tiles) {
       const x = (k % TW) + X0, y = Math.floor(k / TW) + Y0;
@@ -838,7 +842,8 @@ export class Terrain {
         // any pond: drawn tile by tile at its own level, it ended in hard steps at the tile lines)
         const c = vColor(vx, vy), lv = vLevel(vx, vy);
         pos[o] = vx; pos[o + 1] = lv * LEVEL; pos[o + 2] = vy; nor[o + 1] = 1; o += 3;
-        dep[od] = lv - w.vert(vx, vy); round[od] = lv - smooth(vx, vy); white[od] = vy < 0 ? Math.min(OUTSIDE_WHITE, vWhite(vx, vy)) : vWhite(vx, vy);
+        dep[od] = lv - w.vert(vx, vy); round[od] = lv - smooth(vx, vy);
+        ribbonOut[od] = w.inb(vx, vy) || (vx === w.w && vy >= 0 && vy <= w.h) || (vy === w.h && vx >= 0 && vx <= w.w) ? ribbon.edge(vy * (w.w + 1) + vx, dep[od]) : RIBBON_CAP * RIBBON_K; white[od] = vy < 0 ? Math.min(OUTSIDE_WHITE, vWhite(vx, vy)) : vWhite(vx, vy);
         const vi = ((vy - Y0) * (TW + 1) + vx - X0) * 3;
         flow[od * 2] = vertexFlow[vi]; flow[od * 2 + 1] = vertexFlow[vi + 1]; bend[od] = vertexFlow[vi + 2]; od++;
         col[oc] = lin(c[0]); col[oc + 1] = lin(c[1]); col[oc + 2] = lin(c[2]); col[oc + 3] = vWet(vx, vy) ? c[3] : 0; oc += 4;
@@ -855,6 +860,7 @@ export class Terrain {
     g.setAttribute('aQual', new THREE.BufferAttribute(new Float32Array(od), 1));
     g.setAttribute('aRound', new THREE.BufferAttribute(round, 1));
     g.setAttribute('aWhite', new THREE.BufferAttribute(white, 1));
+    g.setAttribute('aRibbon', new THREE.BufferAttribute(ribbonOut, 1));
     this.water = new THREE.Mesh(g, this.waterMat);
     this.water.renderOrder = 2;
     this.scene.add(this.water);
@@ -1156,6 +1162,7 @@ export class Terrain {
     // (floodwater keeps its own edge)
     geo.setAttribute('aRound', new THREE.BufferAttribute(new Float32Array(qual.length).fill(99), 1));
     geo.setAttribute('aWhite', new THREE.BufferAttribute(new Float32Array(qual.length), 1));
+    geo.setAttribute('aRibbon', new THREE.BufferAttribute(new Float32Array(qual.length).fill(99), 1));
     this.flood = new THREE.Mesh(geo, this.floodMat);
     this.flood.renderOrder = 3;
     this.scene.add(this.flood);

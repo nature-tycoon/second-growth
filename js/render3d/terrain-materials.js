@@ -322,10 +322,10 @@ export function waterLook(mat, time, noise, rain, sky) {
   mat.onBeforeCompile = shader => {
     prev(shader);
     Object.assign(shader.uniforms, { uNoiseW: { value: noise }, uRain: rain, uSky: sky });
-    shader.vertexShader = 'attribute float aDepth;\nattribute vec2 aFlow;\nattribute vec2 aCurrent;\nvarying vec2 vCurrent;\nattribute float aBend;\nattribute float aQual;\nattribute float aRound;\nattribute float aWhite;\nvarying float vWhite;\nvarying float vRound;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vWXZ;\n' + shader.vertexShader
+    shader.vertexShader = 'attribute float aDepth;\nattribute vec2 aFlow;\nattribute vec2 aCurrent;\nvarying vec2 vCurrent;\nattribute float aBend;\nattribute float aQual;\nattribute float aRound;\nattribute float aWhite;\nattribute float aRibbon;\nvarying float vRibbon;\nvarying float vWhite;\nvarying float vRound;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vWXZ;\n' + shader.vertexShader
       // Fade wave displacement at the bank, while retaining signed bed depth for shading.
       .replace('#include <begin_vertex>', `#include <begin_vertex>
-      vDepth = aDepth; vFlow = aFlow; vCurrent = aCurrent; vBend = aBend; vQual = aQual; vRound = aRound; vWhite = aWhite; vWXZ = position.xz;`).replace('transformed.y +=', 'transformed.y += smoothstep(0.0, 0.16, aDepth) *')
+      vDepth = aDepth; vFlow = aFlow; vCurrent = aCurrent; vBend = aBend; vQual = aQual; vRound = aRound; vRibbon = aRibbon; vWhite = aWhite; vWXZ = position.xz;`).replace('transformed.y +=', 'transformed.y += smoothstep(0.0, 0.16, aDepth) *')
       // On moving water the waves are laid out along the current (aCurrent: downstream, across), turned
       // so their mean travel (WAVE_DOWNSTREAM) points downstream; they drifted one way over the whole
       // map, so on a creek running the other way the shading ran upstream (Cole, 2026-11-23).
@@ -335,7 +335,7 @@ export function waterLook(mat, time, noise, rain, sky) {
         wp = mat2(m1, m2) * aCurrent;
         wj = mat2(wd, vec2(-wd.y, wd.x)) * mat2(m1.x, m2.x, m1.y, m2.y);
       }`);
-    shader.fragmentShader = 'uniform float uTime;\nuniform sampler2D uNoiseW;\nuniform float uRain;\nuniform vec3 uSky;\nvarying float vWhite;\nvarying float vRound;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vCurrent;\nvarying vec2 vWXZ;\n' + shader.fragmentShader
+    shader.fragmentShader = 'uniform float uTime;\nuniform sampler2D uNoiseW;\nuniform float uRain;\nuniform vec3 uSky;\nvarying float vRibbon;\nvarying float vWhite;\nvarying float vRound;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vCurrent;\nvarying vec2 vWXZ;\n' + shader.fragmentShader
       .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
       {
         // drifting ripples: two layers of noise sliding past each other tilt the normal; on moving
@@ -402,6 +402,8 @@ export function waterLook(mat, time, noise, rain, sky) {
         // steep dug bank the smoothed ground would otherwise hide deep water and leave dry bites.
         // (a soft fade, so the rounded corners don't read as sharp straight cuts)
         float shoreD = max(min(vDepth, vRound), vDepth - 0.07);
+        // a one-tile creek ends at its ribbon's smooth edge, not the tiles' (creek-ribbon.js, 0055)
+        shoreD = min(shoreD, vRibbon);
         if (shoreD < vDepth - 0.001) diffuseColor.a *= smoothstep(-0.005, 0.035, shoreD);
         // foam where the water laps the bank
         // Signed depth crosses zero at the actual ground/water intersection.

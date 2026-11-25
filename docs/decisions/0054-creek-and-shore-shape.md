@@ -29,7 +29,8 @@ cause, not only the creek.
   waterline turning >60° within a tile): a creek's banks sit 0.03 over its water, so the waterline runs
   out along the next tile's edge. Raising a *dug* creek's banks like a pond's was measured (serengeti
   3.5%, amazon 6.5%, pnw unchanged: steep cross-slope, each tile's flat sheet) and not built: it breaks
-  the floodplain rule above for the creeks players dig for beavers.
+  the floodplain rule above for the creeks players dig for beavers. Fixed in the drawing instead (0055, the
+  creek ribbon).
 - **The shore pass** (`shoreHeights`): the water's tiles blurred (σ 0.9 tile), outline where it falls
   to 0.35. A water tile's corner outside the outline (the outer corner of a step or bend: touched by
   that one water tile only) is lifted at most 0.3 out of the water, never the only lowest corner of its
