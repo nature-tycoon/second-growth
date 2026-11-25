@@ -3,13 +3,15 @@
 // as a player who does only what each asks (ui/opening-plan.js: every blackberry stand pulled by the
 // button, then strokes along the highlighted creek bank until TREES are in, and across the meadow
 // patch until MEADOW are), then ten years stepped exactly as the time-lapse
-// steps them (Game.lapseDay). Three run seeds, judged on the median:
+// steps them (Game.lapseDay). When beavers first cut one of the planted trees, the time-lapse stops and
+// offers wire tree guards (sim/tree-guard.js, ui/timelapse.js); this player takes the offer and brushes
+// guards along the planted stretch that day, then the years run on. Three run seeds, judged on the median:
 //   - trees are up on the stretch of creek the player planted (the one the time-lapse looks at): at least
 //     20 standing within 3 tiles of the creek, grown past 0.6 on average
 //   - blackberry along the creek hasn't come back past where it started, and on the whole farm it
 //     stays within twice its start (birds bring seed in from the neighbours; untended it grows ~16×)
 //   - the steps leave at least $15,000 of the $30,000 start
-//   node tools/opening-lapse-check.mjs [years=10]
+//   node tools/opening-lapse-check.mjs [years=10] [--seeds=5,7,11] [--no-guards]
 import assert from 'node:assert/strict';
 
 globalThis.localStorage = { getItem() { return null; }, setItem() {}, removeItem() {} };
@@ -19,10 +21,12 @@ const { T, F, DAYS_PER_YEAR } = await import(root + 'config.js');
 const { ToolActions } = await import(root + 'tool-actions.js');
 const { STEPS, stepPlan } = await import(root + 'ui/opening-plan.js');
 
-const years = +(process.argv[2] || 10);
+const args = process.argv.slice(2), opt = k => args.find(a => a.startsWith(`--${k}=`))?.split('=')[1];
+const years = +(args.find(a => !a.startsWith('--')) || 10), guards = !args.includes('--no-guards');
+const SEEDS = (opt('seeds') || '5,7,11').split(',').map(Number);
 const median = a => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
 const runs = [];
-for (const runSeed of [5, 7, 11]) {
+for (const runSeed of SEEDS) {
   const g = new Game(); g.newGame(1987, 'free', 'standard', 'pnw', runSeed);
   const w = g.world, act = new ToolActions(g), P = g.catalog.plants;
   // the opening: the north fence and the culvert out
@@ -69,10 +73,20 @@ for (const runSeed of [5, 7, 11]) {
   const left = g.money;
   // ten years as the time-lapse steps them
   g.startLapse(60);
-  for (let d = 0; d < years * DAYS_PER_YEAR; d++) for (const _ of g.lapseDay());
+  let guardedOn = null, guardCost = 0;
+  for (let d = 0; d < years * DAYS_PER_YEAR; d++) {
+    for (const _ of g.lapseDay());
+    if (guards && guardedOn == null && g.flags.guardOffered) {
+      // (the time-lapse stops here: the player brushes guards along the stretch, then plays on)
+      g.stopLapse(); guardedOn = d;
+      const m = g.money; act.apply('guard', [...stretch].filter(i => w.tree[i])); guardCost = Math.round(m - g.money);
+      g.startLapse(60);
+    }
+  }
   g.stopLapse();
   const end = count();
   runs.push({ runSeed, start, end, spent, left });
+  if (guards) console.log(`  run seed ${runSeed}: ${guardedOn == null ? 'no planted tree cut by beavers, no guards' : `guards offered in year ${(guardedOn / DAYS_PER_YEAR + 1) | 0}, $${guardCost} of them`}`);
   console.log(`  run seed ${runSeed}: ${JSON.stringify(strokes)}, spent ${JSON.stringify(spent)}, $${Math.round(left)} left; trees on the planted stretch ${end.trees} (growth ${end.growth.toFixed(2)}), creek blackberry ${start.bankBB} → ${end.bankBB}, farm blackberry ${start.bb} → ${end.bb}`);
 }
 const m = k => median(runs.map(r => k(r)));

@@ -65,6 +65,6 @@ Cole added the off-map creek (screenshot `offmap-creek-pnw.webp`): on PNW the cr
 | # | Title | Model | Size | Status |
 |---|---|---|---|---|
 | 9 | Off-map creeks: match on-map width, smooth, no clipping (PNW first) | opus | medium | [x] 0ab9c18 |
-| 10 | Wire tree guards for planted saplings, offered after the first beaver cut | opus | medium | [ ] |
+| 10 | Wire tree guards for planted saplings, offered after the first beaver cut | opus | medium | [x] (3 open questions) |
 | 11 | Water redraws only the edited patch | opus | medium | [ ] |
 | 12 | Stranded air-breathing fish wriggle to the next water | opus | small | [ ] |

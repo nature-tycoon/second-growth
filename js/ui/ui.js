@@ -16,6 +16,7 @@ import { LAYER_NAMES } from '../data/plants.js';
 import { many, isMaleVariant, animalDef } from '../data/animals.js';
 import { passageGuide } from '../sim/bird-passage.js';
 import { CATEGORIES, PLANT_TABS, BRUSH_SIZES, listPrice } from '../tools.js';
+import { guardOffer } from '../sim/tree-guard.js';
 import { plantSuit, plantLimits } from '../sim/plants.js';
 import { disturbanceTileNote } from '../sim/disturbance.js';
 import { speciesPresent } from '../sim/goals.js';
@@ -170,6 +171,7 @@ export class UI {
     game.canPlayMoment = () => !this.moment && !this.modalOpen && !this.photo && !this.timelapse?.on && performance.now() >= (this.momentHoldUntil ?? 0) && performance.now() - (this.momentEnded ?? -1e9) >= 25000;
     game.on('reset', () => { this.moment?.end(false); this.undo.clear(); this.journal = []; this.cutMarks = []; this.dismissedBanners = {}; this.bannerKey = null; this.closeInfo(); this.buildToolbar(); this.refreshTop(true); this.renderQuest(true); });
     game.on('chapter', e => this.onChapterDone(e));
+    game.on('guardOffer', j => { if (!this.timelapse?.on) this.offerGuards(j); }); // (in the time-lapse, it stops there first: ui/timelapse.js)
     watchForOffer(this, game, () => !!currentChapter(game)); // (a guided chapter is on screen)
     watchOtherPlacesNote(this); // (once per device, at the first new year played through: ui/other-places.js)
     // the first goal's follow-up ("watch it grow"), once its grant has had a moment on screen
@@ -951,6 +953,17 @@ export class UI {
   // A first visit's opening minutes: the simulation runs as usual, but what it says on its own
   // (n.sim: floods, fires, invasives, warnings) stays in the journal, and its good news pops up one
   // at a time. Replies to the player (a refused stroke, an undo), goals, tips and offers still show.
+  // Tree guards, offered once after beavers first cut a tree the player planted (sim/tree-guard.js;
+  // flags.guardOffered also opens the tool in the campaign). The button puts the tool in hand.
+  offerGuards(j) {
+    const g = this.game, w = g.world, tool = g.catalog.tools.guard;
+    if (!tool) return;
+    if (campaignOn(g)) this.buildToolbar(); // (the Habitat group may only now have a tool open)
+    if (this.state.cat === 'features') this.renderToolPanel();
+    this.toast({ text: guardOffer(listPrice(g, tool)), kind: 'info', date: g.dateString(), life: 24000, loc: { x: j % w.w + 0.5, y: Math.floor(j / w.w) + 0.5 },
+      action: { label: 'Tree guard', run: () => { this.state.cat = ''; this.openCategory('features'); this.selectTool('guard'); } } });
+  }
+
   holdInFirstMinutes(n) {
     if (n.sim && !ALARMS.has(n.kind) && n.kind !== 'goal' && !n.action && this.goalSpotOn()) return true; // (the next goal has the screen for a moment after the time-lapse; it's in the journal)
     if (!n.sim || n.kind === 'goal' || n.action || !this.quietNow()) return false;

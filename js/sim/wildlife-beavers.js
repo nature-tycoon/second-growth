@@ -7,7 +7,7 @@ import { moment } from './moments.js';
 import { damSiteOK, beaverFood, FOOD_MIN, drainToMeadow, meadowTile } from './beaver-ponds.js';
 import { hashJitter } from './wildlife-shared.js';
 import { DAM_RAISE } from './hollis-water.js';
-
+import { guarded, PLANTED } from './tree-guard.js';
 // Beavers raise their dams mostly from early summer to the freeze-up (months from March: June to
 // November), a step on the first day of each of those months while the colony tends it.
 const RAISE_MONTHS = [3, 4, 5, 6, 7, 8];
@@ -39,8 +39,12 @@ export class WildlifeBeavers {
         const s = w.shrub[j], t = w.tree[j];
         if (s && this.game.catalog.plants[s].beaverFood && w.shrubG[j] > 0.35) { w.shrubG[j] = 0.15; break; } // coppiced, will resprout
         if (t && this.game.catalog.plants[t].beaverFood && w.treeG[j] > 0.25) {
+          if (guarded(w, j)) continue; // (a wire cage round it: they try another: sim/tree-guard.js)
+          const planted = w.guard[j] === PLANTED;
           if (w.treeG[j] < 0.75) removeTree(w, j, 'beaver', rng, { deadwood: false });
           else if (rng() < 0.25) removeTree(w, j, 'beaver', rng);
+          else break;
+          if (planted) this.offerGuards(j);
           break;
         }
       }
@@ -56,6 +60,15 @@ export class WildlifeBeavers {
       }
       if (site >= 0) this.buildDam(site);
     }
+  }
+
+  // The first tree the player planted that beavers cut: tree guards are offered, once per farm. The
+  // time-lapse stops on it (ui/timelapse.js reads flags.guardAt), as it does for a fire in the planting.
+  offerGuards(j) {
+    const g = this.game;
+    if (g.flags.guardOffered || g.visiting || !g.catalog.tools?.guard) return;
+    g.flags.guardOffered = true; g.flags.guardAt = j;
+    g.emit('guardOffer', j); // (the interface offers them, with a button: ui.js offerGuards)
   }
 
   damNear(i, r) {

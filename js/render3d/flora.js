@@ -26,6 +26,7 @@ import { GeometryIndex } from './geometry-index.js';
 import { PlantShadows } from './plant-shadows.js';
 import { PlantPool, ChunkedPlantPool, floraVersion } from './plant-pools.js';
 import { trailMask } from '../sim/animal-trails.js';
+import { GUARDED } from '../sim/tree-guard.js';
 import { dryPoint, shrubSpot, SEA_SHAPES, trunkSpot, snagSpot, snagPose, logSpot } from '../sim/ground-obstacles.js';
 import { createPlantMaterials } from './plant-materials.js';
 const SPROUT_G = 0.3; // the smallest a groundcover seedling is drawn (see the groundcover tufts)
@@ -662,6 +663,8 @@ export class Flora {
         const [tx, tz] = trunkSpot(w, x, y, p, bankTile); // (animals walk round it there: sim/ground-obstacles.js)
         const ty = hAt(tx, tz) - 0.02;
         const sc = (0.2 + 0.8 * g) * (0.78 + hash2(x, y, 9) * 0.42) * (p.look.scale ?? 1);
+        // a wire tree guard round it (sim/tree-guard.js): a cage round a sapling, a looser ring round a grown trunk
+        if (inside && w.guard[i] === GUARDED) { const gs = 0.8 + 0.6 * g; this.pool('treeguard', () => G.treeGuard(), this.bark, { far: () => G.treeGuardFar() }, () => G.treeGuard(1), 'lo').add(tx, ty + 0.015, tz, gs, 0.9 + 0.2 * g, gs, hash2(x, y, 14) * 6.28, [dim, dim, dim]); }
         const grove = groveForm(x, y, g, shapeDef);
         const sx = sc * grove.width, sy = sc * grove.height, sz = sc * grove.width;
         const rot = hash2(x, y, 10) * 6.28;

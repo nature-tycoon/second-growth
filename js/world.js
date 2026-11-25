@@ -65,6 +65,8 @@ export class World {
     // a drained beaver pond's age as meadow (years, or pending while it drains: sim/beaver-ponds.js),
     // and wallows (sim/wallows.js): how deep a dug wallow is and how much water stands in it (0-255)
     this.meadow = u8(); this.wallow = u8(); this.wallowWet = u8();
+    // wire tree guards (sim/tree-guard.js: PLANTED or GUARDED, only while the tile has a tree; saved)
+    this.guard = u8();
     this.structures = [];
     this.variant = u8();
     // derived
@@ -137,7 +139,7 @@ export class World {
     this.shrub[i] = 0; this.shrubG[i] = 0;
     this.understory[i] = 0; this.understoryG[i] = 0; // (cleared first: the tile is cleared, nothing is released)
     if (cause && this.tree[i]) removeTree(this, i, cause, null, { deadwood: false });
-    this.tree[i] = 0; this.treeG[i] = 0; this.treeAge[i] = 0;
+    this.tree[i] = 0; this.treeG[i] = 0; this.treeAge[i] = 0; this.guard[i] = 0;
   }
 
   // (level: false for the player's buildings, which are levelled through terrain-edit.js, levelBuilding)
@@ -167,7 +169,7 @@ export class World {
   setPlant(i, p, g = 0.08, age = 0) {
     if (p.layer === 0) { this.ground[i] = p.id; this.groundG[i] = g; }
     else if (p.layer === 1) { this.shrub[i] = p.id; this.shrubG[i] = g; }
-    else { this.tree[i] = p.id; this.treeG[i] = g; this.treeAge[i] = age; }
+    else { this.tree[i] = p.id; this.treeG[i] = g; this.treeAge[i] = age; this.guard[i] = 0; } // (a new tree has no guard yet: sim/tree-guard.js)
   }
 }
 

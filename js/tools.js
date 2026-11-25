@@ -1,7 +1,7 @@
 // Tool definitions and tile mutations. Player controls and scripted plans apply
 // these through ToolActions, which handles eligibility, money and stroke completion.
 
-import { T, F, PLACED, LAID, STONES, isWater } from './config.js';
+import { T, F, PLACED, LAID, STONES, isWater, DAYS_PER_YEAR } from './config.js';
 import { MIX, L } from './data/plants.js';
 import { ANIMAL, many } from './data/animals.js';
 import { plantSuit, removeTree } from './sim/plants.js';
@@ -11,6 +11,7 @@ import { plantAffinity } from './plant-patterns.js';
 import { hash2 } from './rng.js';
 import { digWater, shiftGround, gradeLevel, gradeTile, levelBuilding, GRADE_REACH } from './terrain-edit.js';
 import { assertCatalogTools } from './data/contracts.js';
+import { PLANTED, GUARDED, GUARD_COST, GUARD_YEARS, guarded } from './sim/tree-guard.js';
 
 const land = t => !isWater(t);
 
@@ -167,7 +168,7 @@ export function createTools(catalog) {
       // a native groundcover sown where invasives were pulled out: the ground is taken back for good
       if (pick.layer === 0 && game.flags.pulled?.[i]) { delete game.flags.pulled[i]; game.stats.pulledCovered = (game.stats.pulledCovered || 0) + 1; }
       // tallies for the campaign: trees planted, and shrubs or trees planted right beside the creek
-      if (pick.layer === 2) game.stats.treesPlanted = (game.stats.treesPlanted || 0) + 1;
+      if (pick.layer === 2) { game.stats.treesPlanted = (game.stats.treesPlanted || 0) + 1; w.guard[i] = PLANTED; } // (so guards can be offered after beavers cut one: sim/tree-guard.js)
       if (pick.layer > 0) {
         const x = i % w.w, y = (i / w.w) | 0;
         let creek = false;
@@ -228,6 +229,16 @@ export function createTools(catalog) {
     desc: 'Instant cover for rabbits and wrens while shrubs grow in. Rots into soil over a few years.', apply: featureTool(F.BRUSH) });
   tool({ key: 'nestbox', cat: 'features', name: 'Nest box', cost: 120, brush: false, icon: { feature: F.NESTBOX },
     desc: 'Stand-in tree cavity for wood ducks and roosting bats until the forest grows old.', apply: featureTool(F.NESTBOX) });
+  // A wire cage round a young tree (sim/tree-guard.js), brushed over a planting: beavers and browsers leave
+  // it alone until it has outgrown the cage. Any tree on land young enough for one, planted or wild.
+  if (!biome.look.underwater) tool({ key: 'guard', cat: 'features', name: 'Tree guard', cost: GUARD_COST, size: 1, icon: { svg: 'guard' },
+    desc: `A wire cage round a young tree. Beavers can't fell it and deer and elk can't browse it, until it outgrows the cage in about ${GUARD_YEARS} years and the cage comes off.`,
+    apply: (game, i) => {
+      const w = game.world, p = PLANTS[w.tree[i]];
+      if (!p || guarded(w, i) || p.aquatic || p.mangrove || isWater(w.terrain[i]) || w.treeAge[i] >= GUARD_YEARS * DAYS_PER_YEAR - DAYS_PER_YEAR) return null; // (not one coming off within the year)
+      w.guard[i] = GUARDED;
+      return true;
+    } });
 
   // ---------------------------------------------------------------- removal
   tool({ key: 'pull', cat: 'remove', name: 'Pull invasives', cost: 8, icon: { plant: 'blackberry' }, size: 1,

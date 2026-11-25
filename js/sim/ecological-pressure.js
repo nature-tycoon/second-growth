@@ -3,6 +3,7 @@
 import { T, F, isWater, clamp, DAYS_PER_YEAR, lifeAge } from '../config.js';
 import { preyFor } from '../data/animals.js';
 import { removeTree } from './plants.js';
+import { guarded } from './tree-guard.js';
 
 
 export const MULCH_DAYS = 120;
@@ -35,7 +36,7 @@ export function browseSapling(game, a, def) {
   for (const [dx, dy] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]]) {
     if (!w.inb(x + dx, y + dy)) continue;
     const i = w.idx(x + dx, y + dy), p = game.catalog.plants[w.tree[i]];
-    if (!p || isWater(w.terrain[i]) || w.struct[i] >= 0 || w.feature[i] === F.FENCE || w.treeG[i] >= 0.55) continue;
+    if (!p || isWater(w.terrain[i]) || w.struct[i] >= 0 || w.feature[i] === F.FENCE || w.treeG[i] >= 0.55 || guarded(w, i)) continue; // (nor one in a wire guard: sim/tree-guard.js)
     if (w.treeG[i] < size) { target = i; size = w.treeG[i]; }
   }
   if (target < 0 || game.rng() >= 0.45) return false;

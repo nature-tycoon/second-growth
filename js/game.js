@@ -577,6 +577,7 @@ export class Game {
         a[i] = id;
       }
     }
+    for (let i = 0; i < w.n; i++) if (!w.tree[i]) w.guard[i] = 0; // (a guard only with its tree: a tree this version no longer has took it with it)
     w.structures = data.world.structures;
     const savedWater = data.world.water || null;
     // (a farm saved while the water model was briefly live: put its ponds and wetlands back to
