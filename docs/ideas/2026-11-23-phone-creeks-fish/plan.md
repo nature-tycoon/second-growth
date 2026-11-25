@@ -74,4 +74,4 @@ Cole added the off-map creek (screenshot `offmap-creek-pnw.webp`): on PNW the cr
 | # | Title | Model | Size | Status |
 |---|---|---|---|---|
 | 13 | Ground-trails browser check fails (blocks itch upload) | opus | small | [x] 847d000 |
-| after merge | Re-film the intro (new creek) | opus | medium | [ ] |
+| after merge | Re-film the intro (new creek) | opus | medium | [x] |
