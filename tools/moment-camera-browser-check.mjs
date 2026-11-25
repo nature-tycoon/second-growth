@@ -61,7 +61,10 @@ try {
   // 1b. the glide runs on the frame clock, and a stall (a hidden tab, a long frame) moves it on 0.2 s at most
   const stall = await b.evaluate(`(async () => { const {renderer:r}=${S}, wait=() => new Promise(f => setTimeout(f, 250));
     let clock = performance.now(); r.diagnosticTime = clock; r.flyTo(r.target.x + 10, r.target.z, r.zoom, 2.4); await wait();
-    const start = r.fly?.t; clock += 5000; r.diagnosticTime = clock; await wait();
+    const start = r.fly?.t; clock += 5000; r.diagnosticTime = clock;
+    // (wait for a frame to run, not a fixed 250 ms: CI's software frames can take longer, and then
+    // no frame had moved the glide yet and it read 0)
+    for (let i = 0; i < 80 && !(r.fly?.t > start); i++) await wait();
     const after = r.fly?.t; r.diagnosticTime = undefined; r.fly = null; return { start, after }; })()`);
   console.log('glide clock across a 5 s stall:', stall);
   assert.equal(stall.start, 0, 'a frozen clock holds the glide still');
