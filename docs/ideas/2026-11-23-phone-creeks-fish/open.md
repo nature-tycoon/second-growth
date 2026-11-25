@@ -78,3 +78,34 @@ All of round 2 landed: dfb9919 (jaguar), 2fc5da9 (suite green), df61755 (creek r
 - Water patch redraw: yes.
 - Stranded snakeheads: yes, air-breathers wriggle 1–2 wet tiles to water.
 - Ship: Cole looks at the game first, then says when to push.
+
+# Round 3: open questions (sessions 9–12)
+
+All landed: 0ab9c18 (off-map creeks), 5afd637 (tree guards, 0057), b1237f4 (water patch redraw), 5a7134e (air-breathing fish wriggle). Nothing pushed.
+
+## Before or right after shipping
+
+- **`animal-trails-browser-check` fails on main's code too (s11):** ground trails changed 0 pixels in Fast and High. The browser suite runs on main before the itch.io upload, so a merge won't reach itch until it's fixed. Recommended: a short session to find whether the trails or the check broke.
+- **Intro film shows the old wide creek (s9):** re-film after merging (`--rough` first, then `intro-film-motion`).
+- **Cole's current PNW farm keeps the old wide trench (s9):** saves keep the ground. Start a new PNW farm to see the fix; no players are affected.
+
+## Choice-shaped
+
+- **Time-lapse stops at the first beaver cut (s10)** to offer guards. That happens on most PNW first visits (years 3–8), so most players don't see the full ten years or the closing newcomer. Recommended: keep the stop; the alternative (offer after ten years) comes too late to save the trees.
+
+## Recommended answers stand unless Cole objects
+
+- PNW creek narrows slightly right at the fence (1.2 vs 1.4 tiles), kept to protect the intro film's staging (s9): leave it.
+- Guard comes off at 8 years (s10): keep. Guards don't stay on grown trees (s10): right.
+- Slow phones keep holding the water during a drag (s11): keep; look at the next phone check.
+- Watch a snakehead crossing on Sumatra at night in the dry season (s12).
+- Sumatra food-web score dip .98 → .90 reads as random drift (s12): leave it.
+- A crossing stuck 4 days falls back to the old jump (s12): leave it.
+
+## New ideas (nature-checked)
+
+- Air-breathers with no water left bury in the mud and wait for the rains (real for snakeheads and Clarias; the dormancy state exists).
+- A beaver colony that can only reach guarded trees moves on sooner; guarded trees leave the deer browse map (realistic, small).
+- Smooth the farm creek's flare just before PNW's fence (s9).
+- Chinandega snappers in cut-off pools: check whether those pools dry under them now that stranded fish can die.
+- Tools: the pile probe should count only fish standing still; riverbank stones and the channel flow could also be patched (perf, small).
