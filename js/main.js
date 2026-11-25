@@ -204,6 +204,7 @@ async function boot() {
     // compiled together while the bar moves (Renderer.prepareFirstFrame), then drawn.
     window.secondGrowth = { game, renderer, ui, diagnostics }; // (handy for debugging from the console)
     renderer.prepareFirstFrame(game, ui.state);
+    if (intro) intro.onHandOver = (scale, holdMs) => renderer.openFromFilm(scale, holdMs); // (the film's framing, then the start zoom)
     stage('Catching the light', 90);
     await nextPaint();
     await renderer.warmShaders(f => setProgress(90 + 9 * f));

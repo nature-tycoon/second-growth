@@ -26,6 +26,11 @@ const FILM = 'assets/intro/intro-film';
 const FILM_1080 = 'assets/intro/intro-film-1080'; // (about 28 MB to the 720p's 15: big screens on fast connections only)
 const FILM_MAP = 'pnw';   // (the film is of the PNW farm, and ends at its first view)
 const FADE_MS = 900;
+// The film is filmed at 1920×1080 at the start view's zoom (intro-film.json lastFrame, held by
+// intro-film-check), then stretched over the window (object-fit in styles.css). The game's zoom is
+// pixels per tile, so a window of another size frames the start view wider or closer than the film's
+// last frame: filmScale() is how much bigger a tile is drawn in the film than in the game.
+const FILM_W = 1920, FILM_H = 1080;
 const START_GRACE_MS = 4000; // (the game is ready but the film hasn't started: how long it may still take)
 // The title drop, in film seconds (intro-film.json's layers): "Second Growth" fades in as the camera
 // starts to rise over the bare farm (the 'rise' layer, 23.2 s), holds through the dissolve to 30 years
@@ -285,11 +290,19 @@ export class IntroFilm {
   fadeOut(how, ms = FADE_MS) {
     this.fading = true;
     this.video.pause();
+    // (a first visit's film ended on the start view: the farm opens framed as the film was, then
+    // glides to its own start zoom; main.js sets onHandOver)
+    if (how === 'finished' && this.first) this.onHandOver?.(this.filmScale(), ms);
     requestAnimationFrame(() => requestAnimationFrame(() => {
       this.el.style.transitionDuration = `${ms}ms`;
       this.el.classList.add('fading');
       setTimeout(() => this.close(how), ms);
     }));
+  }
+
+  filmScale() {
+    const fit = getComputedStyle(this.video).objectFit === 'contain' ? Math.min : Math.max;
+    return fit(window.innerWidth / FILM_W, window.innerHeight / FILM_H);
   }
 
   close(how) {
