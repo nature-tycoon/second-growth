@@ -152,6 +152,14 @@ export function swimRoute(wl, a, def) {
   };
 }
 
+// Where in tile j a river fish's route reaches (the point its swimRoute judged the step by), or
+// null: a waypoint nudged into deep water must stay where the route can take it (walkStep).
+export function swimPoint(wl, a, def, j) {
+  if (a.move !== 'swim' || def.reef || a.leaving) return null; // (a leaving fish's way out isn't a swimRoute)
+  const w = wl.game.world, lim = limFor(w, a, def);
+  return wetPoint(w, cacheFor(wl.game, lim), lim, j);
+}
+
 // A fish couldn't get from tile i into j after all: shut that way for the rest of the day.
 export function blockSwim(wl, a, def, i, j) {
   const w = wl.game.world;

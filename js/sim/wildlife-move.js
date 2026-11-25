@@ -19,7 +19,7 @@ import { clearSpot, resolveStep, steerAround } from './ground-obstacles.js';
 import { turnRate, reefStep } from './steering.js';
 import { shapeCourse, pathPoint } from './animal-course.js';
 import { swimDepth, deepWaterNear, fishDepth } from './waterline.js';
-import { blockSwim, runDepth } from './swim-routes.js';
+import { blockSwim, runDepth, swimPoint } from './swim-routes.js';
 import { drinkEvery } from './home-range.js';
 import { passable, reefMoveSafe } from './animal-terrain.js';
 import { simRandom } from './sim-random.js';
@@ -58,7 +58,12 @@ export class WildlifeMove {
     let [ox, oy] = smoothWalker(def) ? pathPoint(w, a, a.path.length - 1).map((v, n) => v - (n ? (j / w.w | 0) : j % w.w) - 0.5) : spotIn(a, j, a.path.length === 1);
     // (a river fish's waypoint is in water deep enough to swim in, not up the bank's shallows)
     if (a.move === 'swim' && !def.reef && swimDepth(w, j % w.w + 0.5 + ox, (j / w.w | 0) + 0.5 + oy) < fishDepth(def)) {
-      const p = deepWaterNear(w, j % w.w + 0.5 + ox, (j / w.w | 0) + 0.5 + oy, 0.9, fishDepth(def));
+      let p = deepWaterNear(w, j % w.w + 0.5 + ox, (j / w.w | 0) + 0.5 + oy, 0.9, fishDepth(def));
+      // (in tile j itself, else at the point its route reached j by: the nearest deep water can lie
+      // in the next tile past dry ground the route never crossed. Fleeing to a marsh tile with only
+      // a sliver of water at its near edge, Sumatra snakeheads aimed at the pool beyond its dry
+      // half, pressed at the lip for days and piled up there, 2026-11-24)
+      if (p && w.inb(Math.floor(p[0]), Math.floor(p[1])) && w.idx(Math.floor(p[0]), Math.floor(p[1])) !== j) p = swimPoint(this, a, def, j) || p;
       if (p) { ox = p[0] - (j % w.w) - 0.5; oy = p[1] - (j / w.w | 0) - 0.5; }
     }
     if (a.path.length === 1 && a.restSpot?.[0] !== j) {

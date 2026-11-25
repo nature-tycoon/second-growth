@@ -8,6 +8,10 @@
 // tiles of it). Making chooseTarget's `need` apply to every fish, not only the catfish, moved the
 // piles about without shrinking them; the fix is routes that only cross water a fish can swim.
 // Catfish crowding the last deep pool of a dry season is real.
+// 2026-11-24 (ideas phone-creeks-fish s8): Sumatra piled again (seeds 1987, 7, 5, 11, 17, 23, 43: 110-496)
+// from three causes the 11-20 fix never covered: an escape's waypoint nudged into deep water in the next
+// tile past a dry band, roam/disperse routes with no swimRoute test, and fleeing fish all taking the one
+// tile farthest from the hunter. Covered by tools/fish-marsh-pile-check.mjs. Measure over 10+ seeds.
 import { restoredGame } from './map-audit-fixtures.mjs';
 import { mulberry32 } from '../js/rng.js';
 import { animalRadius } from '../js/sim/animal-positioning.js';
