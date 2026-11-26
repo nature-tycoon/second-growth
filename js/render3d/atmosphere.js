@@ -3,7 +3,7 @@
 // ground keeps its sky light (as real cloud shadows do). Few and small on clear days, large
 // and frequent under a cloudy sky.
 
-import { Vector2, Color } from 'three';
+import { Vector2, Vector4, Color } from 'three';
 
 export const haze = {
   uHazeOrigin: { value: new Vector2() },
@@ -11,7 +11,25 @@ export const haze = {
   uHazeSpan: { value: 1 },
   uHazeColor: { value: new Color('#b9cdcf') },
   uHazeAmount: { value: 0 },
+  // The far edge of the drawn land melts into the haze, which is also the backdrop behind the
+  // canvas (backdrop.js): the land's rectangle (x0, z0, x1, z1) and how many tiles the melt takes
+  // (0 turns it off: eye level, which has its own fog and sky). Only the edges facing away from
+  // the camera melt, so the near soil walls of the diorama stay.
+  uLand: { value: new Vector4(0, 0, 1, 1) },
+  uMelt: { value: 0 },
+  uMeltColor: { value: new Color() }, // (the haze nudged toward the land's own tone: scene.js)
 };
+
+// How far into the haze a point near the far edge has melted (0..1), in JS for checks: the same
+// sum the shaders do (MELT_GLSL). dir: the haze direction, away from the camera.
+export function meltAt(x, z, land, melt, dir) {
+  if (!(melt > 0)) return 0;
+  const ss = (a, b, v) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const e = [x - land.x, z - land.y, land.z - x, land.w - z], f = [-dir.x, -dir.y, dir.x, dir.y];
+  let m = 0;
+  for (let k = 0; k < 4; k++) m = Math.max(m, ss(0.2, 0.6, f[k]) * (1 - ss(0, melt, e[k])));
+  return m;
+}
 
 export const sky = {
   uCloudT: { value: 0 },       // seconds of drift
@@ -47,6 +65,20 @@ export const CLOUD_NOISE = `
   float cloudEdge(float cover) { return 0.76 - cover * 0.42; }
 `;
 
+// (needs uHazeDir declared before it)
+export const MELT_GLSL = `
+  uniform vec4 uLand;
+  uniform float uMelt;
+  uniform vec3 uMeltColor;
+  // (meltAt above is this in JS)
+  float landMelt(vec2 xz) {
+    if (uMelt <= 0.0) return 0.0;
+    vec4 e = vec4(xz.x - uLand.x, xz.y - uLand.y, uLand.z - xz.x, uLand.w - xz.y);
+    vec4 m = smoothstep(0.2, 0.6, vec4(-uHazeDir, uHazeDir)) * (1.0 - smoothstep(0.0, uMelt, e));
+    return max(max(m.x, m.y), max(m.z, m.w));
+  }
+`;
+
 const CLOUD_GLSL = `
   uniform float uCloudT, uCloudCover, uCloudAmt;
   uniform float uSeaOn, uSeaY, uSeaMurk;
@@ -54,6 +86,7 @@ const CLOUD_GLSL = `
   uniform vec2 uHazeOrigin, uHazeDir;
   uniform float uHazeSpan, uHazeAmount;
   uniform vec3 uHazeColor;
+  ${MELT_GLSL}
   varying vec2 vCloudXZ;
   varying float vSeaY;
   // caustics: two warped interference patterns, kept where they're brightest, so the light gathers
@@ -109,6 +142,7 @@ export function withClouds(mat) {
       float hzDepth = dot(vCloudXZ - uHazeOrigin, uHazeDir) / max(1.0, uHazeSpan);
       float hzAmount = smoothstep(0.1, 1.0, hzDepth) * uHazeAmount;
       outgoingLight = mix(outgoingLight, uHazeColor, hzAmount);
+      outgoingLight = mix(outgoingLight, uMeltColor, landMelt(vCloudXZ));
       #include <opaque_fragment>`);
   };
   mat.customProgramCacheKey = () => baseKey + '|clouds:haze';

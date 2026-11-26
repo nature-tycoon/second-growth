@@ -6,7 +6,7 @@
 
 import * as THREE from 'three';
 import { BORDER, LEVEL } from '../config.js';
-import { sea } from './atmosphere.js';
+import { sea, haze, MELT_GLSL } from './atmosphere.js';
 import { EYE_FAR } from './eye-camera.js';
 
 const VERT = `
@@ -18,6 +18,8 @@ const VERT = `
     gl_Position = projectionMatrix * viewMatrix * wp;
   }`;
 const FRAG = `
+  uniform vec2 uHazeDir;
+  ${MELT_GLSL}
   uniform float uT, uGlint, uEye, uFogNear, uFogFar;
   uniform vec3 uSun, uView, uSky, uWater, uLight, uFogColor, uFogOut, uSeaFar;
   varying vec2 vXZ;
@@ -64,7 +66,8 @@ const FRAG = `
     // eye-level haze (off, out of reach, in the usual view): water or air. Like three's own fog
     // it goes on after the tone mapping, in the screen's colours, so it meets the background.
     float f = clamp((length(cameraPosition - vW) - uFogNear) / (uFogFar - uFogNear), 0.0, 1.0);
-    gl_FragColor = vec4(col, mix(a, 1.0, f));
+    // (the land's far edge melts into the backdrop, atmosphere.js: the sheet over it fades out too)
+    gl_FragColor = vec4(col, mix(a, 1.0, f) * (1.0 - landMelt(vXZ)));
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
     gl_FragColor.rgb = mix(gl_FragColor.rgb, uFogOut * shimmer, mirror);
@@ -83,6 +86,7 @@ export class SeaSurface {
       uSun: { value: new THREE.Vector3(0, 1, 0) }, uView: { value: new THREE.Vector3(0, 1, 0) },
       uSky: { value: new THREE.Color(0.75, 0.85, 0.95) }, uWater: { value: new THREE.Color(0.2, 0.6, 0.62) },
       uLight: { value: new THREE.Color(1, 1, 1) },
+      uHazeDir: haze.uHazeDir, uLand: haze.uLand, uMelt: haze.uMelt, uMeltColor: haze.uMeltColor,
       uEye: { value: 0 }, uFogNear: { value: 1e5 }, uFogFar: { value: 2e5 }, uFogColor: { value: new THREE.Color() }, uFogOut: { value: new THREE.Color() }, uSeaFar: { value: new THREE.Color() },
     };
     this.mat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: FRAG, uniforms: this.uniforms, transparent: true, depthWrite: false, side: THREE.DoubleSide });
