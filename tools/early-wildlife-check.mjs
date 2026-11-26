@@ -44,17 +44,21 @@ check('the hawk is on the wing much of the first minute and the crows feed on th
 });
 
 check('a coyote passes through early, hunts, and goes again', () => {
+  // (a visitor comes in at the open edge nearest the prey, hungry, and heads for it: rangingVisits.
+  // Before that, one came in fed at a random edge spot and hunted in 1 visit of 6: the check
+  // passed or failed on how the run's random draws fell)
   let early = 0, left = 0, hunted = 0;
   for (const seed of SEEDS) {
     const g = fresh(seed), def = g.catalog.animal.coyote, wl = g.wildlife;
     assert.ok(trait(def, 'ranges'), 'the coyote ranges');
-    let seenAt = null, visitor = null, gone = false;
+    let seenAt = null, visitor = null, gone = false, hunts = false;
     play(g, 90, () => {
       const c = wl.agents.find(a => a.key === 'coyote' && a.passUntil != null);
       if (c && seenAt == null) { seenAt = g.day; visitor = c; }
       if (visitor && visitor.leaving) gone = true;
-      if (visitor?.hunt) hunted++;
+      if (visitor?.hunt && !visitor.leaving) hunts = true; // (one walking off mid-chase keeps a.hunt: not a hunt here)
     });
+    hunted += hunts;
     if (seenAt != null) early++;
     if (visitor) {
       assert.ok(visitor.passUntil - seenAt <= 12, `${seed}: a visit lasts days, not months`);
@@ -64,7 +68,7 @@ check('a coyote passes through early, hunts, and goes again', () => {
   }
   assert.ok(early >= SEEDS.length - 2, `a coyote passed through in the first 90 days in ${early}/${SEEDS.length} runs`);
   assert.ok(left >= early - 1, `visitors went again (${left}/${early})`);
-  assert.ok(hunted > 0, 'a passing coyote hunts while it is here');
+  assert.ok(hunted >= early / 2, `a passing coyote hunts while it is here (${hunted}/${early} visits)`);
 });
 
 check('a passing coyote and a lone resident raise no young', () => {
