@@ -24,7 +24,7 @@ const files = (await readdir(new URL('./', import.meta.url))).filter(file => fil
 const browserNames = new Set(files.filter(file => file.endsWith('-browser-check.mjs') || file === 'browser-save-check.mjs'));
 // Seconds each browser check takes on CI (2026-11-14 run), to split the suite into parts of about
 // equal length for checks.yml's parallel jobs. A check not listed counts as a minute.
-const browserSeconds = { 'plant-cache-browser-check.mjs': 820, 'release-browser-check.mjs': 730, 'impostor-browser-check.mjs': 470, 'plant-render-browser-check.mjs': 400, 'plant-view-browser-check.mjs': 310, 'moments-sweep-browser-check.mjs': 170, 'intro-browser-check.mjs': 400, 'intro-film-motion-browser-check.mjs': 150 };
+const browserSeconds = { 'plant-cache-browser-check.mjs': 820, 'release-browser-check.mjs': 730, 'impostor-browser-check.mjs': 470, 'plant-render-browser-check.mjs': 400, 'plant-view-browser-check.mjs': 310, 'moments-sweep-browser-check.mjs': 170, 'intro-browser-check.mjs': 400, 'intro-film-motion-browser-check.mjs': 150, 'first-minutes-browser-check.mjs': 400 };
 function browserShard() {
   const parts = Array.from({ length: shards }, () => ({ seconds: 0, files: [] }));
   const longestFirst = [...browserNames].sort((a, b) => (browserSeconds[b] ?? 60) - (browserSeconds[a] ?? 60) || a.localeCompare(b));

@@ -45,7 +45,7 @@ export default {
   // (old pasture is Townsend's vole country, and a red-tailed hawk hunts it; American crows work
   // the open fields from the trees round them: the common animals of worn-out farmland)
   startWildlife: [['vole', 14, 90, 14, 10], ['robin', 3, 25, 24, 6], ['raccoon', 1, 33, 22, 4], ['mallard', 2, 93, 37, 2], ['treefrog', 5, 93, 37, 4],
-    ['hawk', 1, 40, 9, 4], ['crow', 5, 37, 6, 3]],
+    ['hawk', 1, 36, 4, 2], ['crow', 5, 37, 6, 3]], // (the hawk starts at the forest edge by the opening's fence spot, in that first picture: 0053)
   startText: 'Spring, Year 1. The farm is quiet: voles in the old pasture, a hawk hunting them, crows on the fields and a pair of mallards on the stock pond. Let\'s change that.',
   story: `<p><b>Your great-aunt left you the old Hollis farm</b>: 180 acres of tired pasture and plowed fields in a Cascade foothill valley, bordered by second-growth forest to the north and east and a salmon river to the south. The land trust will fund your work. Your job is to give it back to the wild.</p>`,
   rules: [
