@@ -13,6 +13,22 @@ export const percentile = (values, p) => values.length
 // Aggregate the whole analytics window without retaining an object for every frame.
 // Tenths-of-a-millisecond bins give the same displayed precision as the overlay.
 export const CPU_STAGES = ['simulation', 'render', 'interface'];
+// The parts of the render stage, in the order Renderer.draw laps them (perf_sample's draw_<part>_ms
+// and draw_<part>_p95_ms; 'submit' is lapped too but reported as cpu_submit_ms, as before).
+// camera: view eases and the automatic resolution and Detail; ground: the ground's repaint and water
+// patches; plants: plant region rebuilds; overlay: the map overlay and brush preview; impostors: tree
+// card bakes; animals: animal poses and pollinators; plant_view: choosing and batching the plants in
+// view; shadows: choosing shadow casters; effects: rain, snow, fireflies, leaves; other: light, sky,
+// camera follow, lens, water surface.
+export const DRAW_PARTS = ['camera', 'ground', 'plants', 'overlay', 'impostors', 'animals', 'plant_view', 'shadows', 'submit', 'effects', 'other'];
+// A slow frame for perf_sample's slow_frames_pct: slower than 30 fps and half again the frame loop's
+// own pace (createFrameLoop's pace(): its interval, but never longer than the cap's, since a machine
+// overrunning every refresh measures its own drawing as the refresh). At 60 that is the old 34 ms;
+// held to 30 it is a frame that missed a screen refresh (50 ms at 60 Hz), not one a millisecond past
+// 33.3, which by the old 34 ms line read 15% slow on strong chips against 1.5% at 60
+// (performance-review-2026-11-26.md).
+export const slowFrameMs = (intervalMs, capMs) => Math.max(34, 1.5 * Math.min(intervalMs || capMs || 0, capMs || intervalMs || 0));
+export const DRAW_REPORTED = DRAW_PARTS.filter(k => k !== 'submit');
 export class FrameCpuStats {
   // (prefix: the analytics field names, cpu_render_ms and so on; the GPU timer uses 'gpu')
   constructor(keys = CPU_STAGES, prefix = 'cpu') { this.keys = keys; this.prefix = prefix; this.reset(); }

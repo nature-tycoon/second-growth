@@ -130,6 +130,18 @@ subsystems, a design reviewed first (AGENTS.md).
    (`play-profile` top speed); growth in size steps was dropped in October for being too small a win
    at normal speed, which doesn't apply here.
 
+**Built 2026-11-26 (items 1–3)**, live with the next release: `perf_sample` carries `draw_<part>_ms`
+and its p95 for each part of the drawing work, and `refresh_hz`; `slow_frames_pct` uses the new
+line; the frame loop paces by the screen's refresh. Details and how to read them in
+[posthog-player-perf.md](posthog-player-perf.md). Checks: `frame-loop-check` (pacing at 60–165 Hz,
+long frames, the old rule before the refresh is known), `performance-diagnostics-check` (the slow
+line, parts reported only for draws that ran to the end), `perf-analytics-browser-check` (the real
+game's parts add up to the render stage). Pacing keeps within 1.3× the cap, so 90 and 100 Hz
+screens at a cap of 60 stay at 45 and 50 as before (a steady 60 there would need uneven frame
+spacing). `regression-reviewer` checked the diff: its two findings (an overloaded machine measuring
+its own frame rate as the refresh, and 90–100 Hz drawing up to 1.67× the cap) are fixed. After a
+week of the new release, read the weak-laptop parts' medians and p95s to pick between items 4 and 5.
+
 Not recommended now: a different engine; WebGPU (above); the simulation worker (0045, trigger not
 met); drawing in a worker (OffscreenCanvas: no saving in total work, a large rewrite, and the frame
 cost is the same); fewer animals or plants (0004 rules it out).
