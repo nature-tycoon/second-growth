@@ -3,7 +3,7 @@ import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
 const THREE = await import('three');
 const { createFrameLoop } = await import('../js/frame-loop.js');
-const { withoutVegetation, renderObjectCounts, PerformancePhases, FrameCpuStats, CPU_STAGES, GpuTimer, weakGpu } = await import('../js/performance.js');
+const { withoutVegetation, renderObjectCounts, PerformancePhases, FrameCpuStats, CPU_STAGES, DRAW_REPORTED, slowFrameMs, GpuTimer, weakGpu } = await import('../js/performance.js');
 const { Renderer } = await import('../js/render3d/scene.js');
 const { performanceFixture, ecosystemCounts } = await import('./performance-fixtures.mjs');
 let checks = 0;
@@ -93,6 +93,37 @@ check('Renderer exports CPU fields, including the draw call, through perfSample 
     for (const work of [4, 6, 8, 20]) r.recordCpuFrame({ ...sample, work });
     const w = r.perfSample(); assert.equal(w.work_p75_ms, 20); assert.equal(w.sample_s, 2.5);
     assert.equal(r.perfSample(false).work_p75_ms, null, 'a new sample starts its work afresh');
+  } finally { if (previousDocument === undefined) delete globalThis.document; else globalThis.document = previousDocument; }
+});
+check('A slow frame is one slower than 30 fps and half again the frame loop\'s pace', () => {
+  assert.equal(slowFrameMs(1000 / 60, 1000 / 60), 34, 'at 60 the line is unchanged');
+  assert.equal(slowFrameMs(null, null), 34, 'without a pace');
+  assert.equal(slowFrameMs(1000 / 30, 1000 / 30), 50, 'held to 30, a missed refresh at 60 Hz');
+  assert.equal(slowFrameMs(2000 / 75, 1000 / 30), 40, '75 Hz held to 30 (37.5 fps)');
+  assert.equal(slowFrameMs(1000 / 30, 1000 / 60), 34, 'a machine overrunning every refresh at a cap of 60 keeps the 34 ms line');
+  assert.equal(slowFrameMs(50, 1000 / 30), 50, '...and held to 30, the 50 ms line');
+});
+check('The render stage is reported part by part, only for frames whose draw ran to the end', () => {
+  const previousDocument = globalThis.document;
+  globalThis.document = { hidden: false };
+  try {
+    const r = Object.assign(Object.create(Renderer.prototype), {
+      cpuPerf: new FrameCpuStats([...CPU_STAGES, 'submit']), drawPerf: new FrameCpuStats(DRAW_REPORTED, 'draw'), submitMs: 1,
+      gl: { info: { render: { triangles: 1, calls: 1 } } }, sun: { castShadow: true }, gpuName: () => 'test',
+      flora: { plantView: { stats: {} }, geometryIndex: { stats: {} }, plantShadows: { stats: {} } },
+    });
+    const sample = { timings: { simulation: 1, render: 9, interface: 1 }, work: 11 };
+    const parts = n => Object.fromEntries([...DRAW_REPORTED, 'submit'].map(k => [k, k === 'animals' ? n : k === 'plants' ? 2 : 0.5]));
+    for (const n of [3, 3, 3, 9]) { r.parts = parts(n); r.partsReady = true; r.recordCpuFrame(sample); }
+    r.parts = parts(50); r.partsReady = false; r.recordCpuFrame(sample); // (a draw that stopped early: not counted)
+    const out = r.perfSample();
+    assert.equal(out.cpu_frames, 5); assert.equal(out.draw_frames, undefined, 'draw_frames is not sent');
+    assert.equal(out.draw_animals_ms, 4.5); assert.equal(out.draw_animals_p95_ms, 9);
+    assert.equal(out.draw_plants_ms, 2); assert.equal(out.draw_submit_ms, undefined, 'submit stays cpu_submit_ms');
+    for (const k of DRAW_REPORTED) assert.ok(`draw_${k}_ms` in out && `draw_${k}_p95_ms` in out, k);
+    assert.equal(r.perfSample().draw_animals_ms, null, 'a new sample starts afresh');
+    // a renderer whose draw never laps (the brush checks drive refreshWorld alone) is left alone
+    const bare = Object.create(Renderer.prototype); bare.lap('plants'); assert.equal(bare.parts, undefined);
   } finally { if (previousDocument === undefined) delete globalThis.document; else globalThis.document = previousDocument; }
 });
 check('Vegetation isolation hides view and shadow batches, retains scenery, and restores visibility after errors', () => {

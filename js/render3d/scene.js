@@ -28,7 +28,7 @@ import { SeaSurface } from './sea.js';
 import { building, diveBoat, JETTY_BOAT } from './geometry/buildings.js';
 import { hash2, mulberry32 } from '../rng.js';
 import { Border } from '../world.js';
-import { FrameCpuStats, CPU_STAGES, CHECK_SHADERS, GpuTimer, weakGpu } from '../performance.js';
+import { FrameCpuStats, CPU_STAGES, DRAW_PARTS, DRAW_REPORTED, slowFrameMs, CHECK_SHADERS, GpuTimer, weakGpu } from '../performance.js';
 import { RELEASE } from '../release.js';
 import { updateHydrology, updateEnvironment } from '../sim/environment.js';
 import { animalDensity } from '../sim/animal-density.js';
@@ -142,6 +142,7 @@ export class Renderer {
     // (submit: the gl.render call alone, part of render. The rest of render is getting the frame
     // ready, plants above all, so a slow laptop shows which side of the hand-off holds it up.)
     this.cpuPerf = new FrameCpuStats([...CPU_STAGES, 'submit']);
+    this.drawPerf = new FrameCpuStats(DRAW_REPORTED, 'draw');
     this.gpuTimer = new GpuTimer(this.gl.getContext());
     document.addEventListener('visibilitychange', () => { if (this.perf) this.perf.last = performance.now(); this.cpuSkipNext = true; });
     canvas.addEventListener('webglcontextlost', event => {
@@ -998,6 +999,8 @@ export class Renderer {
     if (document.hidden) { this.cpuSkipNext = true; return; }
     if (this.cpuSkipNext) { this.cpuSkipNext = false; return; }
     this.cpuPerf.record({ timings: { ...sample.timings, submit: this.submitMs ?? 0 } });
+    // (the render stage part by part, when this frame's draw ran to the end: not under the intro film or while preparing)
+    if (this.partsReady) { this.drawPerf?.record({ timings: this.parts }); this.partsReady = false; }
     // (each frame's processor work, for autoQuality's step-up test on a frame rate held to 30)
     if (this.qWork && this.qWork.length < 600 && sample.work >= 0) this.qWork.push(sample.work);
     // (and for perfSample's work_p75_ms, the slower frames' work in tenths of a millisecond)
@@ -1010,6 +1013,7 @@ export class Renderer {
     const out = {
       ...this.cpuPerf?.sample(reset),
       ...this.gpuTimer?.sample(reset),
+      ...this.drawParts(reset),
       fps: P.time ? +(P.frames * 1000 / P.time).toFixed(1) : null,
       // (seconds of drawing this sample covers, so shadow_redraws reads as a rate; the slower frames'
       // processor work, the 16 ms test autoQuality makes for a frame rate held to 30)
@@ -1036,6 +1040,12 @@ export class Renderer {
     };
     if (reset) { P.frames = 0; P.time = 0; P.slow = 0; this.shadowRedraws = 0; this.workBins = null; }
     return out;
+  }
+  // (draw_frames is cpu_frames less the frames whose draw didn't run to the end, so it isn't sent)
+  drawParts(reset) {
+    if (!this.drawPerf) return {};
+    const { draw_frames, ...parts } = this.drawPerf.sample(reset);
+    return parts;
   }
   workP75() {
     const W = this.workBins; if (!W) return null;
@@ -1110,6 +1120,7 @@ export class Renderer {
     }
     if (heavy) { this.heavyAt = performance.now(); this.heavyMs = this.heavyAt - t0; }
     if (flora) this.floraPending = true;
+    this.lap('ground');
     // Player edits must not wait for the growth cooldown or an idle surface frame: a continuous
     // stroke repaints ground every frame and used to prevent any plants from catching up.
     // Once a budgeted rebuild starts, finish its remaining regions on consecutive frames.
@@ -1121,6 +1132,7 @@ export class Renderer {
       while (more && !swapped && this.flora.waitingRegions?.size && performance.now() - at < FLORA_FRAME_MS) more = this.flora.rebuild(game, false, FLORA_REGIONS_PER_FRAME);
       if (!more) { this.lastFlora = now; this.floraPending = false; this.floraEditPending = false; }
     }
+    this.lap('plants');
   }
 
   // ------------------------------------------------------------------ frame
@@ -1135,8 +1147,14 @@ export class Renderer {
     {
       const t = performance.now(), P = this.perf ||= { frames: 0, time: 0, slow: 0, last: t };
       const ms = t - P.last; P.last = t;
-      if (!document.hidden && ms > 0) { P.frames++; P.time += ms; if (ms > 34) P.slow++; } // (slower than 30 fps; a hidden tab's gap doesn't count, and a laptop's long stalls do)
+      // (slow: see slowFrameMs. A hidden tab's gap doesn't count, and a laptop's long stalls do.)
+      const pace = this.pace?.(), slowMs = slowFrameMs(pace?.intervalMs, pace?.capMs);
+      if (!document.hidden && ms > 0) { P.frames++; P.time += ms; if (ms > slowMs) P.slow++; }
     }
+    // Where the processor's drawing work goes, part by part (lap below; reported by perfSample as
+    // draw_<part>_ms and its p95, so a slow laptop's frame and its spikes can be read part by part).
+    this.partsReady = false;
+    { const Q = this.parts ||= Object.fromEntries(DRAW_PARTS.map(k => [k, 0])); for (const k of DRAW_PARTS) Q[k] = 0; this.partAt = performance.now(); }
     this.gl.info.reset(); // (see the constructor: one count for the whole frame)
     if (dt > 0) { this.autoResolution(); this.autoQuality(game); }
     const swapped = game.world !== this.world; // (a new world, or then-and-now's day-one farm: paint it all this frame)
@@ -1178,10 +1196,12 @@ export class Renderer {
         this.zoomGoal = nz === goal ? null : goal; this.zoomSet = this.zoom;
       }
     }
-    this.refreshWorld(game, swapped, now);
+    this.lap('camera');
+    this.refreshWorld(game, swapped, now); // (laps 'ground' and 'plants' itself)
 
     this.updateOverlay(game, ui, now);
     this.updatePreview(ui);
+    this.lap('overlay');
 
     // light follows the seasons and weather, easing between them instead of snapping; on cloudy
     // days drifting cloud shadows (atmosphere.js) do much of the dimming, patch by patch
@@ -1250,7 +1270,9 @@ export class Renderer {
     const gustTo = wx === 'rain' ? 1.5 : wx === 'snow' ? 1.2 : wx === 'cloud' ? 1.0 : 0.65;
     windGust.value += (gustTo - windGust.value) * Math.min(1, dt * 0.4);
     this.flora.setZoom(this.eyeOn ? this.eyeDetail : this.zoom);
+    this.lap('other');
     this.flora.bakeImpostors(this.gl);
+    this.lap('impostors');
     // plant contact shadows only stand in for the sun's when those are off (by choice, or dropped to
     // keep up): alongside real shadows they'd only smudge the ground around each trunk
     this.flora.contact.visible = !this.sun.castShadow;
@@ -1270,7 +1292,9 @@ export class Renderer {
     this.pollinators.update(game, wdt, this.eyeOn ? [this.eye.pos.x - 8, this.eye.pos.x + 8, this.eye.pos.z - 8, this.eye.pos.z + 8] : this.viewTiles(),
       this.weatherOn !== false && (this.eyeOn || this.zoom > 0.5));
     this.actors.pollinators = this.pollinators;
+    this.lap('other');
     this.actors.update(game, this.eyeOn ? this.eye.right : r, this.time, this.eyeOn ? this.eye.camera : this.camera, this.vh);
+    this.lap('animals');
     this.updateLightning(wdt, game);
     this.updateEye(dt, game);
     const cam = this.eyeOn ? this.eye.camera : this.camera;
@@ -1282,8 +1306,10 @@ export class Renderer {
     su.value += ((game.snow || 0) - su.value) * Math.min(1, dt * 1.5);
     this.actors.updateFire(game, this.time, wdt);
     this.seaSurface.update(this.time, this.sun, this.hemi, this.viewDir(), game, this.scene.fog, this.eyeOn);
+    this.lap('other');
     this.flora.syncShadows();
     this.flora.updateView(cam);
+    this.lap('plant_view');
     if (this.preparing) return; // (see prepareFirstFrame; updateView builds the batches the plants are drawn from)
     const redrawShadows = this.shadowsStale();
     if (redrawShadows) {
@@ -1294,13 +1320,22 @@ export class Renderer {
     }
     this.gl.shadowMap.needsUpdate = redrawShadows;
     this.lastShadowRedraw = redrawShadows;
+    this.lap('shadows');
     const at = performance.now();
     this.gpuTimer.poll(); this.gpuTimer.begin();
     this.gl.render(this.scene, cam);
     drawLookThrough(this.gl, this.scene, cam, this.actors.fauna, focus.uFocusAmt.value, this.flora.lookNear());
     this.gpuTimer.end();
     this.submitMs = performance.now() - at;
+    this.lap('submit'); // (reported as cpu_submit_ms, as before)
     this.drawFX(game, ui, wdt); // (rain, snow, fireflies and drifting leaves hold still too)
+    this.lap('effects');
+    this.partsReady = true;
+  }
+  // Adds the time since the last lap to one part of this frame's drawing work (see draw).
+  lap(part) {
+    const Q = this.parts; if (!Q) return;
+    const t = performance.now(); Q[part] += t - this.partAt; this.partAt = t;
   }
 
   // A picture of the view for photo mode: the 3D scene and the effects layer, with a soft vignette.
