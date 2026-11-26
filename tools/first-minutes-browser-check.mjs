@@ -56,11 +56,16 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
     })()`);
     // (session 5: the farm's common animals come into the same picture while the prompt is up, the
     // hawk overhead and crows on the field; the page counts what it has shown)
-    await b.evaluate(`(()=>{ const {game:g,renderer:R}=window.secondGrowth; window.seen5={hawk:0,crow:0};
+    // (the hawk starts at the forest edge by the fence spot (0053); from 6 tiles further out it
+    // missed this picture in about 1 first visit in 5. Judged on the game's clock, 15 days or about
+    // 20 s of play: CI's slow frames move the game a fraction of a second each)
+    await b.evaluate(`(()=>{ const {game:g,renderer:R}=window.secondGrowth; window.seen5={hawk:0,crow:0,day0:g.day};
       const tick=()=>{ for (const k of ['hawk','crow']) { const n=g.wildlife.agents.filter(a=>a.key===k&&!a.leaving).map(a=>R.project(a.x,R.heightAtScene(a.x,a.y)+(a.flying?(a.flightY||3):0),a.y)).filter(q=>q&&q.x>0&&q.y>0&&q.x<R.vw&&q.y<R.vh).length; window.seen5[k]=Math.max(window.seen5[k],n); } };
       tick(); window.seen5.timer=setInterval(tick,250); })()`);
-    try { await b.waitFor('window.seen5.hawk>=1&&window.seen5.crow>=2', 'hawk and crows in the opening picture', 30000); }
+    try { await b.waitFor('window.seen5.hawk>=1&&window.seen5.crow>=2 || window.secondGrowth.game.day>=window.seen5.day0+15', 'hawk and crows in the opening picture, or 15 game days', 120000); }
     finally { await b.evaluate('clearInterval(window.seen5.timer)'); }
+    const birds = await b.evaluate('({hawk:window.seen5.hawk, crow:window.seen5.crow, days:window.secondGrowth.game.day-window.seen5.day0})');
+    assert.ok(birds.hawk >= 1 && birds.crow >= 2, `a hawk and two crows in the opening picture within 15 game days (${JSON.stringify(birds)})`);
     assert.ok(view.tz < 10, `the view is at the north fence (target y ${view.tz.toFixed(1)})`);
     assert.ok(view.onScreen >= 1, `the waiting deer are in the picture (${view.onScreen} of ${view.n})`);
 
