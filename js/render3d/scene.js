@@ -17,6 +17,7 @@ import { snow, withSnowTops } from './snow.js';
 import { sky, haze, sea, withClouds } from './atmosphere.js';
 import { lightingBalance } from './lighting.js';
 import { Ambience } from './ambience.js';
+import { Backdrop, screenColor } from './backdrop.js';
 import { activeCatalog } from '../data/catalog.js';
 import { BORDER, LEVEL, T, H, isWater, clamp, SPEEDS } from '../config.js';
 import { animalDef, isMale } from '../data/animals.js';
@@ -49,6 +50,7 @@ function installGrade(grade = {}) {
     return saturate( color );
   }`;
   THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars_fragment.replace(/vec3 CustomToneMapping\( vec3 color \) \{[\s\S]*$/, code);
+  return g; // (backdrop.js screenColor runs the same grade for the sky behind the land)
 }
 
 // Time of day, on its own slow clock (real minutes, not game days): a long day, a warm golden
@@ -56,6 +58,9 @@ function installGrade(grade = {}) {
 // properly dark, so the land stays readable. Each key: [position in the cycle, sun strength,
 // sun colour, how much of it, sky colour, how much of it, sun elevation in degrees, sweep].
 const DAY_CYCLE = 360;
+// where a session opens without the intro film (main.js): late afternoon, so golden hour builds
+// over the first minute rather than two minutes of flat midday light (aesthetics plan, item 5)
+export const LATE_START = 0.66;
 const NIGHT_PACE = [1.5, 1.5, 2.6, 4, 1]; // how much faster the dark hours pass, at each game speed (paused: the clock stops, normal, fast, fastest, watch)
 // how fast the whole cycle runs at each game speed: at watch pace a day takes about 18 minutes,
 // night as unhurried as the day, so a sunset, dusk and dawn play out while the animals live them
@@ -84,6 +89,10 @@ function timeOfDay(u) {
   return { sun: L(1), sunCol: todCol[0], sunAmt: L(3), skyCol: todCol[2], skyAmt: L(5), el: L(6), sweep: L(7) };
 }
 const BASE_PPU = 46; // screen pixels per scene unit at zoom 1
+const LAND_MELT = 7; // tiles over which the land's far edge melts into the haze (atmosphere.js uMelt)
+// the melt's colour: how far it leans from the haze toward the ground's bounce light (hemi.groundColor
+// x LIFT), and toward the light's own colour in proportion to the hour's warmth (tod.sunAmt)
+const MELT_LAND = 0.25, MELT_LAND_LIFT = 1.5, MELT_SUN = 0.8, MELT_NIGHT = 0.45;
 // The eye-level sky's colours (linear), before the time of day and the weather tint and dim them:
 // overhead and at the horizon on a clear day, and the grey of an overcast and a stormy sky.
 const SKY_TOP = new THREE.Color(0.15, 0.34, 0.76), SKY_LOW = new THREE.Color(0.6, 0.71, 0.84);
@@ -162,7 +171,7 @@ export class Renderer {
     this.gl.shadowMap.enabled = true;
     this.gl.shadowMap.type = THREE.PCFShadowMap;
     this.gl.outputColorSpace = THREE.SRGBColorSpace;
-    installGrade(this.catalog.definition.look.grade);
+    this.grade = installGrade(this.catalog.definition.look.grade);
     this.gl.toneMapping = THREE.CustomToneMapping;
     this.gl.toneMappingExposure = 1.0;
     this.scene = new THREE.Scene();
@@ -211,6 +220,7 @@ export class Renderer {
     this.ux = this.ui.getContext('2d');
     this.pollinators = new Pollinators(); this.weatherParticles = [];
     this.ambience = new Ambience();
+    this.backdrop = new Backdrop(); this.backStops = [[0, 0, 0], [0, 0, 0]];
     this.lightTarget = { sun: new THREE.Color(), sky: new THREE.Color(), ground: new THREE.Color() };
     this.todClock = DAY_CYCLE * 0.45; // start in the afternoon, so the first evening comes after a couple of minutes
     this.v3 = new THREE.Vector3();
@@ -1232,6 +1242,32 @@ export class Renderer {
     const hazeTo = balance.haze * (humid ? 1.25 : 1) * (this.light ? .75 : 1) * (0.6 + .4 * Math.min(1, tod.sun));
     haze.uHazeAmount.value += (hazeTo - haze.uHazeAmount.value) * k;
     haze.uHazeColor.value.copy(this.hemi.color).multiplyScalar(.5 * (0.65 + .35 * Math.min(1, Math.max(tod.sun, 1 - this.night)))); // (a veil as light as the sky until nightfall)
+    // the far edge of the land melts into that haze, and the page behind the canvas is the haze as
+    // it lands on screen, so the two meet without a seam (atmosphere.js uMelt, backdrop.js)
+    {
+      const tr = this.terrain;
+      haze.uLand.value.set(tr.X0, tr.Y0, tr.X0 + tr.TW, tr.Y0 + tr.TH);
+      haze.uMelt.value = this.eyeOn ? 0 : LAND_MELT;
+      // (distant country, not fog: the haze taken a little toward the land's bounce light)
+      const melt = haze.uMeltColor.value.copy(this.hemi.groundColor).multiplyScalar(MELT_LAND_LIFT).lerp(haze.uHazeColor.value, 1 - (this.meltLand ?? MELT_LAND));
+      // ...and toward the colour of the light when it has one (gold at sunset, blue by moonlight;
+      // none at midday), at the haze's own brightness, as the air round a low sun glows
+      {
+        const warm = this.meltWarm || (this.meltWarm = new THREE.Color()), sc = this.sun.color;
+        const lum = c => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+        warm.copy(sc).multiplyScalar(lum(melt) / Math.max(1e-3, lum(sc)));
+        melt.lerp(warm, MELT_SUN * tod.sunAmt);
+      }
+      melt.multiplyScalar(1 - MELT_NIGHT * this.night); // (the night sky darker than the moonlit land)
+      if (!this.eyeOn) {
+        const exposure = this.gl.toneMappingExposure, under = this.backUnder || (this.backUnder = new THREE.Color());
+        screenColor(melt, this.grade, exposure, this.backStops[0]);
+        // (below the near walls: darker, the diorama's shadow)
+        under.copy(melt).multiplyScalar(0.62).lerp(this.hemi.groundColor, 0.18);
+        screenColor(under, this.grade, exposure, this.backStops[1]);
+        this.backdrop.set(this.backStops, now);
+      }
+    }
     {
       const el = THREE.MathUtils.degToRad(tod.el), az = Math.atan2(20, -30) + tod.sweep * 1.1;
       const d = 62, off = this.sunOffset || (this.sunOffset = new THREE.Vector3());
@@ -1311,9 +1347,11 @@ export class Renderer {
     const ctx = c.getContext('2d');
     // the page's backdrop shows through past the horizon (behind Chinandega's volcano, say): paint
     // it in, or a saved picture is black there (the same gradient as the body's in styles.css)
-    const bg = ctx.createRadialGradient(W / 2, H * 0.35, 0, W / 2, H * 0.35, Math.hypot(W, H) * 0.6);
-    bg.addColorStop(0, '#56715a'); bg.addColorStop(0.55, '#34493a'); bg.addColorStop(1, '#1f2c24');
-    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    if (!this.backdrop.paint(ctx, W, H)) {
+      const bg = ctx.createRadialGradient(W / 2, H * 0.35, 0, W / 2, H * 0.35, Math.hypot(W, H) * 0.6);
+      bg.addColorStop(0, '#56715a'); bg.addColorStop(0.55, '#34493a'); bg.addColorStop(1, '#1f2c24');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    }
     ctx.drawImage(this.gl.domElement, 0, 0); ctx.drawImage(this.ui, 0, 0, W, H);
     if (!vignette) return c;
     const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.hypot(W, H) * 0.56);

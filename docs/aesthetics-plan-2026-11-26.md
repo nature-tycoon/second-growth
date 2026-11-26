@@ -158,6 +158,13 @@ One related item lives in the performance review: **"fewer pixels, sharpened"** 
 sharpening pass makes the picture crisper even at full resolution, so if it's built for speed, judge
 it for looks too.
 
+## Built
+
+- **2026-11-26, session 1:** items 1 and 5, as [0058](decisions/0058-horizon-backdrop.md). Changed from
+  the plan: the near soil walls stay (the diorama is deliberate), only the far edges melt; and the late
+  start applies only when the intro film doesn't play (otherwise the film would need re-filming to
+  end on the new hour).
+
 ## Suggested order
 
 | Session | Items | Size | Needs Cole |

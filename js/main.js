@@ -1,5 +1,5 @@
 import { Game, PENDING_KEY } from './game.js';
-import { Renderer } from './render3d/scene.js';
+import { Renderer, LATE_START } from './render3d/scene.js';
 import { UI } from './ui/ui.js';
 import { Input } from './input.js';
 import { music } from './audio/music.js';
@@ -104,6 +104,9 @@ async function boot() {
     ui.intro = intro;
     const input = new Input(game, renderer, ui);
     renderer.resetView();
+    // (no intro film: open late in the afternoon, so the first minute runs into golden hour. The film
+    // ends on the renderer's own starting hour, todClock, and must keep it: intro-film-check)
+    if (!intro) renderer.setTimeOfDay(LATE_START);
     window.addEventListener('resize', () => {
       scrollTo(0, 0);
       if (innerWidth === renderer.vw && innerHeight === renderer.vh) return;
