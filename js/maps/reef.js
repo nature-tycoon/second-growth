@@ -545,9 +545,10 @@ export default {
     grade: { gain: [0.99, 1.01, 1.02], lift: [0, 0.002, 0.003], sat: 1.08, contrast: 1.10 },
     pasture: ['#e6dcc0', '#e2dac2', '#e8dec2', '#eae0c2'], // pale coral sand
     soil: [0.74, 0.7, 0.62], mud: [0.6, 0.56, 0.48],
+    crownVary: { value: 0.07, hue: 0, sat: 1.2 }, // corals keep their own hues, a little richer than the sea's blue-green leaves them
     water: { pond: [0.2, 0.55, 0.6, 0.9], creek: [0.2, 0.55, 0.6, 0.8], river: [0.1, 0.4, 0.55, 0.9], marsh: [0.3, 0.55, 0.55, 0.55] },
     structures: { parking: 'jetty' },
-    underwater: { level: SEA, shallow: [0.09, 0.44, 0.46], deep: [0.02, 0.15, 0.32], surface: [0.24, 0.66, 0.68] },
+    underwater: { level: SEA, shallow: [0.075, 0.41, 0.45], deep: [0.015, 0.125, 0.29], surface: [0.24, 0.66, 0.68] },
     light: [
       { sun: 0xfff6e8, sunI: 2.88, sky: 0xd8ecf4, ground: 0x5a8a8a, hemiI: 1.2 },
       { sun: 0xfff8f0, sunI: 2.78, sky: 0xd8eaf4, ground: 0x5a8890, hemiI: 1.17 },

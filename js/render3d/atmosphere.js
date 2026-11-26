@@ -129,7 +129,10 @@ export function withClouds(mat) {
       float seaD = uSeaOn * max(0.0, uSeaY - vSeaY);
       if (seaD > 0.0) {
         float ca = seaCaustic(vCloudXZ, uCloudT);
-        reflectedLight.directDiffuse *= 0.85 + ca * 0.9 * exp(-seaD * 0.6); // fading with depth
+        // fading with depth, and as the lines shrink toward a pixel (zoomed out, or far off), where
+        // they'd only draw a bright, busy mesh over the floor
+        float caPx = length(fwidth(vCloudXZ));
+        reflectedLight.directDiffuse *= 0.85 + ca * 0.9 * exp(-seaD * 0.75) * (1.0 - 0.7 * smoothstep(0.015, 0.08, caPx));
         reflectedLight.directSpecular *= 0.3;
       }`).replace('#include <opaque_fragment>', `if (seaD > 0.0) {
         // the water drinks the reds first, then the greens, and scatters its own colour back in

@@ -195,6 +195,7 @@ export default {
     grade: { gain: [1.015, 1.0, 0.975], lift: [0.002, 0.001, 0], sat: 1.06, contrast: 1.13 },
     pasture: ['#97a357', '#b1a36e', '#b69c6e', '#9fa65d'], // muted straw, not mustard
     soil: [0.72, 0.54, 0.4], mud: [0.54, 0.43, 0.33],
+    litter: '#9a7a62', // the red laterite and dry grass round the lilies, a step darker than the grass, not forest duff (sprites.js)
     water: { pond: [0.34, 0.44, 0.44, 0.9], creek: [0.38, 0.46, 0.4, 0.8], river: [0.33, 0.42, 0.38, 0.9], marsh: [0.42, 0.5, 0.38, 0.55] }, // silty, but still reads as water
     light: [
       { sun: 0xfff6e8, sunI: 2.84, sky: 0xe4edf4, ground: 0x527048, hemiI: 1.12 },

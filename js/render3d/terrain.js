@@ -413,7 +413,9 @@ export class Terrain {
         else if (tex === T.MUD) { tex = S.TURF; c = game.catalog.definition.look.mud; }
         if (gid && gg > 0.12 && t !== T.TRAIL) {
           const p = game.catalog.plants[gid];
-          if (p.look.type === 'fern' || p.look.type === 'skunk') tex = T.DUFF;
+          // (look.litter, the open ground round them, is its own colour: sprites.js; only where they
+          // grow thick, so a patch frays into the grass round it instead of ending in a stamped edge)
+          if ((p.look.type === 'fern' || p.look.type === 'skunk') && (!def.look.litter || gg > 0.3)) { tex = T.DUFF; if (def.look.litter) c = [1, 1, 1]; }
           else if (tex !== T.DUFF) {
             let tc = turfCache.get(gid);
             if (!tc) { tc = turfColor(p, month, season, game.catalog); turfCache.set(gid, tc); }

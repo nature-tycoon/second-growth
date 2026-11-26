@@ -510,6 +510,7 @@ export default {
     grade: { gain: [0.99, 1.0, 0.97], lift: [0.002, 0.003, 0.002], sat: 1.04, contrast: 1.09 },
     pasture: ['#839f4f', '#97a257', '#7f9f4f', '#87a152'],
     soil: [0.66, 0.42, 0.3], mud: [0.28, 0.21, 0.16],                 // red tropical soil, black peat
+    crownVary: { value: 0.12, hue: 0.045 }, // a mixed rainforest: every crown its own green (flora.js crownVary)
     // peat-stained blackwater: tea-brown and clear
     water: { pond: [0.2, 0.13, 0.06, 0.92], creek: [0.24, 0.16, 0.07, 0.9], river: [0.28, 0.19, 0.09, 0.92], marsh: [0.34, 0.42, 0.22, 0.42] },
     // peat shows through the weeds: pale and dusty where it's drained, dark and sodden where it's wet

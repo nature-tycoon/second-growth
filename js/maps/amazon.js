@@ -179,6 +179,7 @@ export default {
     grade: { gain: [0.98, 1.0, 0.97], lift: [0.001, 0.002, 0.002], sat: 1.04, contrast: 1.10 },
     pasture: ['#89ab51', '#9cac54', '#ada65a', '#87ab51'], // lush, not lime; dry, not orange
     soil: [0.74, 0.5, 0.38], mud: [0.58, 0.42, 0.32],
+    crownVary: { value: 0.12, hue: 0.045 }, // a mixed rainforest: every crown its own green (flora.js crownVary)
     // southern Pará's rivers (Xingu, Tapajós) run clear and green; the cattle pond is murkier
     water: { pond: [0.4, 0.46, 0.34, 0.86], creek: [0.32, 0.5, 0.44, 0.8], river: [0.26, 0.46, 0.42, 0.88], marsh: [0.44, 0.54, 0.4, 0.55] },
     light: [

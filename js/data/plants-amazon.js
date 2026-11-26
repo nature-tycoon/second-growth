@@ -56,15 +56,15 @@ export default function buildAmazonPlants(def, mix, get) {
     desc: 'Paddle leaves and hanging red-and-yellow bracts, built for hummingbird bills.' });
   def({ key: 'piper', name: 'Spiked pepper', sci: 'Piper aduncum', layer: 1,
     moist: [0.3, 0.9], light: [0.4, 1], grow: 0.018, spread: 0.02, radius: 3, life: 12, browse: 0.3, cost: 7,
-    look: { type: 'shrub', leaf: '#4f8a44', berry: '#e8e0b0', fruit: [10, 11] },
+    look: { type: 'shrub', leaf: '#457e4c', berry: '#e8e0b0', fruit: [10, 11] },
     desc: 'A fast pioneer shrub of clearings. Fruit bats eat its catkin-like fruit and scatter the seeds.' });
   def({ key: 'psychotria', name: 'Hot lips', sci: 'Psychotria poeppigiana', layer: 1,
     moist: [0.4, 0.95], light: [0.05, 0.7], soil: 0.2, grow: 0.01, spread: 0.01, radius: 2, life: 15, cost: 9,
-    look: { type: 'salal', leaf: '#3f7a3e', flower: '#e8284a', bloom: [8, 9] },
+    look: { type: 'salal', leaf: '#36704a', flower: '#e8284a', bloom: [8, 9] },
     desc: 'Bright red lip-shaped bracts in the shady understory. A sure sign the forest is coming back.' });
   def({ key: 'cacao', name: 'Cacao', sci: 'Theobroma cacao', layer: 1,
     moist: [0.45, 0.9], light: [0.1, 0.65], soil: 0.3, grow: 0.008, spread: 0.008, radius: 2, life: 60, mast: 0.4, cost: 12,
-    look: { type: 'shrub', leaf: '#3f7040', berry: '#e0902a', fruit: [2, 3, 4] },
+    look: { type: 'shrub', leaf: '#35664a', berry: '#e0902a', fruit: [2, 3, 4] },
     desc: 'Chocolate starts here: a native understory tree whose pods grow straight from the trunk. Monkeys raid them.' });
   def({ key: 'guadua', name: 'Guadua bamboo', sci: 'Guadua weberbaueri', layer: 1,
     moist: [0.4, 1], light: [0.4, 1], grow: 0.02, spread: 0.012, radius: 3, life: 30, compete: 0.5, cost: 8,
@@ -82,7 +82,7 @@ export default function buildAmazonPlants(def, mix, get) {
     desc: 'The first tree up in any clearing: pale trunk and giant umbrella leaves. Sloths love it, and ants guard it.' });
   def({ key: 'inga', name: 'Ice-cream bean (ingá)', sci: 'Inga edulis', layer: 2, heightM: 12, nfix: true,
     moist: [0.3, 0.95], light: [0.45, 1], grow: 0.008, spread: 0.01, radius: 4, life: 40, matureAge: 30, mast: 0.5, cost: 16,
-    look: { type: 'inga', leaf: '#4f8a3e', bark: '#8a7a64', berry: '#b8c85a', fruit: [8, 9], hangFruit: true, fruitSize: 1.6 },
+    look: { type: 'inga', leaf: '#4f8a3e', morphs: ['#4f8a3e', '#4f8a3e', '#4f8a3e', '#84984e'], bark: '#8a7a64', berry: '#b8c85a', fruit: [8, 9], hangFruit: true, fruitSize: 1.6 },
     desc: 'Fixes nitrogen, shades out grass fast, and its sweet pods feed monkeys and people. A restoration workhorse.' });
   def({ key: 'balsa', name: 'Balsa', sci: 'Ochroma pyramidale', layer: 2, heightM: 25,
     moist: [0.25, 0.9], light: [0.65, 1], grow: 0.011, spread: 0.012, radius: 6, life: 30, matureAge: 99, cost: 14,
@@ -98,15 +98,15 @@ export default function buildAmazonPlants(def, mix, get) {
     desc: 'The "tree of life" of Amazon swamps. Dead buriti trunks are where scarlet macaws nest.' });
   def({ key: 'brazilnut', name: 'Brazil nut (castanheira)', sci: 'Bertholletia excelsa', layer: 2, heightM: 50,
     moist: [0.2, 0.8], light: [0.35, 1], soil: 0.25, grow: 0.0032, spread: 0.008, radius: 5, life: 500, matureAge: 16, mast: 1, cost: 30,
-    look: { type: 'emergent', leaf: '#3f6a38', bark: '#8a7a6a' },
+    look: { type: 'emergent', leaf: '#5e7e56', bark: '#8a7a6a' },
     desc: 'A 50 m giant, protected by law, so ranchers left some standing in pasture. Only agoutis can open its pods and plant the seeds.' });
   def({ key: 'kapok', name: 'Kapok (samaúma)', sci: 'Ceiba pentandra', layer: 2, heightM: 60,
     moist: [0.35, 0.95], light: [0.5, 1], soil: 0.2, grow: 0.0042, spread: 0.007, radius: 8, life: 300, matureAge: 14, cost: 28,
-    look: { type: 'kapok', leaf: '#5a8a44', bark: '#b8b0a0' },
+    look: { type: 'kapok', leaf: '#78946a', bark: '#b8b0a0' },
     desc: 'The queen of the forest, with a buttressed trunk and a crown above the canopy. Its seeds float away on cotton.' });
   def({ key: 'mahogany', name: 'Big-leaf mahogany', sci: 'Swietenia macrophylla', layer: 2, heightM: 40,
     moist: [0.25, 0.85], light: [0.25, 1], soil: 0.25, grow: 0.0034, spread: 0.006, radius: 4, life: 250, matureAge: 14, cost: 30,
-    look: { type: 'mahogany', leaf: '#3f6a3a', bark: '#7a5a44', scale: 1.18 },
+    look: { type: 'mahogany', leaf: '#3f6a3a', morphs: ['#3f6a3a', '#3f6a3a', '#3f6a3a', '#7e9446'], bark: '#7a5a44', scale: 1.18 },
     desc: 'Logged almost to extinction for its red timber. Replanting it rebuilds the canopy for the long run.' });
   def({ key: 'ipe', name: 'Pink ipê', sci: 'Handroanthus impetiginosus', layer: 2, heightM: 30,
     moist: [0.1, 0.75], light: [0.4, 1], soil: 0.15, grow: 0.0036, spread: 0.008, radius: 5, life: 200, matureAge: 14, cost: 26,
@@ -114,7 +114,7 @@ export default function buildAmazonPlants(def, mix, get) {
     desc: 'Bursts into solid pink in the dry season, when its leaves are gone. Bees and hummingbirds swarm it.' });
   def({ key: 'fig', name: 'Strangler fig', sci: 'Ficus insipida', layer: 2, heightM: 30,
     moist: [0.3, 0.95], light: [0.3, 1], soil: 0.15, grow: 0.005, spread: 0.008, radius: 5, life: 300, matureAge: 12, mast: 0.6, cost: 24,
-    look: { type: 'fig', leaf: '#3f7a44', bark: '#9a9080', berry: '#8a3a3a', fruit: [0, 1, 6, 7] },
+    look: { type: 'fig', leaf: '#346c4c', bark: '#9a9080', berry: '#8a3a3a', fruit: [0, 1, 6, 7] },
     desc: 'Fruits several times a year, so it feeds monkeys, toucans, bats and fish when nothing else does.' });
   def({ key: 'leucaena', name: 'Leucaena', sci: 'Leucaena leucocephala', layer: 2, heightM: 8, native: false, invasive: true, nfix: true,
     moist: [0.05, 0.75], light: [0.55, 1], grow: 0.01, spread: 0.02, radius: 3, life: 30, matureAge: 99, compete: 0.6, cost: 0,

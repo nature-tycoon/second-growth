@@ -26,7 +26,7 @@ Assumptions (no blocking questions; taste picks are logged as open questions for
 | s6 | Re-stage the intro film's first shot, re-film | 10 | Opus | medium (long film runs) |
 
 - [x] s2
-- [ ] s3
+- [x] s3
 - [ ] s4
 - [ ] s5
 - [ ] s6

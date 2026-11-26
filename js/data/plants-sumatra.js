@@ -49,7 +49,7 @@ export default function buildSumatraPlants(def, mix, get) {
   // ---------- Shrubs ----------
   def({ key: 'clidemia', name: "Koster's curse", sci: 'Clidemia hirta', layer: 1, native: false, invasive: true,
     moist: [0.25, 0.95], light: [0.42, 1], grow: 0.02, spread: 0.024, radius: 3, life: 12, compete: 0.7, cost: 0,
-    look: { type: 'shrub', leaf: '#4a7a3a', berry: '#3a2a4a', fruit: [7, 8, 9, 10] },
+    look: { type: 'shrub', leaf: '#40704a', berry: '#3a2a4a', fruit: [7, 8, 9, 10] },
     desc: 'INVASIVE. A hairy shrub from tropical America that birds spread everywhere. It forms thickets on plantation edges and in forest gaps.' });
   def({ key: 'chromolaena', name: 'Siam weed', sci: 'Chromolaena odorata', layer: 1, native: false, invasive: true,
     moist: [0.1, 0.85], light: [0.45, 1], grow: 0.024, spread: 0.026, radius: 4, life: 10, compete: 0.8, cost: 0,
@@ -61,7 +61,7 @@ export default function buildSumatraPlants(def, mix, get) {
     desc: 'A tough native pioneer with pink flowers all year. Birds eat its purple-black berries and stain their beaks with them, and the bushes shade out alang-alang.' });
   def({ key: 'ixora', name: 'Jungle geranium', sci: 'Ixora javanica', layer: 1,
     moist: [0.35, 0.95], light: [0.05, 0.7], soil: 0.2, grow: 0.01, spread: 0.01, radius: 2, life: 25, cost: 9,
-    look: { type: 'salal', leaf: '#3a6e3a', flower: '#e8502a', bloom: [1, 2, 3, 7, 8] },
+    look: { type: 'salal', leaf: '#326448', flower: '#e8502a', bloom: [1, 2, 3, 7, 8] },
     desc: 'Red-orange flower heads in the shady understory. Sunbirds and butterflies work every one.' });
   def({ key: 'ginger', name: 'Torch ginger', sci: 'Etlingera elatior', layer: 1,
     moist: [0.45, 1], light: [0.15, 0.75], soil: 0.2, grow: 0.012, spread: 0.012, radius: 2, life: 20, cost: 9,
@@ -111,11 +111,11 @@ export default function buildSumatraPlants(def, mix, get) {
     desc: 'Clusters of hairy red fruit with sweet white flesh. The village sells them by the bunch, and macaques, hornbills and civets raid the trees.' });
   def({ key: 'mangosteen', name: 'Mangosteen', sci: 'Garcinia mangostana', layer: 2, heightM: 12,
     moist: [0.35, 0.9], light: [0.15, 1], soil: 0.25, grow: 0.004, spread: 0.005, radius: 3, life: 100, matureAge: 12, cost: 20,
-    look: { type: 'magnolia', leaf: '#2e5e34', bark: '#5a4a3a', berry: '#4a1a3a', fruit: [9, 10, 11], hangFruit: true, fruitSize: 1.2, scale: 0.86 },
+    look: { type: 'magnolia', leaf: '#2a5840', bark: '#5a4a3a', berry: '#4a1a3a', fruit: [9, 10, 11], hangFruit: true, fruitSize: 1.2, scale: 0.86 },
     desc: 'The "queen of fruits": a dense, dark evergreen that grows happily in the shade of bigger trees, with purple fruit around snow-white segments. Slow to start bearing, but it pays for decades.' });
   def({ key: 'cempedak', name: 'Cempedak', sci: 'Artocarpus integer', layer: 2, heightM: 15,
     moist: [0.3, 0.9], light: [0.3, 1], soil: 0.2, grow: 0.006, spread: 0.007, radius: 4, life: 80, matureAge: 10, cost: 16,
-    look: { type: 'ash', leaf: '#3e7038', bark: '#8a7a64', berry: '#c8b040', fruit: [10, 11, 0], hangFruit: true, fruitSize: 1.9 },
+    look: { type: 'ash', leaf: '#3e7038', morphs: ['#3e7038', '#3e7038', '#3e7038', '#7f9846'], bark: '#8a7a64', berry: '#c8b040', fruit: [10, 11, 0], hangFruit: true, fruitSize: 1.9 },
     desc: 'A wild jackfruit whose big fruits grow straight off the trunk and branches. Orangutans, sun bears and people all love it.' });
   def({ key: 'banana', was: 'duku', name: 'Banana', sci: 'Musa acuminata', layer: 2, heightM: 5,
     moist: [0.35, 0.9], light: [0.35, 1], soil: 0.2, grow: 0.03, spread: 0.006, radius: 2, life: 40, matureAge: 2, cost: 8,
@@ -127,19 +127,19 @@ export default function buildSumatraPlants(def, mix, get) {
     desc: 'A nitrogen-fixing legume with twisted dark pods of pungent beans, a favourite in Sumatran cooking. It enriches worn soil while it earns.' });
   def({ key: 'fig', name: 'Strangler fig', sci: 'Ficus stupenda', layer: 2, heightM: 30,
     moist: [0.3, 0.95], light: [0.3, 1], soil: 0.15, grow: 0.005, spread: 0.008, radius: 5, life: 300, matureAge: 12, mast: 0.7, cost: 22,
-    look: { type: 'fig', leaf: '#3f7a44', bark: '#9a9080', berry: '#c84a2a', fruit: [0, 1, 4, 5, 8, 9], hangFruit: true, fruitSize: 0.9 },
+    look: { type: 'fig', leaf: '#346c4c', bark: '#9a9080', berry: '#c84a2a', fruit: [0, 1, 4, 5, 8, 9], hangFruit: true, fruitSize: 0.9 },
     desc: 'Fruits several times a year, so it feeds hornbills, gibbons and orangutans when nothing else is ripe. The single most important tree for rainforest wildlife.' });
   def({ key: 'meranti', name: 'Light red meranti', sci: 'Shorea leprosula', layer: 2, heightM: 55,
     moist: [0.25, 0.85], light: [0.3, 1], soil: 0.25, grow: 0.0036, spread: 0.007, radius: 4, life: 300, matureAge: 16, mast: 0.8, cost: 28,
-    look: { type: 'emergent', leaf: '#4a7a3a', bark: '#8a7262' },
+    look: { type: 'emergent', leaf: '#6a8a5c', morphs: ['#6a8a5c', '#6a8a5c', '#6a8a5c', '#86984c'], bark: '#8a7262' },
     desc: 'A dipterocarp, the giant timber trees of Southeast Asia. Every few years all of them fruit at once, and their two-winged seeds spin down by the million.' });
   def({ key: 'keruing', name: 'Keruing', sci: 'Dipterocarpus grandiflorus', layer: 2, heightM: 50,
     moist: [0.25, 0.85], light: [0.3, 1], soil: 0.25, grow: 0.0034, spread: 0.006, radius: 4, life: 300, matureAge: 16, mast: 0.6, cost: 28,
-    look: { type: 'kapok', leaf: '#3e6a36', bark: '#9a8a7a', scale: 0.78 },
+    look: { type: 'kapok', leaf: '#5c7a54', bark: '#9a8a7a', scale: 0.78 },
     desc: 'A towering dipterocarp with a straight grey trunk, resin that was once used to caulk boats, and big winged fruit that whirl down like shuttlecocks.' });
   def({ key: 'tualang', name: 'Tualang', sci: 'Koompassia excelsa', layer: 2, heightM: 80,
     moist: [0.2, 0.85], light: [0.35, 1], soil: 0.2, grow: 0.0032, spread: 0.005, radius: 5, life: 400, matureAge: 18, cost: 30,
-    look: { type: 'kapok', leaf: '#557e3e', bark: '#d8d2c2' },
+    look: { type: 'kapok', leaf: '#7a9270', bark: '#d8d2c2' },
     desc: 'The tallest tree in the Asian tropics, with a smooth silver trunk. Giant honey bees hang dozens of combs from its branches, so honey hunters never let it be felled.' });
   def({ key: 'jelutong', name: 'Jelutong', sci: 'Dyera polyphylla', layer: 2, heightM: 50, wetOK: true, swampTree: true,
     moist: [0.55, 1], light: [0.3, 1], soil: 0.15, grow: 0.0045, spread: 0.007, radius: 4, life: 200, matureAge: 15, cost: 22,

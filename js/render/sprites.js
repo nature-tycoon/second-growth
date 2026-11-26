@@ -103,16 +103,19 @@ export function terrainSprite(t, season, v, catalog = activeCatalog) {
         break;
       }
       case T.SOIL: case T.DUFF: {
-        const base = t === T.SOIL ? '#86684a' : '#5a4c36';
+        // (a map's look.litter: the ground under its lilies and ferns out in the open isn't forest
+        // duff but its own earth, Serengeti's red laterite with dry grass, drawn untinted: terrain.js)
+        const litter = t === T.DUFF && catalog.definition.look.litter;
+        const base = t === T.SOIL ? '#86684a' : litter || '#5a4c36';
         ctx.fillStyle = base; ctx.fillRect(0, 0, S, S);
         for (let k = 0; k < 8; k++) ellipse(ctx, r() * S, r() * S, 6 + r() * 8, 4 + r() * 5, rgba(shade(base, (r() - 0.5) * 0.3), 0.6));
         specks(70, [shade(base, -0.3), shade(base, 0.18), shade(base, 0.3)]);
         if (t === T.DUFF) {
           for (let k = 0; k < 40; k++) {
             const x = r() * S, y = r() * S, a = r() * Math.PI;
-            line(ctx, x, y, x + Math.cos(a) * 3, y + Math.sin(a) * 3, r() < 0.5 ? '#8a5a32' : '#6b4a2a', 1);
+            line(ctx, x, y, x + Math.cos(a) * 3, y + Math.sin(a) * 3, litter ? (r() < 0.5 ? '#c4a46a' : '#b08e5c') : r() < 0.5 ? '#8a5a32' : '#6b4a2a', 1);
           }
-          for (let k = 0; k < 3; k++) ellipse(ctx, r() * S, r() * S, 4 + r() * 5, 3 + r() * 3, rgba('#5f7a3a', 0.55));
+          for (let k = 0; k < 3; k++) ellipse(ctx, r() * S, r() * S, 4 + r() * 5, 3 + r() * 3, rgba(litter ? '#8a9a4a' : '#5f7a3a', litter ? 0.4 : 0.55));
         }
         break;
       }

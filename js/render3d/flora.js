@@ -84,6 +84,20 @@ const morph = (p, x, y, col) => {
 const mixc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 const FLOOR_FERN = [0.32, 0.46, 0.22]; // (forest-floor ferns: see the floor in rebuild)
 const vary = (c, x, y, salt, amt = 0.08) => { const f = 1 + (hash2(x, y, salt) - 0.5) * amt * 2; return [c[0] * f, c[1] * f, c[2] * f]; };
+// Each tree crown its own shade of its species' green, so a mixed forest doesn't read as a
+// plantation: lighter or darker by up to `value`, and a few degrees warmer (yellower) or cooler
+// (bluer) by up to `hue`. The map's look sets how much (look.crownVary: rainforests most); conifers
+// vary less. An instance colour, so it reaches the far cards too (0042) at no cost per frame.
+// `sat` lifts the colour of what lives in the water (the reef's corals and sponges, which the sea's
+// blue-green otherwise greys out).
+const CROWN_VARY = { value: 0.085, hue: 0.03 };
+const saturate = (c, s) => { const l = c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11; return [l + (c[0] - l) * s, l + (c[1] - l) * s, l + (c[2] - l) * s].map(v => Math.max(0, v)); };
+const crownVary = (c, x, y, cv, conifer, aquatic) => {
+  const k = conifer ? 0.6 : 1;
+  const f = 1 + (hash2(x, y, 12) - 0.5) * cv.value * 2 * k, h = (hash2(x, y, 31) - 0.5) * cv.hue * 2 * k;
+  const v = [c[0] * f * (1 + h), c[1] * f, c[2] * f * (1 - h * 1.5)];
+  return aquatic && cv.sat ? saturate(v, cv.sat) : v;
+};
 
 export function leafColor(p, phase) {
   return paletteLeafColor(p, phase, p.mapId || 'pnw');
@@ -433,6 +447,7 @@ export class Flora {
     const x0 = -BORDER, y0 = -BORDER, x1 = w.w + BORDER, y1 = w.h + BORDER;
     const hAt = (x, y) => w.heightAt(x, y) * LEVEL;
     const seaY = game.catalog.definition.look.underwater ? game.catalog.definition.look.underwater.level * LEVEL : null;
+    const crownLook = game.catalog.definition.look.crownVary ?? CROWN_VARY; // (how much crowns vary: crownVary)
 
     // (only the changed regions' tiles, in the same order as a pass over the whole map)
     const size = this.chunkSize, all = [[x0, x1]], rows = dirty ? new Map() : null;
@@ -613,6 +628,7 @@ export class Flora {
           const type = p.look.type;
           const shape = shrubShape(p);
           let col = vary(morph(p, x, y, leafColor(p, phase)).map(c => c * dim), x, y, 8, 0.045);
+          if (p.aquatic && crownLook.sat) col = saturate(col, crownLook.sat); // (sponges, sea fans: as the corals)
           if (inside && w.bleach && p.bleach && w.bleach[i] > 0) col = mixc(col, BLEACHED, w.bleach[i]);
           const sseed = 200 + v * 31 + shape.length;
           this.pool(`shrub:${shape}:${v}`, () => G.shrub(shape, sseed), this.shrubs, { kind: 'shrub', far: G.FAR_SHRUBS.has(shape) ? () => G.shrub(shape, sseed, 3) : true }, () => G.shrub(shape, sseed, 1), () => G.shrub(shape, sseed, 2)).add(sx, sy, sz, sc, sc, sc, rot, col);
@@ -697,7 +713,7 @@ export class Flora {
           let leaf = morph(p, x, y, leafColor(p, phase));
           if (phase === 'fall') leaf = mixc(leaf, rgb(p.look.leaf), hash2(x, y, 11) * 0.35);
           if (inside && w.bleach && w.bleach[i] > 0) leaf = mixc(leaf, BLEACHED, w.bleach[i]); // (a coral bleaching in a marine heatwave)
-          const crownColor = vary(leaf.map(c => c * dim * grove.tint), x, y, 12, 0.045);
+          const crownColor = crownVary(leaf.map(c => c * dim * grove.tint), x, y, crownLook, p.conifer, p.aquatic);
           if (!fringeG && !p.aquatic) this.site(canopyKey, new CanopySite(shape.trunk, [tx, ty, tz, sx, sy, sz, rot], bark, canopyKey, p.id, [x, y], { geo: shape.crown, color: crownColor }));
           this.pools.get(`crown:${key}`).add(tx, ty, tz, sx, sy, sz, rot, crownColor);
           this.pools.get(`trunk:${key}`).add(tx, ty, tz, sx, sy, sz, rot, bark);
