@@ -690,6 +690,17 @@ export class Renderer {
     this.fly = { x0: this.target.x, z0: this.target.z, x1: x, z1: y, zoom0: this.zoom, zoom1: clamp(zoom, 0.16, maxZoom), t: 0, last: null, dur };
   }
 
+  // The first visit's film fades into the farm: open framed as the film's last frame was (`scale`:
+  // the film's tile size over the game's, ui/intro.js filmScale), hold through the fade, then glide
+  // to the start zoom. Same spot, only the zoom moves.
+  openFromFilm(scale, holdMs = 0) {
+    const zoom = this.zoom;
+    if (!(Math.abs(scale - 1) > 0.02)) return;
+    this.zoom = clamp(zoom * scale, 0.16, 4.5); this.updateCamera();
+    this.flyTo(this.target.x, this.target.z, zoom, 2);
+    this.fly.t = -holdMs / 1000;
+  }
+
   // Watch mode's eye-level view (eye-camera.js): ride along low behind an animal, or null to go
   // back to the usual view. The usual camera is left where it was, so leaving puts the view back.
   setEyeLevel(agent) {
@@ -1151,7 +1162,7 @@ export class Renderer {
       // sets diagnosticTime, gets the same glide frame by frame)
       const f = this.fly;
       f.t += f.last == null ? 0 : Math.min(0.2, Math.max(0, now - f.last) / 1000); f.last = now;
-      const u = Math.min(1, f.t / f.dur), e = u * u * (3 - 2 * u);
+      const u = Math.min(1, Math.max(0, f.t) / f.dur), e = u * u * (3 - 2 * u);
       this.target.x = f.x0 + (f.x1 - f.x0) * e; this.target.z = f.z0 + (f.z1 - f.z0) * e;
       this.zoom = Math.exp(Math.log(f.zoom0) + (Math.log(f.zoom1) - Math.log(f.zoom0)) * e);
       this.clampCam(); this.updateCamera();

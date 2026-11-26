@@ -86,7 +86,7 @@ All landed: 0ab9c18 (off-map creeks), 5afd637 (tree guards, 0057), b1237f4 (wate
 ## Before or right after shipping
 
 - **`animal-trails-browser-check` fails on main's code too (s11):** ground trails changed 0 pixels in Fast and High. The browser suite runs on main before the itch.io upload, so a merge won't reach itch until it's fixed. Recommended: a short session to find whether the trails or the check broke.
-- **Intro film shows the old wide creek (s9):** re-film after merging (`--rough` first, then `intro-film-motion`).
+- **Intro film shows the old wide creek (s9):** re-film after merging (`--rough` first, then `intro-film-motion`). **Done 2026-11-25** (branch `claude/intro-refilm-creek`): re-filmed, all 299 staging measures pass, Cole approved the rough cut. Also fixed there: the farm now opens framed as the film's last frame and glides to the start zoom, so the hand-off doesn't jump on screens other than 1920×1080.
 - **Cole's current PNW farm keeps the old wide trench (s9):** saves keep the ground. Start a new PNW farm to see the fix; no players are affected.
 
 ## Choice-shaped

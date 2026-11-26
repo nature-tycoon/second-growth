@@ -51,8 +51,11 @@ const key = (b, k, code) => b.send('Input.dispatchKeyEvent', { type: 'keyDown', 
     assert.equal((await b.evaluate(ev('intro_finished'))).length, 1, 'intro_finished');
     assert.equal((await b.evaluate(ev('intro_skipped'))).length, 0, 'not skipped');
     await b.waitFor(`!!document.querySelector('.intro-line')`, 'the line over the farm', 10000);
-    const live = await b.evaluate(`(()=>{const r=window.secondGrowth.renderer,f=r.fly;return {x:f?f.x0:r.target.x,y:f?f.z0:r.target.z,zoom:f?f.zoom0:r.zoom,az:r.az,line:document.querySelector('.intro-line')?.textContent||''};})()`);
-    for (const k of ['x', 'y', 'zoom', 'az']) assert.ok(Math.abs(live[k] - cam[k]) < 1e-3, `the farm opens at the film's last camera: ${k} ${live[k]} vs ${cam[k]}`);
+    // (the film is stretched over the 960×600 window: the farm opens framed as the film's last frame,
+    // a tile drawn max(960/1920, 600/1080) as big as at the start zoom, then glides to the start zoom)
+    const live = await b.evaluate(`(()=>{const r=window.secondGrowth.renderer,f=r.fly;return {x:f?f.x0:r.target.x,y:f?f.z0:r.target.z,zoom:f?f.zoom0:r.zoom,to:f?f.zoom1:r.zoom,az:r.az,w:innerWidth,h:innerHeight,line:document.querySelector('.intro-line')?.textContent||''};})()`);
+    const framed = { ...cam, zoom: cam.zoom * Math.max(live.w / 1920, live.h / 1080), to: cam.zoom };
+    for (const k of ['x', 'y', 'zoom', 'to', 'az']) assert.ok(Math.abs(live[k] - framed[k]) < 1e-3, `the farm opens at the film's last framing, then glides to the start zoom: ${k} ${live[k]} vs ${framed[k]}`);
     assert.match(live.line, /Bring it back/, 'one line over the farm');
     await b.waitFor(fencePrompt, 'then the fence prompt', 30000);
     assert.ok(await b.evaluate('window.secondGrowth.game.speed > 0'), 'the farm is running');
