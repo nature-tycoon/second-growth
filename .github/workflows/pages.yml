@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read # (to see the uploaded artifact before deploying)
   contents: read
   pages: write
   id-token: write
@@ -19,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.retry.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -38,8 +39,29 @@ jobs:
       - uses: actions/upload-pages-artifact@v4
         with:
           path: dist/website
+      # deploy-pages twice failed with "No artifacts named github-pages" seconds after a good
+      # upload (the run's artifact list lags it), and a re-run fixed it each time: wait until the
+      # list shows it, and if the deploy still fails, try once more a minute later
+      - name: Wait for the artifact to be listed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in $(seq 1 24); do
+            n=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" --jq '[.artifacts[] | select(.name == "github-pages")] | length' || echo 0)
+            [ "$n" -gt 0 ] && echo "artifact listed after $((i * 5 - 5)) s" && exit 0
+            sleep 5
+          done
+          echo "::warning::github-pages artifact still not listed after 2 minutes; deploying anyway"
       - name: Publish website and game
         id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+      - name: Wait before trying again
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 60
+      - name: Publish website and game (second try)
+        id: retry
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
       - name: Tell Bing which pages changed (IndexNow)
         continue-on-error: true

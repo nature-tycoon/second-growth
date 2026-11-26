@@ -30,6 +30,10 @@ try {
     const terrain=renderer.terrain;
     terrain.updateSurface(game);
     const colours=[...terrain.mesh.geometry.attributes.color.array];
+    // (the farm's opening glide runs on real time, not the frame's dt, so on CI's slow frames it was
+    // still moving the camera through these paused draws, and an animal at the edge of the view
+    // came into it: stop camera glides first, so only the selected map could move a pose)
+    renderer.fly=null; renderer.zoomGoal=null; renderer.followGlide=null;
     const poses=()=>game.wildlife.agents.map(a=>{const p=renderer.actors.pose.get(a.id);return [a.id,p?.center?.toArray()];});
     renderer.draw(game,ui.state,0); const beforePoses=JSON.stringify(poses());
     setBiome('sumatra'); terrain.updateSurface(game); renderer.draw(game,ui.state,0); ui.refreshTop(true); ui.openCategory('plants'); ui.renderToolPanel();
