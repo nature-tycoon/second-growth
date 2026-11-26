@@ -192,15 +192,15 @@ export default {
   look: {
     skyHaze: 0.1, // the clear-day sky at eye level: dry savanna air, the clearest and deepest blue (0..1, see SKY_DEEP in scene.js)
     // colour grade: sunlit and clear, only a touch warm
-    grade: { gain: [1.015, 1.0, 0.975], lift: [0.004, 0.002, 0.0], sat: 1.05, contrast: 1.08 },
-    pasture: ['#a2a862', '#b6aa7c', '#baa47c', '#a8aa6a'], // muted straw, not mustard
+    grade: { gain: [1.015, 1.0, 0.975], lift: [0.002, 0.001, 0], sat: 1.06, contrast: 1.13 },
+    pasture: ['#97a357', '#b1a36e', '#b69c6e', '#9fa65d'], // muted straw, not mustard
     soil: [0.72, 0.54, 0.4], mud: [0.54, 0.43, 0.33],
     water: { pond: [0.34, 0.44, 0.44, 0.9], creek: [0.38, 0.46, 0.4, 0.8], river: [0.33, 0.42, 0.38, 0.9], marsh: [0.42, 0.5, 0.38, 0.55] }, // silty, but still reads as water
     light: [
-      { sun: 0xfff6e8, sunI: 2.7, sky: 0xe4edf4, ground: 0x66683c, hemiI: 1.2 },
-      { sun: 0xfff2dc, sunI: 2.9, sky: 0xe6ecf2, ground: 0x6e6a44, hemiI: 1.18 },
-      { sun: 0xffeccc, sunI: 2.85, sky: 0xe8eaec, ground: 0x6e6644, hemiI: 1.15 },
-      { sun: 0xfff4e6, sunI: 2.5, sky: 0xe2eaf0, ground: 0x666a42, hemiI: 1.2 },
+      { sun: 0xfff6e8, sunI: 2.84, sky: 0xe4edf4, ground: 0x527048, hemiI: 1.12 },
+      { sun: 0xfff2dc, sunI: 3.04, sky: 0xe6ecf2, ground: 0x5a724e, hemiI: 1.1 },
+      { sun: 0xffeccc, sunI: 2.99, sky: 0xe8eaec, ground: 0x596f4c, hemiI: 1.07 },
+      { sun: 0xfff4e6, sunI: 2.63, sky: 0xe2eaf0, ground: 0x55714d, hemiI: 1.12 },
     ],
     // falling leaves, seed and dust motes, and mist (0..1 per season), and the flocks that pass over
     ambience: {

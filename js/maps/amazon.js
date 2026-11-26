@@ -176,16 +176,16 @@ export default {
   look: {
     skyHaze: 0.6, // the clear-day sky at eye level: humid rainforest air, a milkier, paler blue (0..1, see SKY_DEEP in scene.js)
     // colour grade: humid, deep and green
-    grade: { gain: [0.98, 1.0, 0.97], lift: [0.002, 0.005, 0.004], sat: 1.02, contrast: 1.06 },
-    pasture: ['#98b062', '#a8b066', '#b2ac6c', '#96b062'], // lush, not lime; dry, not orange
+    grade: { gain: [0.98, 1.0, 0.97], lift: [0.001, 0.002, 0.002], sat: 1.04, contrast: 1.10 },
+    pasture: ['#89ab51', '#9cac54', '#ada65a', '#87ab51'], // lush, not lime; dry, not orange
     soil: [0.74, 0.5, 0.38], mud: [0.58, 0.42, 0.32],
     // southern Pará's rivers (Xingu, Tapajós) run clear and green; the cattle pond is murkier
     water: { pond: [0.4, 0.46, 0.34, 0.86], creek: [0.32, 0.5, 0.44, 0.8], river: [0.26, 0.46, 0.42, 0.88], marsh: [0.44, 0.54, 0.4, 0.55] },
     light: [
-      { sun: 0xfff0d8, sunI: 2.6, sky: 0xe8f0f0, ground: 0x5a6a3a, hemiI: 1.3 },
-      { sun: 0xfff2d0, sunI: 2.9, sky: 0xf0eee0, ground: 0x6e6a3c, hemiI: 1.3 },
-      { sun: 0xffd8a8, sunI: 2.3, sky: 0xf0dcc8, ground: 0x6a5a38, hemiI: 1.2 },
-      { sun: 0xf0f4ff, sunI: 2.1, sky: 0xdce6ec, ground: 0x4f5e40, hemiI: 1.2 },
+      { sun: 0xfff0d8, sunI: 2.78, sky: 0xe8f0f0, ground: 0x46714d, hemiI: 1.23 },
+      { sun: 0xfff2d0, sunI: 3.1, sky: 0xf0eee0, ground: 0x4c794b, hemiI: 1.23 },
+      { sun: 0xffd8a8, sunI: 2.46, sky: 0xf0dcc8, ground: 0x466b40, hemiI: 1.14 },
+      { sun: 0xf0f4ff, sunI: 2.25, sky: 0xdce6ec, ground: 0x47604c, hemiI: 1.14 },
     ],
     // falling leaves, kapok floss and mist (0..1 per season), and the flocks that pass over
     ambience: {

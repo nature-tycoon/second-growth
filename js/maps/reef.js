@@ -542,17 +542,17 @@ export default {
   },
   look: {
     skyHaze: 0.2, // the clear-day sky at eye level: sea air, a little salt haze (0..1, see SKY_DEEP in scene.js)
-    grade: { gain: [0.99, 1.01, 1.02], lift: [0, 0.004, 0.008], sat: 1.08, contrast: 1.06 },
+    grade: { gain: [0.99, 1.01, 1.02], lift: [0, 0.002, 0.003], sat: 1.08, contrast: 1.10 },
     pasture: ['#e6dcc0', '#e2dac2', '#e8dec2', '#eae0c2'], // pale coral sand
     soil: [0.74, 0.7, 0.62], mud: [0.6, 0.56, 0.48],
     water: { pond: [0.2, 0.55, 0.6, 0.9], creek: [0.2, 0.55, 0.6, 0.8], river: [0.1, 0.4, 0.55, 0.9], marsh: [0.3, 0.55, 0.55, 0.55] },
     structures: { parking: 'jetty' },
     underwater: { level: SEA, shallow: [0.09, 0.44, 0.46], deep: [0.02, 0.15, 0.32], surface: [0.24, 0.66, 0.68] },
     light: [
-      { sun: 0xfff6e8, sunI: 2.8, sky: 0xd8ecf4, ground: 0x5a8a8a, hemiI: 1.25 },
-      { sun: 0xfff8f0, sunI: 2.7, sky: 0xd8eaf4, ground: 0x5a8890, hemiI: 1.22 },
-      { sun: 0xfff6e8, sunI: 2.85, sky: 0xd8eef4, ground: 0x5a8c8a, hemiI: 1.25 },
-      { sun: 0xfff2e0, sunI: 2.95, sky: 0xdceef2, ground: 0x5a8e88, hemiI: 1.28 },
+      { sun: 0xfff6e8, sunI: 2.88, sky: 0xd8ecf4, ground: 0x5a8a8a, hemiI: 1.2 },
+      { sun: 0xfff8f0, sunI: 2.78, sky: 0xd8eaf4, ground: 0x5a8890, hemiI: 1.17 },
+      { sun: 0xfff6e8, sunI: 2.94, sky: 0xd8eef4, ground: 0x5a8c8a, hemiI: 1.2 },
+      { sun: 0xfff2e0, sunI: 3.04, sky: 0xdceef2, ground: 0x5a8e88, hemiI: 1.23 },
     ],
     ambience: {
       leaves: [0, 0, 0, 0], fluff: [0, 0, 0, 0], mist: [0, 0, 0, 0],

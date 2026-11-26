@@ -164,6 +164,10 @@ it for looks too.
   the plan: the near soil walls stay (the diorama is deliberate), only the far edges melt; and the late
   start applies only when the intro film doesn't play (otherwise the film would need re-filming to
   end on the new hour).
+- **2026-11-26, session 2:** item 2, a mild value pass on every map: grade contrast 1.09–1.13 with
+  less lift, sun up and sky fill down a few percent, blue-green bounce light, richer pasture. Pictures,
+  numbers and open questions: [ideas/2026-11-26-aesthetics/s2.md](ideas/2026-11-26-aesthetics/s2.md);
+  `tools/value-capture.mjs` retakes them.
 
 ## Suggested order
 
