@@ -24,12 +24,14 @@ Assumptions (no blocking questions; taste picks are logged as open questions for
 | s4 | Light instead of overlay washes, water glint at golden hour | 6, 7 | Opus | medium |
 | s5 | Animal rim, glass menus on weak GPUs, restoration contrast | 8, 9, 11 | Opus | small–medium |
 | s6 | Cougar close-up detail (Cole, 2026-11-26): a rare, solitary animal, so a richer model costs almost nothing per frame; stays on the shared animal material | added | Opus | medium |
-| s7 | Re-stage the intro film's first shot, re-film (after s6: the film shows a cougar close-up) | 10 | Opus | medium (long film runs) |
+| s7 | Black-tailed deer close-up (Cole, 2026-11-26): fitted to photos with the animal-model checklist; a herd animal, so triangles kept small | added | Opus | medium |
+| s8 | Re-stage the intro film's first shot, re-film (after s6 and s7: the film shows a cougar close-up) | 10 | Opus | medium (long film runs) |
 
 - [x] s2
 - [x] s3
 - [x] s4
 - [x] s5
 - [x] s6 (cougar)
-- [ ] s7 (film)
+- [x] s7 (black-tailed deer)
+- [ ] s8 (film)
 - [ ] catalog (`open.md`), then one PR

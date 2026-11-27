@@ -76,12 +76,40 @@ neck). Measure to find the biggest mismatch, then judge by eye against the photo
 - **Words of size and place are about one dimension.** When Cole says "less prominent", "thicker",
   "narrow", ask which axis he means if it isn't plain, rather than changing the obvious one twice.
 
+## Herd animals (from the black-tailed deer, s7)
+
+- **Find who shares the builder first** (`sprite.kind`): the deer builder draws five species. Put the
+  fitted shape behind one sprite field (`slender`) so the rest draw as before until they're fitted.
+- **Count triangles in node, per change** (`buildSpecies(def)` and `{ close: true }`), before looking:
+  more leg rings and split hooves added 5k to a 10k close-up in one step. Aim at about +10% on the
+  close-up and +5% on the usual model for an animal seen in dozens.
+- A painted eye costs about 300 triangles (finer sphere): on a herd animal paint it on the close-up
+  only (`eyeFar` gives the usual model a plain colour). Face markings: `headSeg` adds head rings only.
+- Mark a face by the surface's facing, not its height: `top = u.y / hypot(u.y, u.z)` in a head painter is
+  1 on top of the head and 0 at the side. Height bands ran along the side of the face as stripes.
+- Cole's first look (deer): ears "a little too large", head "too dark", white marks "too strong". Start
+  pointed ears at about 0.3 of body depth, face markings soft (white at most 0.6), the face only a
+  little greyer than the body.
+- Cole's second look (deer): ears should "pinch in near the head" (ear shape `deer`: narrow root, broad
+  middle) and the back "a little straighter, too rounded" (`flatBack` on the body loft: level topline,
+  ends round off late).
+- Cole's third look (deer): hind thighs "stick off", then a "protruding butt": the back of the thigh must
+  meet the back of the rump near the tail. Raise the thigh's top toward the tail (`thighUp` ~0.2) and
+  reach it back (`thighBack`), narrow side to side (`thighZ`); pulling it forward leaves the rump
+  bulging over the thigh as a ledge. Too high (0.3) cuts a hard V on the flank. Then "taper into the
+  rump at the top instead of forming a shelf": the thigh's round top end is the shelf; narrow it toward
+  the top (`thighTaper` ~0.75) and reach it back to fill the notch under the rump (`thighBack` ~0.22 H).
+- `col()` in model-core returns a **shared cached** colour: `col(s.color).lerp(...)` repaints every part
+  using that colour (it greyed the deer's whole coat). Always `.clone()` before `lerp` or `multiply`.
+- In the review page's sun, antlers and horns cast dark streaks on the face: compare with the before
+  picture before chasing them as paint.
+
 ## Toolbox
 
 - Shape options in `quadruped()` (`js/render3d/animals/model-core.js`), each defaulting to the old
   look so one species can use it without changing the rest: `legRoot`, `thighBack`, `stifle`, `paw`,
   `legSub`, `eyeFwd`, `eyeOut`, `eyeColor`, `noseColor`, `muzzleDepth`, `jawDepth`, `brow`, `earTurn`,
-  `earUp`, `earSide`, `neckPath`/`neckRadii`, plus the older `hip`, `shoulder`, `chest`, `haunch`,
+  `earUp`, `earSide`, `earFwd`, `earTurn` (pointed ears too), `noseSize`, `headSeg`, `eyeFar`, `flatBack`, `thighZ`, `thighUp`, `thighTaper`, ear shape `deer`, `neckPath`/`neckRadii`, plus the older `hip`, `shoulder`, `chest`, `haunch`,
   `tuck`, `sag`, `wide`. Add a new option there rather than a per-species branch, defaulted off.
 - A species-specific look goes behind a trait or a sprite field (the cougar: the plain coat), never a
   species name (`node tools/species-name-count.mjs`).
