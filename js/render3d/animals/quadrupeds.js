@@ -529,7 +529,7 @@ function deerFace(s, H, hp, hr, snout, eyeFwd) {
   // forehead; bridge, the darker nose bridge; ring, the pale eye ring; tear, the dark tear-gland mark;
   // band, the white band behind the nose; chin, the white chin; spot, the dark spots beside the chin;
   // throat, the white throat patch; grey, how far the face greys from the coat)
-  const f = { brow: 0.35, bridge: 0.35, ring: 0.4, tear: 0.55, band: 0.6, chin: 0.6, spot: 0.8, throat: 0.6, grey: 0.35, ...s.face };
+  const f = { brow: 0.35, bridge: 0.35, ring: 0.4, tear: 0.55, tearSize: 1, band: 0.6, chin: 0.6, spot: 0.8, throat: 0.6, grey: 0.35, ...s.face }, tk = f.tearSize;
   const sn = [hp[0] + hr[0] * 0.78, hp[1] - hr[1] * 0.28], nose = [sn[0] + snout * 1.22, sn[1] + hr[1] * 0.1];
   const eye = [hp[0] + hr[0] * eyeFwd, hp[1] + hr[1] * 0.28, hr[2] * 0.78], r = Math.max(0.55, H * 0.05);
   const face = col(s.neck || s.color).clone().lerp(col('#8a847b'), f.grey), dark = col(s.dark), black = col('#16120f'), white = col('#f1ece3');
@@ -545,7 +545,7 @@ function deerFace(s, H, hp, hr, snout, eyeFwd) {
     // the pale eye ring, and the dark tear-gland mark in front of the eye
     const d = Math.hypot((p.x - eye[0]) / 1.15, p.y - eye[1]);
     out.lerp(white, f.ring * smooth(r * 0.85, r * 1.2, d) * smooth(r * 2.0, r * 1.45, d) * smooth(0.75, 0.45, top));
-    out.lerp(black, f.tear * blob(p, [eye[0] + r * 1.9, eye[1] - r * 0.9, eye[2] * 1.02], [r * 0.9, r * 0.45, r * 0.8]));
+    out.lerp(black, f.tear * blob(p, [eye[0] + r * (1.9 + 0.6 * (tk - 1)), eye[1] - r * (0.9 + 0.2 * (tk - 1)), eye[2] * (1.02 - 0.45 * (tk - 1))], [r * 0.9 * tk, r * 0.45 * tk, r * 0.8 * tk])); // (tearSize: a sambar's big gland)
     // the white muzzle band behind the nose, round the upper lip and down to the chin
     const lip = smooth(nose[0] - snout * 0.75, nose[0] - snout * 0.45, p.x) * smooth(sn[1] + hr[1] * 0.25, sn[1] - hr[1] * 0.05, p.y);
     out.lerp(white, f.band * lip);
@@ -592,7 +592,8 @@ const MAMMALS = {
       ears: 'point', ear: H * 0.34, earOut: 0.8, earBack: 0.1, earW: 0.3, headColor: s.neck ? s.neck : null,
       // (a short skull behind big ears set at its back, the eye halfway along, a slim jaw: the photos)
       ...(fit ? { eyeFwd: 0.68, jawDepth: 0.8, ...(s.muzzleDepth ? { muzzleDepth: s.muzzleDepth } : {}), // (muzzleDepth: a deeper, blunter muzzle, an elk's)
-         earFwd: -0.55, ear: H * 0.29 * es, earShape: 'deer', earTurn: 0.55, earBack: 0.2, earOut: 0.95, earW: 0.45,
+         earFwd: -0.55, ear: H * 0.29 * es, earShape: s.earShape || 'deer', // (earShape: a sambar's round ears)
+        earTurn: 0.55, earBack: 0.2, earOut: 0.95, earW: 0.45 * (s.earWide ?? 1),
         eyeR: Math.max(0.55, H * 0.05), eyeOut: 0.52, eyeColor: deerEye(), eyeFar: '#20150e', headSeg: [20, 16], headPaint: deerFace(s, H, head, hrF, snout, 0.68), noseColor: '#16120f', noseSize: 0.6,
         earColor: shade(s.color, -0.12), earInner: '#ece5d8', earCup: 0.3, earRim: shade(s.dark, -0.2) } : {}),
       extra: s.rump && !fit ? (m, b) => m.ell([-L * 0.33, b.by + H * 0.08, 0], [L * 0.12, H * 0.34, H * 0.36], s.rump) : null,

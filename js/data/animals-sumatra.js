@@ -138,7 +138,9 @@ export default function buildSumatraAnimals(def) {
       speed: 1.3, hr: 50, max: 14, minK: 2, groupSize: [2, 4], sources: ['N', 'E'], mig: 0.25,
       breed: [7, 8], litter: [1, 1], life: 16, mature: 2,
       suit: (W, i) => w[W.habitat[i]] * (0.4 + 0.6 * Math.min(1, W.browse[i] + W.graze[i])),
-      sprite: { scale: 0.85, kind: 'deer', len: 38, h: 18, leg: 17, color: '#5e4a38', belly: '#6e5a46', dark: '#2e241a',
+      sprite: { scale: 0.85, kind: 'deer', slender: true, len: 38, h: 18, leg: 17, color: '#5e4a38', belly: '#6e5a46', dark: '#2e241a',
+        earShape: 'round', earSize: 0.8, earWide: 1.15, snoutLen: 1.1, muzzleDepth: 0.62, tailLen: 1.5, tailW: 2, tailTop: '#241c15', // (sambar: big round ears, a long bushy dark tail)
+        face: { brow: 0.1, bridge: 0.15, ring: 0.15, tear: 0.8, tearSize: 1.6, band: 0.2, chin: 0.45, spot: 0, throat: 0, grey: 0.25 }, // (a plain face with a big dark tear gland, a pale chin)
         male: { len: 42, h: 20, leg: 18, antlers: 'sambar', neckWidth: 0.26 }, maleName: 'adult stag' },
       desc: 'A big, shaggy forest deer with a dark coat, and the tiger\'s main prey. It browses young leaves along forest edges and in regrowth.',
       hint: 'Young forest, scrub and clearings. Fences keep it out.' });
