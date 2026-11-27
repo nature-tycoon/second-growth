@@ -7,7 +7,7 @@ export const PALETTES = {
     shrub: ['#426958', '#72916a'], ground: ['#688567', '#9cae80'], wet: ['#557e70', '#91a78b'],
     spring: '#b1bf88', dry: '#bdac83', winter: '#8f9987',
     autumn: ['#c9a25b', '#b8784c', '#aa6152'],
-    pasture: ['#95a982', '#a5aa80', '#b0a07d', '#899889'],
+    pasture: ['#89a172', '#99a270', '#a9966c', '#7c8e7c'],
   },
   atlanta: {
     name: 'Oak, moss & rose',
@@ -15,7 +15,7 @@ export const PALETTES = {
     shrub: ['#527459', '#899d72'], ground: ['#738f61', '#a9b889'], wet: ['#5e8270', '#9dad87'],
     spring: '#bfcb91', dry: '#c4b089', winter: '#999584',
     autumn: ['#d2a253', '#bf784a', '#ac5e56'],
-    pasture: ['#a4b888', '#a9b18b', '#b7a482', '#989a87'],
+    pasture: ['#94b176', '#9ca97a', '#b09970', '#8c907a'],
   },
   amazon: {
     name: 'Jade, fern & orchid',
@@ -23,7 +23,7 @@ export const PALETTES = {
     shrub: ['#3a755b', '#6f9b70'], ground: ['#5b8d65', '#a2b880'], wet: ['#4b8170', '#8cae89'],
     spring: '#acbd83', dry: '#b8a576', winter: '#8e9b7d',
     autumn: ['#bda26a', '#aa8059', '#a26860'],
-    pasture: ['#94ad80', '#a5ae83', '#9bac82', '#91a67d'],
+    pasture: ['#87a66f', '#98a672', '#8ca472', '#859e6d'],
   },
   sumatra: {
     name: 'Deep emerald & bronze',
@@ -31,7 +31,7 @@ export const PALETTES = {
     shrub: ['#3e715e', '#719471'], ground: ['#5d8268', '#9aaa7a'], wet: ['#49796d', '#84a08b'],
     spring: '#a8b880', dry: '#b8a17b', winter: '#889681',
     autumn: ['#b99d63', '#ac7a53', '#9d6657'],
-    pasture: ['#91a580', '#a6a57e', '#889d7e', '#95a883'],
+    pasture: ['#89a176', '#a0a274', '#809875', '#8da379'],
   },
   serengeti: {
     name: 'Olive, straw & terracotta',
@@ -39,7 +39,7 @@ export const PALETTES = {
     shrub: ['#6b7955', '#9aa273'], ground: ['#899562', '#b8bd87'], wet: ['#6d8a69', '#a3b18b'],
     spring: '#bbc48b', dry: '#c6ad78', winter: '#ac9d7c',
     autumn: ['#c5a064', '#b78459', '#a96c50'],
-    pasture: ['#a5b07a', '#c0ae7f', '#b5a27a', '#a1ad7b'],
+    pasture: ['#9aab6d', '#bca770', '#b09b6c', '#96a86e'],
   },
   chinandega: {
     name: 'Dusty sage, ochre & coral',
@@ -47,7 +47,7 @@ export const PALETTES = {
     shrub: ['#5d7b62', '#91a079'], ground: ['#87976d', '#b0b68a'], wet: ['#4f8070', '#8baa8b'],
     spring: '#b5c48e', dry: '#c5ac83', winter: '#aa9a7d',
     autumn: ['#c5a46e', '#b87e5a', '#ae6b60'],
-    pasture: ['#a3b384', '#a1af80', '#baaa83', '#bdac88'],
+    pasture: ['#94ac73', '#93a86f', '#b3a070', '#b6a175'],
   },
 };
 

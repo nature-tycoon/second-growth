@@ -263,7 +263,18 @@ class Model {
 function eyes(m, at, rx, ry, rz, r, part, pivot, color = '#15110e') {
   m.eyeSpot ||= [at[0] + rx, at[1] + ry, rz]; // (where the eyes are, for fitting a kill's skull; eyeAt is for eye-shine)
   const first = m.parts.length;
-  for (const side of [1, -1]) m.ell([at[0] + rx, at[1] + ry, side * rz], [r, r, r], color, { lo: true, part, pivot, gloss: 2 });
+  // (color may be a painter (u, p), for an iris, pupil and rim drawn on the eyeball: it gets the finer
+  // sphere, turned so its pole looks along color.gaze ([forward, up, out]); u.y is then 1 at the
+  // pupil's middle, so rings of u.y paint a round pupil and iris)
+  for (const side of [1, -1]) {
+    let rot = [0, 0, 0];
+    if (color && color.gaze) {
+      const g = new THREE.Vector3(color.gaze[0], color.gaze[1], side * color.gaze[2]).normalize();
+      const e = new THREE.Euler().setFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), g));
+      rot = [e.x, e.y, e.z];
+    }
+    m.ell([at[0] + rx, at[1] + ry, side * rz], [r, r, r], color, { lo: typeof color !== 'function', fine: !!(color && color.gaze), part, pivot, gloss: 2, rot });
+  }
   for (let i = first; i < m.parts.length; i++) m.parts[i].userData.eye = true; // (not solid body for branch clearance)
 }
 
@@ -280,6 +291,7 @@ const EAR_SHAPE = {
   point: v => Math.pow(1 - v, 0.75) * (0.7 + 1.3 * Math.sqrt(v)) / 1.08,
   round: v => Math.sqrt(Math.max(0, 1 - ((v - 0.4) / 0.6) ** 2)) * (0.85 + 0.15 * v) / 0.95,
   leaf: v => Math.pow(1 - v, 0.55) * (0.65 + 1.1 * Math.sqrt(v)) / 1.12,
+  deer: v => Math.pow(1 - v, 0.6) * (0.2 + 1.6 * Math.sqrt(v)) / 1.0, // (broad, pinched in at the root: a deer's)
 };
 function pinna(m, base, tip, width, color, o = {}) {
   const Y = V(...tip).sub(V(...base)), len = Y.length();
@@ -335,18 +347,20 @@ function pinnaAt(m, at, r, rot, color, o = {}) {
 // tuck: how far the belly line rises toward the hind legs (a waist, as on a deer or a dog, rather
 // than a sausage); keel: how far the chest drops between the forelegs. Both shape only the
 // underside, so the back keeps its line.
-function loftBody(m, { x0, x1, cy0, cy1, ry0, ry1, rz0, rz1, sag = 0, shoulderBulk = 0, fine = false, tuck = 0, keel = 0 }, paint, o = {}) {
+// flatBack (0..1): the back stays level further toward the ends before rounding off (a deer's straight back), the underside as before.
+function loftBody(m, { x0, x1, cy0, cy1, ry0, ry1, rz0, rz1, sag = 0, shoulderBulk = 0, fine = false, tuck = 0, keel = 0, flatBack = 0 }, paint, o = {}) {
   const R = m.seg(fine === 3 ? 128 : fine === 2 ? 84 : fine ? 56 : 22), A = m.seg(fine === 3 ? 88 : fine === 2 ? 60 : fine ? 36 : 14), pos = [], idx = [], u = [];
   for (let i = 0; i <= R; i++) {
     const t = i / R, x = x0 + (x1 - x0) * t;
     const w = Math.sqrt(Math.max(0, 1 - Math.pow(Math.abs(2 * t - 1), 2.6))); // rounded, blunt ends
     const e = t * t * (3 - 2 * t);
     const bulk = shoulderBulk * Math.exp(-(((t - 0.73) / 0.18) ** 2));
-    const ry = (ry0 + (ry1 - ry0) * e) * w * (1 + bulk), rz = (rz0 + (rz1 - rz0) * e) * w * (1 + bulk * 0.5), cy = cy0 + (cy1 - cy0) * e - sag * Math.sin(t * Math.PI);
+    const wTop = flatBack ? Math.sqrt(Math.max(0, 1 - Math.pow(Math.abs(2 * t - 1), 2.6 + flatBack * 5))) : w;
+    const ry = (ry0 + (ry1 - ry0) * e) * w * (1 + bulk), ryTop = ry * (w ? wTop / w : 1), rz = (rz0 + (rz1 - rz0) * e) * w * (1 + bulk * 0.5), cy = cy0 + (cy1 - cy0) * e - sag * Math.sin(t * Math.PI);
     const waist = tuck * Math.exp(-(((t - 0.36) / 0.17) ** 2)), under = 1 - waist + keel * Math.exp(-(((t - 0.7) / 0.14) ** 2));
     for (let j = 0; j <= A; j++) {
       const a = j / A * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a), k = smooth(0.15, -0.55, c); // (0 on the back, 1 under the belly)
-      pos.push(x, cy + c * ry * (1 + (under - 1) * k), sn * rz * (1 - waist * 0.3 * k));
+      pos.push(x, cy + c * (flatBack && c > 0 ? ry + (ryTop - ry) * smooth(0, 0.7, c) : ry) * (1 + (under - 1) * k), sn * rz * (1 - waist * 0.3 * k));
       u.push(2 * t - 1, c, sn);
     }
   }
@@ -481,12 +495,12 @@ function headLoft(m, hp, hr, snout, sn, paint, muzzlePaint, o, hd) {
   const [hx, hy] = hp, [rx, ry, rz] = hr;
   // the muzzle: an oval a little narrower toward the nose; the jaw line runs from under the ear to the chin
   // (a long muzzle narrows to the nose; a cat's short one stays blunt)
-  const mx = sn[0] + snout * 0.3, my = sn[1], mry = ry * 0.55, mrz = rz * 0.58, taper = smooth(0.55, 1.1, snout / ry);
+  const mx = sn[0] + snout * 0.3, my = sn[1], mry = ry * (o.muzzleDepth ?? 0.55), mrz = rz * 0.58, taper = smooth(0.55, 1.1, snout / ry);
   const x0 = hx - rx, x1 = snout ? Math.max(hx + rx, mx + snout) : hx + rx;
   const oval = (cx, cy, a, b, c, x) => { const q = 1 - ((x - cx) / a) ** 2, s = Math.sign(q) * Math.sqrt(Math.abs(q)); return [cy + b * s, cy - b * s, c * s]; };
-  const jaw = [hx - rx * 0.35, hy - ry * 0.9], chin = [mx + snout * 0.25, my - mry * 0.93];
+  const jaw = [hx - rx * 0.35, hy - ry * (o.jawDepth ?? 0.9)], chin = [mx + snout * 0.25, my - mry * 0.93];
   const brow = o.brow ?? 0.08, cheek = o.cheeks ?? 0.08, ex = hx + rx * 0.42;
-  const R = m.seg(o.detail ? 30 : 18), A = m.seg(o.detail ? 24 : 14), pos = [], idx = [], u = [];
+  const R = m.seg(o.headSeg?.[0] ?? (o.detail ? 30 : 18)), A = m.seg(o.headSeg?.[1] ?? (o.detail ? 24 : 14)), pos = [], idx = [], u = []; // (headSeg: rings along and round the head, for soft face markings without the rest of detail)
   for (let i = 0; i <= R; i++) {
     const s = i / R, x = x0 + (x1 - x0) * (1 - Math.cos(Math.PI * s)) / 2; // (rings closer together at the ends, where it rounds off)
     const sk = oval(hx, hy, rx, ry, rz, x);
@@ -510,7 +524,12 @@ function headLoft(m, hp, hr, snout, sn, paint, muzzlePaint, o, hd) {
       // the brow stands out over the eyes (up and out, on the upper side), the cheeks below and behind them
       const ang = Math.abs(Math.atan2(sn2, c)); // 0 on top, pi underneath
       const out = fb * Math.exp(-(((ang - 0.8) / 0.38) ** 2)) * ry + fc * Math.exp(-(((ang - 1.95) / 0.45) ** 2)) * rz;
-      pos.push(x, cy + e(c) * h + c * out, e(sn2) * w + sn2 * out);
+      // (crown: the skull wider across its upper half, back from the muzzle: a cat's broad head over a narrower jaw)
+      const cw = o.crown ? 1 + o.crown * Math.exp(-(((ang - 0.75) / 0.5) ** 2)) * smooth(hx + rx * 0.7, hx + rx * 0.1, x) : 1;
+      // (skullUnder: the skull's underside pulled up behind the jaw, a share of its depth, so the head
+      // doesn't hang a second chin below the real one; the muzzle and chin are left as they are)
+      const uh = o.skullUnder && c < 0 ? 1 - (1 - o.skullUnder) * smooth(hx + rx * 0.9, hx + rx * 0.45, x) : 1;
+      pos.push(x, cy + e(c) * h * uh + c * out, (e(sn2) * w + sn2 * out) * cw);
       u.push(ux, c * ur, sn2 * ur);
     }
   }
@@ -545,7 +564,7 @@ function quadruped(m, s, o) {
     cy0: by + H * (o.hip ?? 0.02), cy1: by + H * (o.shoulder ?? 0.04),
     ry0: H * 0.52 * (o.haunch ?? 1), ry1: H * 0.54 * (o.chest ?? 1),
     rz0: H * 0.42 * W, rz1: H * 0.41 * W, sag: H * (o.sag ?? 0.04), shoulderBulk: o.shoulderBulk ?? 0, fine: coat.coat ? o.coatFine ?? 1 : o.fine && !o.detail ? 2 : o.fine || false, // (a per-pixel coat needs only a smooth outline; coatFine: false keeps a small animal's plain one)
-    tuck: o.tuck ?? 0.4, keel: o.keel ?? 0.1,
+    tuck: o.tuck ?? 0.4, keel: o.keel ?? 0.1, flatBack: o.flatBack ?? 0,
   }, coat);
   if (o.extra) o.extra(m, { L, H, leg, by, W, coat });
   // legs: upper and lower segment, swinging from the hip
@@ -574,7 +593,7 @@ function quadruped(m, s, o) {
     // set in far enough that even thick upper legs stay inside the body's outline
     const z = side * Math.min(H * 0.24, H * 0.42 - o.legR0) * W, hip = [x, by - H * 0.05, z];
     const r0 = o.legR0, r1 = o.legR1, rm = (r0 + r1) * 0.55, hind = part >= P.LEG_BL;
-    const c = part < P.LEG_BL && o.frontLeg ? o.frontLeg : lc, lo = { part, pivot: hip, rings: o.legRings, seg: o.legSeg };
+    const c = part < P.LEG_BL && o.frontLeg ? o.frontLeg : lc, lo = { part, pivot: hip, rings: o.legRings, seg: o.legSeg, sub: o.legSub };
     let foot = [x, r1, z];
     // The leg starts as the thigh (or shoulder): wide from front to back where it leaves the body,
     // narrowing to the knee, so it grows out of the body instead of hanging under it like a post.
@@ -606,10 +625,13 @@ function quadruped(m, s, o) {
         // On a long leg the stifle (the true knee) sits up at the belly line, as on a deer, so what
         // shows below the body is the shin sloping back to the hock, not a knee jutting forward.
         // (The middle point lies on the line to the stifle, so the curve can't overshoot.)
-        const front = x + rx, back = Math.max(-L * 0.41, front - H * 0.9), tr = rx + ((front - back) / 2 - rx) * lk;
-        const knee = [x + b * (0.55 - 0.25 * lk), leg * (0.66 + 0.24 * lk), z];
-        const top = [front - tr, by - H * 0.02 * lk + (hip[1] - by) * (1 - lk), z], mid = [(top[0] + knee[0]) / 2, (top[1] + knee[1]) / 2, z], mr = (tr + r0) / 2;
-        tube(m, [top, mid, knee, hock, foot], [[tr, rz], [mr, rz * 0.92], [r0 * 0.85, r0 * 0.75], r1 * 1.05, r1], legPaint(c), { ...lo, up: [1, 0, 0] });
+        // (thighBack: the back of the thigh reaches that much further toward the tail and up into the rump, a cat's)
+        const tb = o.thighBack ?? 0, front = x + rx, back = Math.max(-L * 0.41, front - H * 0.9) - tb, tr = rx + ((front - back) / 2 - rx) * lk;
+        const knee = [x + b * (0.55 - 0.25 * lk), leg * (o.stifle ?? 0.66 + 0.24 * lk), z] // (stifle: the knee's height, a share of the leg; lower gives a longer thigh tapering to it);
+        const top = [front - tr, by - H * 0.02 * lk + (hip[1] - by) * (1 - lk) + H * (o.thighUp ?? 0), z], // (thighUp: the thigh's top raised toward the tail, so the thigh makes the back of the rump: a deer's)
+          mid = [(top[0] + knee[0]) / 2, (top[1] + knee[1]) / 2, z], mr = (tr + r0) / 2;
+        const tz = o.thighZ ?? 1, tp = o.thighTaper ?? 0; // (thighZ: the thigh's top that much narrower side to side, so it stays inside a slim rump; thighTaper: the top end narrowing into the rump instead of ending round: a deer's)
+        tube(m, [top, mid, knee, hock, foot], [[tr * (1 - tp), rz * tz * (1 - tp * 0.5)], [mr, rz * 0.92 * (1 + tz) / 2], [r0 * 0.85, r0 * 0.75], r1 * 1.05, r1], legPaint(c), { ...lo, up: [1, 0, 0] });
       }
       else if (smoothLegs) tube(m, [hip, stifle, hock, foot], [r0, r0 * 0.72, r1 * 1.05, r1], c, lo);
       else { m.limb(hip, stifle, r0, r0 * 0.75, c, lo); m.limb(stifle, hock, r0 * 0.7, r1 * 1.05, c, lo); m.limb(hock, foot, r1 * 1.05, r1, c, lo); }
@@ -630,8 +652,10 @@ function quadruped(m, s, o) {
     else if (o.hoof && o.splitHoof) for (const toe of [-1, 1]) m.ell([foot[0] + r1 * 0.2, r1 * 0.75, z + toe * r1 * 0.52], [r1 * 1.25, r1 * 0.85, r1 * 0.48], o.hoof, { part, pivot: hip, gloss: 1 });
     else if (o.hoof) m.ell([foot[0] + r1 * 0.2, r1 * 0.75, z], [r1 * 1.3, r1 * 0.85, r1 * 1.15], o.hoof, { part, pivot: hip, lo: true, gloss: 1 });
     else if (o.paws && (o.toes || smoothLegs)) {
-      m.ell([foot[0] + r1 * 0.45, r1 * 0.63, z], [r1 * 1.35, r1 * 0.62, r1 * 1.1], c, { part, pivot: hip, fine: o.detail });
-      if (o.toes) for (const t of [-1, 0, 1]) m.ell([foot[0] + r1 * 1.15, r1 * 0.48, z + t * r1 * 0.52], [r1 * 0.42, r1 * 0.38, r1 * 0.32], c, { part, pivot: hip });
+      // (paw: a paw broader than the slim ankle above it, grown up from the ground, never into it)
+      const pw = o.paw ?? 1;
+      m.ell([foot[0] + r1 * 0.45 * pw, r1 * (0.63 + 0.62 * (pw - 1)), z], [r1 * 1.35 * pw, r1 * 0.62 * pw, r1 * 1.1 * pw], c, { part, pivot: hip, fine: o.detail });
+      if (o.toes) for (const t of [-1, 0, 1]) m.ell([foot[0] + r1 * 1.15 * pw, r1 * (0.48 + 0.38 * (pw - 1)), z + t * r1 * 0.52 * pw], [r1 * 0.42 * pw, r1 * 0.38 * pw, r1 * 0.32 * pw], c, { part, pivot: hip });
     }
     else if (o.paws) m.ell([foot[0] + r1 * 0.4, r1 * 0.72, z], [r1 * 1.4, r1 * 0.75, r1 * 1.12], c, { part, pivot: hip, lo: true });
   }
@@ -655,22 +679,25 @@ function quadruped(m, s, o) {
     m.ell(hp, hr, hc, hd);
     if (!o.noMuzzle) m.ell([sn[0] + o.snout * 0.3, sn[1], 0], [o.snout, hr[1] * 0.55, hr[2] * 0.58], o.muzzle || hc, hd);
   } else headLoft(m, hp, hr, o.noMuzzle ? 0 : o.snout, sn, hc, o.muzzle, o, hd);
-  if (o.nose !== false) m.ell([sn[0] + o.snout * 1.22, sn[1] + hr[1] * 0.1, 0], [hr[1] * 0.2, hr[1] * 0.17, hr[1] * 0.22], '#1c1714', { ...hd, lo: true, gloss: 1 });
-  eyes(m, hp, hr[0] * 0.42, hr[1] * 0.28, hr[2] * (o.eyeOut ?? 0.78), o.eyeR ?? Math.max(0.55, H * 0.045), P.HEAD, neck);
-  m.eyeAt = [hp[0] + hr[0] * 0.42, hp[1] + hr[1] * 0.28, hr[2] * (o.eyeOut ?? 0.78)]; m.eyePivot = neck; // for eye-shine at night: forward, up, apart
+  m.noseAt = [o.nose !== false ? sn[0] + o.snout * 1.22 + hr[1] * 0.2 : sn[0] + o.snout * 1.3, sn[1] + hr[1] * 0.1]; m.browAt = [hp[0] + hr[0] * 0.2, hp[1] + hr[1]]; // (for review tools)
+  if (o.nose !== false) m.ell([sn[0] + o.snout * 1.22, sn[1] + hr[1] * 0.1, 0], [hr[1] * 0.2 * (o.noseSize ?? 1), hr[1] * 0.17 * (o.noseSize ?? 1), hr[1] * 0.22 * (o.noseSize ?? 1)], o.noseColor ?? '#1c1714', { ...hd, lo: true, gloss: 1 });
+  eyes(m, hp, hr[0] * (o.eyeFwd ?? 0.42), hr[1] * 0.28, hr[2] * (o.eyeOut ?? 0.78), o.eyeR ?? Math.max(0.55, H * 0.045), P.HEAD, neck, o.eyeFar && !m.close ? o.eyeFar : o.eyeColor); // (eyeFar: a plain colour on the usual model, where a painted eye is a pixel or two: a herd animal's)
+  m.eyeAt = [hp[0] + hr[0] * (o.eyeFwd ?? 0.42), hp[1] + hr[1] * 0.28, hr[2] * (o.eyeOut ?? 0.78)]; m.eyePivot = neck; // for eye-shine at night: forward, up, apart
   if (o.mask) m.ell([hp[0] + hr[0] * 0.4, hp[1] + hr[1] * 0.2, 0], [hr[0] * 0.35, hr[1] * 0.3, hr[2] * 1.02], s.dark, hd);
   const ec = o.earColor || shade(s.color, -0.1);
   for (const side of [1, -1]) {
-    const base = [hp[0] - hr[0] * 0.2, hp[1] + hr[1] * 0.75, side * hr[2] * 0.55];
+    const base = [hp[0] + hr[0] * (o.earFwd ?? -0.2), hp[1] + hr[1] * (o.earUp ?? 0.75), side * hr[2] * (o.earSide ?? 0.55)]; // (earFwd, earUp, earSide: where the root sits on the skull; a cat's lower and wider, a deer's further back)
     if (o.ears === 'none') continue;
     // (earShape, earInner, earTip, earTipAt, earRim and earCup fine-tune the shared pinna)
     const look = { ...hd, inner: o.earInner, tip: o.earTip, tipAt: o.earTipAt, rim: o.earRim, cup: o.earCup };
     if (o.ears === 'round') {
       const tip = [base[0] - o.ear * 0.12, base[1] + o.ear * 0.85, base[2] + side * o.ear * 0.3];
-      pinna(m, base, tip, o.ear * 0.95, ec, { ...look, shape: o.earShape ?? 'round', cup: o.earCup ?? 0.4, out: 0.35 });
+      if (side > 0) m.earMarks = { base: [base[0] + o.ear * 0.95 * 0.45, base[1]], tip: [tip[0], tip[1]] }; // (for review tools: the ear's front root and tip, side on)
+      pinna(m, base, tip, o.ear * 0.95, ec, { ...look, shape: o.earShape ?? 'round', cup: o.earCup ?? 0.4, out: o.earTurn ?? 0.35 }); // (earTurn: how far the opening turns out to the side)
     } else {
       const tip = [base[0] - o.ear * (o.earBack ?? 0.25), base[1] + o.ear, base[2] + side * o.ear * (o.earOut ?? 0.35)];
-      pinna(m, base, tip, o.ear * (o.earW ?? 0.32) * 2.2, ec, { ...look, shape: o.earShape ?? 'point' });
+      if (side > 0) m.earMarks = { base: [base[0] + o.ear * (o.earW ?? 0.32) * 2.2 * 0.45, base[1]], tip: [tip[0], tip[1]] }; // (for review tools, as for round ears)
+      pinna(m, base, tip, o.ear * (o.earW ?? 0.32) * 2.2, ec, { ...look, shape: o.earShape ?? 'point', out: o.earTurn }); // (earTurn: the hollow turned out to the side, a deer's)
       if (o.tufts) m.limb(tip, [tip[0], tip[1] + o.ear * 0.35, tip[2]], o.ear * 0.05, o.ear * 0.01, s.dark, { ...hd, caps: false }); // (a lynx's tuft of hair)
     }
   }

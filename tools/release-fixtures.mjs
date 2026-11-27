@@ -4,11 +4,17 @@ import { BIOME_LIST, biome } from '../js/biome.js';
 import { T, DAYS_PER_YEAR } from '../js/config.js';
 import { mulberry32 } from '../js/rng.js';
 import { restoredGame } from './map-audit-fixtures.mjs';
+import { Game } from '../js/game.js';
+
+function startGame(map) {
+  const g = new Game(); g.newGame(1987, 'free', 'standard', map); return g;
+}
 
 export function releaseGame(map, kind) {
   if (!BIOME_LIST.some(b => b.id === map)) throw new Error('Unknown map ' + map);
   Math.random = mulberry32(20261011);
-  const game = restoredGame(map, 1987), w = game.world;
+  // ('start': the farm as a new game opens it, unrestored, for degraded-against-restored pictures)
+  const game = kind === 'start' ? startGame(map) : restoredGame(map, 1987), w = game.world;
   game.day = 20; game.speed = 0; game.weather = 'clear'; game.snow = 0;
   game.wildlife.agents = []; game.wildlife.flyovers = []; game.wildlife.recount();
   game.visitors.agents = []; game.residents = [];

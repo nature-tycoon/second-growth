@@ -122,16 +122,16 @@ export default {
   look: {
     skyHaze: 0.15, // the clear-day sky at eye level: clean, cool air (0..1, see SKY_DEEP in scene.js)
     // colour grade: fresh and a touch cool, crisp rather than misty
-    grade: { gain: [0.985, 1.0, 1.02], lift: [0.003, 0.005, 0.008], sat: 1.03, contrast: 1.05 },
-    pasture: ['#a2b56a', '#abb26c', '#a9a46c', '#8c976a'],
+    grade: { gain: [0.985, 1.0, 1.02], lift: [0.001, 0.002, 0.003], sat: 1.05, contrast: 1.12 },
+    pasture: ['#94b157', '#9fad5a', '#a3a25b', '#7f8d60'],
     soil: [0.8, 0.66, 0.5], mud: [0.62, 0.54, 0.42],
     borderMoss: [0.5, 0.56, 0.36], // the old forest's floor round the farm: moss and needles under the conifers (terrain.js)
     water: { pond: [0.3, 0.56, 0.66, 0.82], creek: [0.38, 0.63, 0.7, 0.78], river: [0.28, 0.52, 0.63, 0.86], marsh: [0.46, 0.62, 0.52, 0.55] },
     light: [
-      { sun: 0xfff3dc, sunI: 2.5, sky: 0xe4eeff, ground: 0x5f6e3c, hemiI: 1.25 },
-      { sun: 0xffeccc, sunI: 2.8, sky: 0xf0f0ff, ground: 0x6e6a3c, hemiI: 1.3 },
-      { sun: 0xffe6c4, sunI: 2.5, sky: 0xeee8e0, ground: 0x6a5e3c, hemiI: 1.2 },
-      { sun: 0xeaf0ff, sunI: 2.25, sky: 0xdde5f0, ground: 0x565e4c, hemiI: 1.25 },
+      { sun: 0xfff3dc, sunI: 2.65, sky: 0xe4eeff, ground: 0x497552, hemiI: 1.16 },
+      { sun: 0xffeccc, sunI: 2.97, sky: 0xf0f0ff, ground: 0x4b794e, hemiI: 1.21 },
+      { sun: 0xffe6c4, sunI: 2.65, sky: 0xeee8e0, ground: 0x466e46, hemiI: 1.12 },
+      { sun: 0xeaf0ff, sunI: 2.39, sky: 0xdde5f0, ground: 0x505f54, hemiI: 1.16 },
     ],
     // falling leaves, seed fluff and mist (0..1 per season), and the flocks that pass over
     ambience: {

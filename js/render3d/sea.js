@@ -6,7 +6,7 @@
 
 import * as THREE from 'three';
 import { BORDER, LEVEL } from '../config.js';
-import { sea } from './atmosphere.js';
+import { sea, haze, MELT_GLSL } from './atmosphere.js';
 import { EYE_FAR } from './eye-camera.js';
 
 const VERT = `
@@ -18,6 +18,8 @@ const VERT = `
     gl_Position = projectionMatrix * viewMatrix * wp;
   }`;
 const FRAG = `
+  uniform vec2 uHazeDir;
+  ${MELT_GLSL}
   uniform float uT, uGlint, uEye, uFogNear, uFogFar;
   uniform vec3 uSun, uView, uSky, uWater, uLight, uFogColor, uFogOut, uSeaFar;
   varying vec2 vXZ;
@@ -64,7 +66,8 @@ const FRAG = `
     // eye-level haze (off, out of reach, in the usual view): water or air. Like three's own fog
     // it goes on after the tone mapping, in the screen's colours, so it meets the background.
     float f = clamp((length(cameraPosition - vW) - uFogNear) / (uFogFar - uFogNear), 0.0, 1.0);
-    gl_FragColor = vec4(col, mix(a, 1.0, f));
+    // (the land's far edge melts into the backdrop, atmosphere.js: the sheet over it fades out too)
+    gl_FragColor = vec4(col, mix(a, 1.0, f) * (1.0 - landMelt(vXZ)));
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
     gl_FragColor.rgb = mix(gl_FragColor.rgb, uFogOut * shimmer, mirror);
@@ -83,6 +86,7 @@ export class SeaSurface {
       uSun: { value: new THREE.Vector3(0, 1, 0) }, uView: { value: new THREE.Vector3(0, 1, 0) },
       uSky: { value: new THREE.Color(0.75, 0.85, 0.95) }, uWater: { value: new THREE.Color(0.2, 0.6, 0.62) },
       uLight: { value: new THREE.Color(1, 1, 1) },
+      uHazeDir: haze.uHazeDir, uLand: haze.uLand, uMelt: haze.uMelt, uMeltColor: haze.uMeltColor,
       uEye: { value: 0 }, uFogNear: { value: 1e5 }, uFogFar: { value: 2e5 }, uFogColor: { value: new THREE.Color() }, uFogOut: { value: new THREE.Color() }, uSeaFar: { value: new THREE.Color() },
     };
     this.mat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: FRAG, uniforms: this.uniforms, transparent: true, depthWrite: false, side: THREE.DoubleSide });
@@ -119,9 +123,11 @@ export class SeaSurface {
     u.uT.value = time;
     u.uSun.value.copy(sun.position).sub(sun.target.position).normalize();
     u.uView.value.copy(viewDir).normalize();
-    u.uSky.value.copy(hemi.color);
+    // (the light's wash, haze.uLightTint, reaches the sea's own colours too: not its glint)
+    const wash = haze.uLightTint.value;
+    u.uSky.value.copy(hemi.color).multiply(wash);
     const l = Math.min(1.3, hemi.intensity * 0.5 + sun.intensity * 0.15);
-    u.uLight.value.setRGB(l, l, l);
+    u.uLight.value.setRGB(l, l, l).multiply(wash);
     u.uGlint.value = Math.min(1, sun.intensity / 2.2);
     u.uEye.value = eye ? 1 : 0;
     // at eye level the surface runs on past the edge of the map, out into the haze, rather than
@@ -132,6 +138,6 @@ export class SeaSurface {
     // the weather closes in (fog.far is 34 on a clear day, 31 in cloud, 22 in rain: scene.js)
     const o = u.uFogOut.value, lum = o.r * 0.3 + o.g * 0.6 + o.b * 0.1, clearAir = Math.min(1, Math.max(0, (fog.far - 22) / 12));
     u.uSeaFar.value.setRGB(SEA_FAR[0] * lum, SEA_FAR[1] * lum, SEA_FAR[2] * lum).lerp(o, 1 - clearAir * 0.85);
-    const sl = sea.uSeaLight.value; sl[0] = hemi.color.r * l; sl[1] = hemi.color.g * l; sl[2] = hemi.color.b * l;
+    const sl = sea.uSeaLight.value; sl[0] = hemi.color.r * l * wash.r; sl[1] = hemi.color.g * l * wash.g; sl[2] = hemi.color.b * l * wash.b;
   }
 }

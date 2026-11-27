@@ -507,9 +507,10 @@ export default {
   look: {
     skyHaze: 0.65, // the clear-day sky at eye level: humid rainforest air, a milkier, paler blue (0..1, see SKY_DEEP in scene.js)
     // colour grade: humid and deep green, a little hazy
-    grade: { gain: [0.99, 1.0, 0.97], lift: [0.004, 0.005, 0.004], sat: 1.03, contrast: 1.05 },
-    pasture: ['#8ea456', '#a0a660', '#8aa456', '#92a65a'],
+    grade: { gain: [0.99, 1.0, 0.97], lift: [0.002, 0.003, 0.002], sat: 1.04, contrast: 1.09 },
+    pasture: ['#839f4f', '#97a257', '#7f9f4f', '#87a152'],
     soil: [0.66, 0.42, 0.3], mud: [0.28, 0.21, 0.16],                 // red tropical soil, black peat
+    crownVary: { value: 0.12, hue: 0.045 }, // a mixed rainforest: every crown its own green (flora.js crownVary)
     // peat-stained blackwater: tea-brown and clear
     water: { pond: [0.2, 0.13, 0.06, 0.92], creek: [0.24, 0.16, 0.07, 0.9], river: [0.28, 0.19, 0.09, 0.92], marsh: [0.34, 0.42, 0.22, 0.42] },
     // peat shows through the weeds: pale and dusty where it's drained, dark and sodden where it's wet
@@ -520,10 +521,10 @@ export default {
       return c.map((v, q) => v * (1 - k) + (dry[q] * (1 - wet) + sod[q] * wet) * k);
     },
     light: [
-      { sun: 0xfff2dc, sunI: 2.6, sky: 0xe6eeee, ground: 0x5a6a3a, hemiI: 1.3 },
-      { sun: 0xffe2bc, sunI: 2.4, sky: 0xf0e2cc, ground: 0x6a623c, hemiI: 1.24 },
-      { sun: 0xf2f4fa, sunI: 2.15, sky: 0xdce4e8, ground: 0x4f5e40, hemiI: 1.22 },
-      { sun: 0xfff4e0, sunI: 2.7, sky: 0xe8eeee, ground: 0x5a6a3a, hemiI: 1.3 },
+      { sun: 0xfff2dc, sunI: 2.81, sky: 0xe6eeee, ground: 0x46714a, hemiI: 1.26 },
+      { sun: 0xffe2bc, sunI: 2.59, sky: 0xf0e2cc, ground: 0x4d6f46, hemiI: 1.2 },
+      { sun: 0xf2f4fa, sunI: 2.32, sky: 0xdce4e8, ground: 0x47604b, hemiI: 1.18 },
+      { sun: 0xfff4e0, sunI: 2.92, sky: 0xe8eeee, ground: 0x46714a, hemiI: 1.26 },
     ],
     ambience: {
       // bees and butterflies at the flowers (pollinators.js): the map's own birdwing, a grass yellow, Asian honeybees

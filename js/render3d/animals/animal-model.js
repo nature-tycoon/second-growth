@@ -69,6 +69,7 @@ export function buildSpecies(def, { close = false } = {}) {
     default: if (MAMMALS[s.kind]) quadrupedModel(m, s, mo); else if (BIRDS[s.kind]) birdModel(m, s, mo, trait(def, 'wades')); else m.ell([0, 4, 0], [4, 4, 4], s.color || '#888');
   }
   mo.eye = m.eyeAt || null; mo.eyePivot = m.eyePivot || [0, 0, 0]; // where the eyes are, in model units (for eye-shine)
+  if (m.noseAt) mo.faceMarks = { nose: m.noseAt, eye: m.eyeAt, ear: m.earMarks, brow: m.browAt }; // (review tools only)
   mo.eyeSpot = m.eyeAt || m.eyeSpot || null; // (and for fitting a kill's skull: every model with eyes)
   const climb = climbStyle(def);
   if (PRIMATE[climb]) {

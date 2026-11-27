@@ -11,12 +11,14 @@ import * as THREE from 'three';
 import { focus, withFocusFade } from './focus.js';
 import { drawLookThrough } from './look-through.js';
 import { treeTrunk, trunkRadius } from '../sim/ground-obstacles.js';
+import { canopyTile } from './canopy-support.js';
 import { treeHeight } from './tree-stature.js';
 import { TREE_SHAPES } from './geometry/tree-shapes.js';
 import { snow, withSnowTops } from './snow.js';
 import { sky, haze, sea, withClouds } from './atmosphere.js';
 import { lightingBalance } from './lighting.js';
 import { Ambience } from './ambience.js';
+import { Backdrop, screenColor } from './backdrop.js';
 import { activeCatalog } from '../data/catalog.js';
 import { BORDER, LEVEL, T, H, isWater, clamp, SPEEDS } from '../config.js';
 import { animalDef, isMale } from '../data/animals.js';
@@ -28,7 +30,8 @@ import { SeaSurface } from './sea.js';
 import { building, diveBoat, JETTY_BOAT } from './geometry/buildings.js';
 import { hash2, mulberry32 } from '../rng.js';
 import { Border } from '../world.js';
-import { FrameCpuStats, CPU_STAGES, CHECK_SHADERS, GpuTimer, weakGpu } from '../performance.js';
+import { skyRim } from './animals/animal-material.js';
+import { FrameCpuStats, CPU_STAGES, DRAW_PARTS, DRAW_REPORTED, slowFrameMs, CHECK_SHADERS, GpuTimer, weakGpu } from '../performance.js';
 import { RELEASE } from '../release.js';
 import { updateHydrology, updateEnvironment } from '../sim/environment.js';
 import { animalDensity } from '../sim/animal-density.js';
@@ -49,6 +52,7 @@ function installGrade(grade = {}) {
     return saturate( color );
   }`;
   THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars_fragment.replace(/vec3 CustomToneMapping\( vec3 color \) \{[\s\S]*$/, code);
+  return g; // (backdrop.js screenColor runs the same grade for the sky behind the land)
 }
 
 // Time of day, on its own slow clock (real minutes, not game days): a long day, a warm golden
@@ -56,6 +60,9 @@ function installGrade(grade = {}) {
 // properly dark, so the land stays readable. Each key: [position in the cycle, sun strength,
 // sun colour, how much of it, sky colour, how much of it, sun elevation in degrees, sweep].
 const DAY_CYCLE = 360;
+// where a session opens without the intro film (main.js): late afternoon, so golden hour builds
+// over the first minute rather than two minutes of flat midday light (aesthetics plan, item 5)
+export const LATE_START = 0.66;
 const NIGHT_PACE = [1.5, 1.5, 2.6, 4, 1]; // how much faster the dark hours pass, at each game speed (paused: the clock stops, normal, fast, fastest, watch)
 // how fast the whole cycle runs at each game speed: at watch pace a day takes about 18 minutes,
 // night as unhurried as the day, so a sunset, dusk and dawn play out while the animals live them
@@ -84,6 +91,33 @@ function timeOfDay(u) {
   return { sun: L(1), sunCol: todCol[0], sunAmt: L(3), skyCol: todCol[2], skyAmt: L(5), el: L(6), sweep: L(7) };
 }
 const BASE_PPU = 46; // screen pixels per scene unit at zoom 1
+const LAND_MELT = 7; // tiles over which the land's far edge melts into the haze (atmosphere.js uMelt)
+// the animals' sky rim at play zoom (animal-material.js skyRim): a faint outline on the side turned
+// from the sun, so an animal reads against the grass; 0 turns it off
+const SKY_RIM = 6;
+// the melt's colour: how far it leans from the haze toward the ground's bounce light (hemi.groundColor
+// x LIFT), and toward the light's own colour in proportion to the hour's warmth (tod.sunAmt)
+const MELT_LAND = 0.25, MELT_LAND_LIFT = 1.5, MELT_SUN = 0.8, MELT_NIGHT = 0.45;
+// The washes the 2D layer once painted over the whole view, now the light's own tint (haze.uLightTint,
+// atmosphere.js): each is the old wash's colour and strength over a mid-tone, turned into a multiplier
+// on the diffuse light (washInto). Season: look.tint; the savanna's dry-season glare; the golden hour
+// in the sun's colour; and the night, a darker, bluer light (was a navy veil). Tune here.
+// water at golden hour: how much sharper (shininess) and stronger (specular) its highlights get; a
+// low sun ahead already turns a creek to a bright sheet, so sharper breaks it into glints rather than
+// brighter. And the 2D sparkles on open water (drawEffects): more of them, in the sun's colour,
+// which shows whichever way the view faces.
+const WATER_GLINT = [1.5, 0.15], SPARKLE_GOLD = [0.2, 0.7];
+// (WASH_SEASON scales the map's look.tint and the glare: as light they read stronger than as a wash)
+const WASH_SEASON = 0.6, WASH_GLARE = [236 / 255, 216 / 255, 180 / 255, 0.015], WASH_GOLD = 0.045;
+const WASH_NIGHT = [12 / 255, 20 / 255, 44 / 255, 0.12], WASH_NIGHT_REF = 0.35;
+// how a wash of colour c (sRGB 0..1) at strength a would shift a surface of brightness ref, as a
+// multiplier on its linear light, folded into t (a Color)
+function washInto(t, r, g, b, a, ref = 0.5) {
+  if (!(a > 0)) return t;
+  const m = c => Math.pow(Math.max(0.05, 1 - a + a * c / ref), 2.2);
+  t.r *= m(r); t.g *= m(g); t.b *= m(b);
+  return t;
+}
 // The eye-level sky's colours (linear), before the time of day and the weather tint and dim them:
 // overhead and at the horizon on a clear day, and the grey of an overcast and a stormy sky.
 const SKY_TOP = new THREE.Color(0.15, 0.34, 0.76), SKY_LOW = new THREE.Color(0.6, 0.71, 0.84);
@@ -105,8 +139,12 @@ const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)'
 // The trunks standing close in front of the tracked animal (within 3 tiles, nearest first: x, z,
 // radius, the top of the bare trunk), for
 // look-through.js: the animal drawn through cover passes behind them. Not the one it clings to.
+// Beyond the farm's edge the border forest's trunks count too, read from the sites flora drew
+// (flora.treeSites, keyed by canopyTile): without them an animal followed in the old forest beyond
+// the fence showed faintly through every trunk in front of it, as if the trees were glass (Cole,
+// intro film 2026-11-26: "trees aren't translucent in the game for animals").
 const lookFound = [];
-function lookTrunks(w, pose, V) {
+function lookTrunks(w, pose, V, flora, border) {
   const out = focus.uLookTrunks.value;
   lookFound.length = 0;
   if (!w?.tree) { for (const v of out) v.set(0, 0, 0, 0); return; }
@@ -114,14 +152,25 @@ function lookTrunks(w, pose, V) {
   const cx = pose.center.x, cz = pose.center.z, x0 = Math.floor(cx), z0 = Math.floor(cz);
   for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
     const x = x0 + dx, z = z0 + dz;
-    if (x < 0 || z < 0 || x >= w.w || z >= w.h) continue;
-    const t = treeTrunk(w, x, z);
-    if (!t || (pose.trunk && Math.hypot(t[0] - pose.trunk[0], t[1] - pose.trunk[1]) < .01)) continue;
+    let t, p, ground, scale;
+    if (x < 0 || z < 0 || x >= w.w || z >= w.h) {
+      const key = border && flora ? canopyTile(w, border, x, z) : null, site = key == null ? null : flora.treeSites.get(key);
+      p = site?.plant != null && w.catalog.plants[site.plant];
+      const base = p ? trunkRadius(p) : 0;
+      if (!(base > 0)) continue;
+      const [tx, ty, tz, sx, sy] = site.transform;
+      t = [tx, tz, base * sx]; ground = ty; scale = sy;
+    } else {
+      t = treeTrunk(w, x, z);
+      if (!t) continue;
+      p = w.catalog.plants[w.tree[w.idx(x, z)]]; ground = w.heightAt(t[0], t[1]) * LEVEL; scale = t[2] / trunkRadius(p);
+    }
+    if (pose.trunk && Math.hypot(t[0] - pose.trunk[0], t[1] - pose.trunk[1]) < .01) continue;
     const ox = t[0] - cx, oz = t[1] - cz;
     if (ox * V.x + oz * V.z <= 0) continue; // (behind it)
     // up to where its crown begins (the bare bole; above it, its leaves are cover like any other)
-    const p = w.catalog.plants[w.tree[w.idx(x, z)]], shape = TREE_SHAPES[p.look.type] || {};
-    const top = w.heightAt(t[0], t[1]) * LEVEL + treeHeight(p) * (t[2] / trunkRadius(p)) * (shape.trunkH ?? shape.base ?? .45);
+    const shape = TREE_SHAPES[p.look.type] || {};
+    const top = ground + treeHeight(p) * scale * (shape.trunkH ?? shape.base ?? .45);
     found.push([ox * ox + oz * oz, t[0], t[1], t[2] * .9, top]); // (a little inside the base: trunks taper)
   }
   found.sort((a, b) => a[0] - b[0]);
@@ -142,6 +191,7 @@ export class Renderer {
     // (submit: the gl.render call alone, part of render. The rest of render is getting the frame
     // ready, plants above all, so a slow laptop shows which side of the hand-off holds it up.)
     this.cpuPerf = new FrameCpuStats([...CPU_STAGES, 'submit']);
+    this.drawPerf = new FrameCpuStats(DRAW_REPORTED, 'draw');
     this.gpuTimer = new GpuTimer(this.gl.getContext());
     document.addEventListener('visibilitychange', () => { if (this.perf) this.perf.last = performance.now(); this.cpuSkipNext = true; });
     canvas.addEventListener('webglcontextlost', event => {
@@ -162,7 +212,7 @@ export class Renderer {
     this.gl.shadowMap.enabled = true;
     this.gl.shadowMap.type = THREE.PCFShadowMap;
     this.gl.outputColorSpace = THREE.SRGBColorSpace;
-    installGrade(this.catalog.definition.look.grade);
+    this.grade = installGrade(this.catalog.definition.look.grade);
     this.gl.toneMapping = THREE.CustomToneMapping;
     this.gl.toneMappingExposure = 1.0;
     this.scene = new THREE.Scene();
@@ -211,6 +261,7 @@ export class Renderer {
     this.ux = this.ui.getContext('2d');
     this.pollinators = new Pollinators(); this.weatherParticles = [];
     this.ambience = new Ambience();
+    this.backdrop = new Backdrop(); this.backStops = [[0, 0, 0], [0, 0, 0]];
     this.lightTarget = { sun: new THREE.Color(), sky: new THREE.Color(), ground: new THREE.Color() };
     this.todClock = DAY_CYCLE * 0.45; // start in the afternoon, so the first evening comes after a couple of minutes
     this.v3 = new THREE.Vector3();
@@ -509,7 +560,7 @@ export class Renderer {
       const eyeY = this.eyeOn ? this.eye.pos.y : this.camera.position.y;
       focus.uLookWater.value = Number.isFinite(water) && eyeY > water ? water : -1e9;
       if (pose.trunk) focus.uFocusTrunk.value.set(pose.trunk[0], pose.trunk[1], pose.trunk[2]); else focus.uFocusTrunk.value.z = -1;
-      lookTrunks(this.world, pose, V);
+      lookTrunks(this.world, pose, V, this.flora, game.border);
     } else if (ft) { // (a spot on the ground, not an animal: a moment about a plant)
       focus.uFocus.value.set(ft.x, this.world.heightAt(ft.x, ft.y) * LEVEL + 0.35, ft.y);
       focus.uFocusR.value = 1.3;
@@ -998,6 +1049,8 @@ export class Renderer {
     if (document.hidden) { this.cpuSkipNext = true; return; }
     if (this.cpuSkipNext) { this.cpuSkipNext = false; return; }
     this.cpuPerf.record({ timings: { ...sample.timings, submit: this.submitMs ?? 0 } });
+    // (the render stage part by part, when this frame's draw ran to the end: not under the intro film or while preparing)
+    if (this.partsReady) { this.drawPerf?.record({ timings: this.parts }); this.partsReady = false; }
     // (each frame's processor work, for autoQuality's step-up test on a frame rate held to 30)
     if (this.qWork && this.qWork.length < 600 && sample.work >= 0) this.qWork.push(sample.work);
     // (and for perfSample's work_p75_ms, the slower frames' work in tenths of a millisecond)
@@ -1010,6 +1063,7 @@ export class Renderer {
     const out = {
       ...this.cpuPerf?.sample(reset),
       ...this.gpuTimer?.sample(reset),
+      ...this.drawParts(reset),
       fps: P.time ? +(P.frames * 1000 / P.time).toFixed(1) : null,
       // (seconds of drawing this sample covers, so shadow_redraws reads as a rate; the slower frames'
       // processor work, the 16 ms test autoQuality makes for a frame rate held to 30)
@@ -1036,6 +1090,12 @@ export class Renderer {
     };
     if (reset) { P.frames = 0; P.time = 0; P.slow = 0; this.shadowRedraws = 0; this.workBins = null; }
     return out;
+  }
+  // (draw_frames is cpu_frames less the frames whose draw didn't run to the end, so it isn't sent)
+  drawParts(reset) {
+    if (!this.drawPerf) return {};
+    const { draw_frames, ...parts } = this.drawPerf.sample(reset);
+    return parts;
   }
   workP75() {
     const W = this.workBins; if (!W) return null;
@@ -1110,6 +1170,7 @@ export class Renderer {
     }
     if (heavy) { this.heavyAt = performance.now(); this.heavyMs = this.heavyAt - t0; }
     if (flora) this.floraPending = true;
+    this.lap('ground');
     // Player edits must not wait for the growth cooldown or an idle surface frame: a continuous
     // stroke repaints ground every frame and used to prevent any plants from catching up.
     // Once a budgeted rebuild starts, finish its remaining regions on consecutive frames.
@@ -1121,6 +1182,7 @@ export class Renderer {
       while (more && !swapped && this.flora.waitingRegions?.size && performance.now() - at < FLORA_FRAME_MS) more = this.flora.rebuild(game, false, FLORA_REGIONS_PER_FRAME);
       if (!more) { this.lastFlora = now; this.floraPending = false; this.floraEditPending = false; }
     }
+    this.lap('plants');
   }
 
   // ------------------------------------------------------------------ frame
@@ -1135,8 +1197,14 @@ export class Renderer {
     {
       const t = performance.now(), P = this.perf ||= { frames: 0, time: 0, slow: 0, last: t };
       const ms = t - P.last; P.last = t;
-      if (!document.hidden && ms > 0) { P.frames++; P.time += ms; if (ms > 34) P.slow++; } // (slower than 30 fps; a hidden tab's gap doesn't count, and a laptop's long stalls do)
+      // (slow: see slowFrameMs. A hidden tab's gap doesn't count, and a laptop's long stalls do.)
+      const pace = this.pace?.(), slowMs = slowFrameMs(pace?.intervalMs, pace?.capMs);
+      if (!document.hidden && ms > 0) { P.frames++; P.time += ms; if (ms > slowMs) P.slow++; }
     }
+    // Where the processor's drawing work goes, part by part (lap below; reported by perfSample as
+    // draw_<part>_ms and its p95, so a slow laptop's frame and its spikes can be read part by part).
+    this.partsReady = false;
+    { const Q = this.parts ||= Object.fromEntries(DRAW_PARTS.map(k => [k, 0])); for (const k of DRAW_PARTS) Q[k] = 0; this.partAt = performance.now(); }
     this.gl.info.reset(); // (see the constructor: one count for the whole frame)
     if (dt > 0) { this.autoResolution(); this.autoQuality(game); }
     const swapped = game.world !== this.world; // (a new world, or then-and-now's day-one farm: paint it all this frame)
@@ -1178,10 +1246,12 @@ export class Renderer {
         this.zoomGoal = nz === goal ? null : goal; this.zoomSet = this.zoom;
       }
     }
-    this.refreshWorld(game, swapped, now);
+    this.lap('camera');
+    this.refreshWorld(game, swapped, now); // (laps 'ground' and 'plants' itself)
 
     this.updateOverlay(game, ui, now);
     this.updatePreview(ui);
+    this.lap('overlay');
 
     // light follows the seasons and weather, easing between them instead of snapping; on cloudy
     // days drifting cloud shadows (atmosphere.js) do much of the dimming, patch by patch
@@ -1232,6 +1302,52 @@ export class Renderer {
     const hazeTo = balance.haze * (humid ? 1.25 : 1) * (this.light ? .75 : 1) * (0.6 + .4 * Math.min(1, tod.sun));
     haze.uHazeAmount.value += (hazeTo - haze.uHazeAmount.value) * k;
     haze.uHazeColor.value.copy(this.hemi.color).multiplyScalar(.5 * (0.65 + .35 * Math.min(1, Math.max(tod.sun, 1 - this.night)))); // (a veil as light as the sky until nightfall)
+    // the season, the dry glare, the golden hour and the night as a tint on the light (WASH_*)
+    const wash = haze.uLightTint.value;
+    {
+      const to = (this.washTo || (this.washTo = new THREE.Color())).setRGB(1, 1, 1);
+      if (!this.eyeOn) {
+        const def = game.catalog.definition, key = def.look.tint[game.season];
+        if (key !== this.washKey) { this.washKey = key; this.washTint = parseRgba(key); }
+        const st = this.washTint, sc = tod.sunCol;
+        washInto(to, st[0], st[1], st[2], st[3] * WASH_SEASON);
+        if (def.savanna && game.month >= 3 && game.month <= 7) washInto(to, WASH_GLARE[0], WASH_GLARE[1], WASH_GLARE[2], WASH_GLARE[3] * WASH_SEASON);
+        washInto(to, sc.r, sc.g, sc.b, WASH_GOLD * tod.sunAmt);
+        washInto(to, WASH_NIGHT[0], WASH_NIGHT[1], WASH_NIGHT[2], WASH_NIGHT[3] * this.night, WASH_NIGHT_REF);
+      }
+      if (this.eyeOn) wash.setRGB(1, 1, 1); else wash.lerp(to, k); // (eye level never had the washes: off at once)
+    }
+    // the far edge of the land melts into that haze, and the page behind the canvas is the haze as
+    // it lands on screen, so the two meet without a seam (atmosphere.js uMelt, backdrop.js)
+    {
+      const tr = this.terrain;
+      haze.uLand.value.set(tr.X0, tr.Y0, tr.X0 + tr.TW, tr.Y0 + tr.TH);
+      haze.uMelt.value = this.eyeOn ? 0 : LAND_MELT;
+      // (the animals' sky rim: full at play zoom, where a deer is a few dozen pixels in the grass,
+      // fading as the view closes in, faint at eye level: animal-material.js skyRim)
+      skyRim.value = this.eyeOn ? SKY_RIM * 0.35 : SKY_RIM * clamp((3.2 - this.zoom) / 2, 0.4, 1);
+      // (distant country, not fog: the haze taken a little toward the land's bounce light)
+      const melt = haze.uMeltColor.value.copy(this.hemi.groundColor).multiplyScalar(MELT_LAND_LIFT).lerp(haze.uHazeColor.value, 1 - (this.meltLand ?? MELT_LAND));
+      // ...and toward the colour of the light when it has one (gold at sunset, blue by moonlight;
+      // none at midday), at the haze's own brightness, as the air round a low sun glows
+      {
+        const warm = this.meltWarm || (this.meltWarm = new THREE.Color()), sc = this.sun.color;
+        const lum = c => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+        warm.copy(sc).multiplyScalar(lum(melt) / Math.max(1e-3, lum(sc)));
+        melt.lerp(warm, MELT_SUN * tod.sunAmt);
+      }
+      melt.multiplyScalar(1 - MELT_NIGHT * this.night); // (the night sky darker than the moonlit land)
+      // (the light's wash once, on both: the old 2D washes covered the land and the backdrop alike)
+      melt.multiply(wash); haze.uHazeColor.value.multiply(wash);
+      if (!this.eyeOn) {
+        const exposure = this.gl.toneMappingExposure, under = this.backUnder || (this.backUnder = new THREE.Color());
+        screenColor(melt, this.grade, exposure, this.backStops[0]);
+        // (below the near walls: darker, the diorama's shadow)
+        under.copy(melt).multiplyScalar(0.62).lerp(this.hemi.groundColor, 0.18);
+        screenColor(under, this.grade, exposure, this.backStops[1]);
+        this.backdrop.set(this.backStops, now);
+      }
+    }
     {
       const el = THREE.MathUtils.degToRad(tod.el), az = Math.atan2(20, -30) + tod.sweep * 1.1;
       const d = 62, off = this.sunOffset || (this.sunOffset = new THREE.Vector3());
@@ -1250,7 +1366,9 @@ export class Renderer {
     const gustTo = wx === 'rain' ? 1.5 : wx === 'snow' ? 1.2 : wx === 'cloud' ? 1.0 : 0.65;
     windGust.value += (gustTo - windGust.value) * Math.min(1, dt * 0.4);
     this.flora.setZoom(this.eyeOn ? this.eyeDetail : this.zoom);
+    this.lap('other');
     this.flora.bakeImpostors(this.gl);
+    this.lap('impostors');
     // plant contact shadows only stand in for the sun's when those are off (by choice, or dropped to
     // keep up): alongside real shadows they'd only smudge the ground around each trunk
     this.flora.contact.visible = !this.sun.castShadow;
@@ -1262,6 +1380,18 @@ export class Renderer {
     this.terrain.rain.value += ((raining ? 1 : 0) - this.terrain.rain.value) * Math.min(1, dt * 1.5);
     this.terrain.tiles.wet.value += ((raining ? 1 : 0) - this.terrain.tiles.wet.value) * Math.min(1, dt * (raining ? 0.4 : 0.3)); // dries within a few seconds
     this.terrain.sky.value.copy(this.hemi.color);
+    // a low, warm sun flashes off the water: sharper and stronger highlights toward golden hour and
+    // sunset (and dawn), none of it under the midday sun or the blue moonlight (WATER_GLINT)
+    {
+      const gold = this.waterGold = this.eyeOn ? 0 : clamp(tod.sunAmt * (tod.sunCol.r - tod.sunCol.b) * 2, 0, 1);
+      for (let i = 0; i < 2; i++) {
+        const m = i ? this.terrain.floodMat : this.terrain.waterMat;
+        if (!m) continue;
+        m.userData.spec0 ??= m.specular.clone(); m.userData.shine0 ??= m.shininess;
+        m.shininess = m.userData.shine0 * (1 + WATER_GLINT[0] * gold);
+        m.specular.copy(m.userData.spec0).multiplyScalar(1 + WATER_GLINT[1] * gold);
+      }
+    }
     const r = this.right();
     this.actors.clean = !!ui.clean;
     this.actors.nightOut = this.nightOut;
@@ -1270,7 +1400,9 @@ export class Renderer {
     this.pollinators.update(game, wdt, this.eyeOn ? [this.eye.pos.x - 8, this.eye.pos.x + 8, this.eye.pos.z - 8, this.eye.pos.z + 8] : this.viewTiles(),
       this.weatherOn !== false && (this.eyeOn || this.zoom > 0.5));
     this.actors.pollinators = this.pollinators;
+    this.lap('other');
     this.actors.update(game, this.eyeOn ? this.eye.right : r, this.time, this.eyeOn ? this.eye.camera : this.camera, this.vh);
+    this.lap('animals');
     this.updateLightning(wdt, game);
     this.updateEye(dt, game);
     const cam = this.eyeOn ? this.eye.camera : this.camera;
@@ -1282,8 +1414,10 @@ export class Renderer {
     su.value += ((game.snow || 0) - su.value) * Math.min(1, dt * 1.5);
     this.actors.updateFire(game, this.time, wdt);
     this.seaSurface.update(this.time, this.sun, this.hemi, this.viewDir(), game, this.scene.fog, this.eyeOn);
+    this.lap('other');
     this.flora.syncShadows();
     this.flora.updateView(cam);
+    this.lap('plant_view');
     if (this.preparing) return; // (see prepareFirstFrame; updateView builds the batches the plants are drawn from)
     const redrawShadows = this.shadowsStale();
     if (redrawShadows) {
@@ -1294,13 +1428,22 @@ export class Renderer {
     }
     this.gl.shadowMap.needsUpdate = redrawShadows;
     this.lastShadowRedraw = redrawShadows;
+    this.lap('shadows');
     const at = performance.now();
     this.gpuTimer.poll(); this.gpuTimer.begin();
     this.gl.render(this.scene, cam);
     drawLookThrough(this.gl, this.scene, cam, this.actors.fauna, focus.uFocusAmt.value, this.flora.lookNear());
     this.gpuTimer.end();
     this.submitMs = performance.now() - at;
+    this.lap('submit'); // (reported as cpu_submit_ms, as before)
     this.drawFX(game, ui, wdt); // (rain, snow, fireflies and drifting leaves hold still too)
+    this.lap('effects');
+    this.partsReady = true;
+  }
+  // Adds the time since the last lap to one part of this frame's drawing work (see draw).
+  lap(part) {
+    const Q = this.parts; if (!Q) return;
+    const t = performance.now(); Q[part] += t - this.partAt; this.partAt = t;
   }
 
   // A picture of the view for photo mode: the 3D scene and the effects layer, with a soft vignette.
@@ -1311,9 +1454,11 @@ export class Renderer {
     const ctx = c.getContext('2d');
     // the page's backdrop shows through past the horizon (behind Chinandega's volcano, say): paint
     // it in, or a saved picture is black there (the same gradient as the body's in styles.css)
-    const bg = ctx.createRadialGradient(W / 2, H * 0.35, 0, W / 2, H * 0.35, Math.hypot(W, H) * 0.6);
-    bg.addColorStop(0, '#56715a'); bg.addColorStop(0.55, '#34493a'); bg.addColorStop(1, '#1f2c24');
-    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    if (!this.backdrop.paint(ctx, W, H)) {
+      const bg = ctx.createRadialGradient(W / 2, H * 0.35, 0, W / 2, H * 0.35, Math.hypot(W, H) * 0.6);
+      bg.addColorStop(0, '#56715a'); bg.addColorStop(0.55, '#34493a'); bg.addColorStop(1, '#1f2c24');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    }
     ctx.drawImage(this.gl.domElement, 0, 0); ctx.drawImage(this.ui, 0, 0, W, H);
     if (!vignette) return c;
     const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.hypot(W, H) * 0.56);
@@ -1412,15 +1557,18 @@ export class Renderer {
     // sparkles on open water
     if (this.zoom > 0.55) {
       ctx.lineCap = 'round'; ctx.lineWidth = 1.2;
+      // (at golden hour more of them, in the low sun's colour: SPARKLE_GOLD)
+      const gold = this.waterGold || 0, from = 0.55 - SPARKLE_GOLD[0] * gold, sc = this.tod?.sunCol, k = SPARKLE_GOLD[1] * gold;
+      const mix = (c, s) => Math.round(255 * (c / 255 + ((s ?? c / 255) - c / 255) * k)), rgb = `${mix(235, sc?.r)},${mix(248, sc?.g)},${mix(248, sc?.b)}`;
       for (let z = bz0; z <= bz1; z++) for (let x = bx0; x <= bx1; x++) {
         const t = this.terrain.terrainAt(x, z);
         if (t !== T.POND && t !== T.CREEK && t !== T.RIVER) continue;
         const h = hash2(x, z, 99);
         const a = 0.5 + 0.5 * Math.sin(this.time * (1.2 + h) + h * 20);
-        if (a < 0.55) continue;
+        if (a < from) continue;
         const px = x + 0.2 + h * 0.6, pz = z + 0.2 + hash2(x, z, 98) * 0.6;
         const p = this.project(px, w.heightAt(clamp(px, -BORDER, w.w + BORDER - 0.01), clamp(pz, -BORDER, w.h + BORDER - 0.01)) * LEVEL + 0.04, pz);
-        ctx.strokeStyle = `rgba(235,248,248,${(a - 0.55) * 1.2})`;
+        ctx.strokeStyle = `rgba(${rgb},${Math.min(1, (a - from) * 1.2 * (1 + gold))})`;
         ctx.beginPath(); ctx.moveTo(p.x - 3 * this.zoom, p.y); ctx.lineTo(p.x + 3 * this.zoom, p.y); ctx.stroke();
       }
     }
@@ -1476,22 +1624,7 @@ export class Renderer {
       }
     }
 
-    // season tint and weather
-    const tint = game.catalog.definition.look.tint[game.season];
-    ctx.fillStyle = tint; ctx.fillRect(0, 0, this.vw, this.vh);
-    if (game.catalog.definition.savanna && game.month >= 3 && game.month <= 7) {
-      const gr = ctx.createLinearGradient(0, 0, 0, this.vh * 0.4);
-      gr.addColorStop(0, 'rgba(236,216,180,0.05)'); gr.addColorStop(1, 'rgba(236,216,180,0)');
-      ctx.fillStyle = gr; ctx.fillRect(0, 0, this.vw, this.vh);
-    }
-    // golden hour and dusk wash the whole view in their light, strongest toward the sky
-    const tod = this.tod;
-    if (tod && tod.sunAmt > 0.04) {
-      const c = tod.sunCol, rgb = `${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)}`;
-      const gr = ctx.createLinearGradient(0, 0, 0, this.vh);
-      gr.addColorStop(0, `rgba(${rgb},${(tod.sunAmt * 0.08).toFixed(3)})`); gr.addColorStop(1, `rgba(${rgb},${(tod.sunAmt * 0.015).toFixed(3)})`);
-      ctx.fillStyle = gr; ctx.fillRect(0, 0, this.vw, this.vh);
-    }
+    // weather (the season tint, dry glare and golden hour are the light's own now: WASH_*)
     const wp = this.weatherParticles, kind = game.weather;
     const want = this.weatherOn === false ? 0 : (kind === 'rain' ? 240 : kind === 'snow' ? 150 : 0) * (this.light ? 0.5 : 1);
     while (wp.length < want) wp.push({ x: Math.random() * this.vw, y: Math.random() * this.vh, s: 0.6 + Math.random() * 0.8 });
@@ -1640,12 +1773,7 @@ function drawCatchPuffs(r, ctx, game, dt, random) {
 const FIREFLY_HAB = new Set([H.MEADOW, H.MARSH, H.SHRUB, H.RIPARIAN, H.YOUNG_FOREST]);
 Renderer.prototype.drawNight = function (ctx, game, dt, bx0, bx1, bz0, bz1) {
   const n = this.night || 0, w = this.world, flies = this.flies || (this.flies = []);
-  // deepen the dusk a little so the small lights read
-  if (n > 0.02) {
-    const g = ctx.createRadialGradient(this.vw / 2, this.vh / 2, Math.min(this.vw, this.vh) * 0.2, this.vw / 2, this.vh / 2, Math.hypot(this.vw, this.vh) * 0.6);
-    g.addColorStop(0, `rgba(12,20,44,${(0.24 * n).toFixed(3)})`); g.addColorStop(1, `rgba(8,14,34,${(0.44 * n).toFixed(3)})`);
-    ctx.fillStyle = g; ctx.fillRect(0, 0, this.vw, this.vh);
-  }
+  // (the night's darker, bluer light is the light's own now: WASH_NIGHT)
   const flyOn = ((game.catalog.definition.id === 'pnw' || game.catalog.definition.id === 'atlanta') && (game.season === 1 || game.season === 2)) || game.catalog.definition.id === 'amazon' || (game.catalog.definition.id === 'chinandega' && (game.season === 1 || game.season === 2));
   const want = n > 0.05 && flyOn && this.zoom > 0.5 && game.weather !== 'rain' ? Math.round(90 * n * (this.fireflyBoost || 1) * (this.light ? 0.5 : 1)) : 0;
   for (let tries = 0; flies.length < want && tries < 12 * (this.fireflyBoost || 1); tries++) {

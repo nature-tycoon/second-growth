@@ -459,18 +459,18 @@ export default {
   look: {
     skyHaze: 0.45, // the clear-day sky at eye level: Southern summer humidity (0..1, see SKY_DEEP in scene.js)
     // humid Southern light: soft, green, a little hazy in summer
-    grade: { gain: [1.0, 1.01, 0.98], lift: [0.004, 0.004, 0.002], sat: 1.04, contrast: 1.06 },
-    pasture: ['#7cae4c', '#86b452', '#98a45a', '#b2a878'], // sod: green in spring and summer, dormant tan by winter
+    grade: { gain: [1.0, 1.01, 0.98], lift: [0.002, 0.002, 0.001], sat: 1.05, contrast: 1.12 },
+    pasture: ['#72a442', '#7cac45', '#899a50', '#aca066'], // sod: green in spring and summer, dormant tan by winter
     soil: [0.4, 0.29, 0.2], mud: [0.6, 0.33, 0.22],        // planting beds are mulched; raw red clay only where banks erode
     asphalt: true,                                          // paved streets, not dirt tracks
     picket: true,                                           // white picket fences
     lush: true,                                             // mature wildflower beds drawn thick and full
     water: { pond: [0.36, 0.46, 0.4, 0.85], creek: [0.4, 0.5, 0.44, 0.8], river: [0.44, 0.4, 0.3, 0.9], marsh: [0.4, 0.5, 0.36, 0.55] }, // the Yellow River runs red-brown with clay
     light: [
-      { sun: 0xfff6ea, sunI: 2.7, sky: 0xe4eef4, ground: 0x5a6a3a, hemiI: 1.2 },
-      { sun: 0xfff2e0, sunI: 2.85, sky: 0xe2ecf0, ground: 0x5a6a38, hemiI: 1.2 },
-      { sun: 0xffecd4, sunI: 2.6, sky: 0xe8eaee, ground: 0x66623e, hemiI: 1.15 },
-      { sun: 0xfff4ea, sunI: 2.3, sky: 0xe0e6ec, ground: 0x5e604a, hemiI: 1.18 },
+      { sun: 0xfff6ea, sunI: 2.86, sky: 0xe4eef4, ground: 0x46714d, hemiI: 1.12 },
+      { sun: 0xfff2e0, sunI: 3.02, sky: 0xe2ecf0, ground: 0x44714b, hemiI: 1.12 },
+      { sun: 0xffecd4, sunI: 2.76, sky: 0xe8eaee, ground: 0x4b6d4a, hemiI: 1.07 },
+      { sun: 0xfff4ea, sunI: 2.44, sky: 0xe0e6ec, ground: 0x526553, hemiI: 1.1 },
     ],
     ambience: {
       // bees and butterflies at the flowers (pollinators.js): the map's own monarch, swallowtail and bumblebee

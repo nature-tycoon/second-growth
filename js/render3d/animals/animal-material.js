@@ -18,6 +18,15 @@ const FAUNA_LIGHT = `
     float rim = pow( 1.0 - saturate( dot( geometryNormal, geometryViewDir ) ), 2.5 ) * saturate( dotNL + 0.5 ) * 0.55 * uFur;
     reflectedLight.directDiffuse += saturate( ( dotNL + wrap ) / ( 1.0 + wrap ) ) * light * BRDF_Lambert( material.diffuseColor );
     reflectedLight.directDiffuse += rim * light * BRDF_Lambert( mix( material.diffuseColor, vec3( 0.4 ), 0.3 ) );
+    // On the side turned from the sun, a faint rim of the sky's own colour (the sky lights the
+    // edge the eye looks across), so a brown body in green grass shows its outline at a glance.
+    // It needs no sunlight (it shows in shade too); fainter at eye level and close up (uSkyRim).
+    #if NUM_HEMI_LIGHTS > 0
+      // (from above: an edge turned to the sky catches it, a belly turned to the ground doesn't)
+      float skyUp = saturate( 0.25 + 0.75 * dot( geometryNormal, normalize( ( viewMatrix * vec4( 0.0, 1.0, 0.0, 0.0 ) ).xyz ) ) );
+      float skyEdge = pow( 1.0 - saturate( dot( geometryNormal, geometryViewDir ) ), 2.5 ) * ( 1.0 - saturate( dotNL + 0.35 ) ) * skyUp;
+      reflectedLight.directDiffuse += skyEdge * uSkyRim * hemisphereLights[ 0 ].skyColor * BRDF_Lambert( mix( material.diffuseColor, vec3( 0.55 ), 0.5 ) );
+    #endif
     if ( vShine > 0.5 ) {
       float eye = step( 1.5, vShine );
       vec3 halfway = normalize( directLight.direction + geometryViewDir );
@@ -369,6 +378,10 @@ const COAT_FN = {
   bars: 'coatBars', barred: 'coatBarred', mottled: 'coatMottled', duck: 'coatDuck', scutes: 'coatScutes', fish: 'coatFish', butterfly: 'coatButterfly', idol: 'coatIdol', caiman: 'coatCaiman',
 };
 
+// The sky rim's strength, one value for every animal (scene.js sets it by the view: full at play
+// zoom, fainter zoomed in and at eye level, where an animal is big enough to read without it).
+export const skyRim = { value: 2.4 };
+
 // ---------------------------------------------------------------- material with the animation shader
 export function faunaMaterial(motion) {
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
@@ -380,7 +393,7 @@ export function faunaMaterial(motion) {
     uHead: { value: motion.head ?? 0.9 }, uWave: { value: motion.wave }, uWaveK: { value: motion.waveK }, uWaveHead: { value: motion.waveHead }, uWaveLen: { value: motion.waveLen },
     uVerticalWave: { value: motion.verticalWave ?? 0 }, uWaveMin: { value: motion.waveMin ?? 0.25 }, uWavePow: { value: motion.wavePow ?? 1 }, uWaveRest: { value: motion.waveRest ?? .35 }, uTongue: { value: motion.tongue ?? 0 }, uBend: { value: motion.bend ?? 0 },
     uSlither: { value: motion.slither?.amp ?? 0 }, uSlitherLen: { value: motion.slither?.len ?? 1 }, uSlitherNose: { value: motion.slither?.nose ?? 0 }, uSlitherBody: { value: motion.slither?.body ?? 1 },
-    uFur: { value: motion.fur ?? 1 },
+    uFur: { value: motion.fur ?? 1 }, uSkyRim: skyRim,
     // (a bird afloat: the point on its waterline it turns about, actors-fly.js dabblePose)
     uFloatAt: { value: new THREE.Vector3(motion.center?.x ?? 0, motion.sink ?? 0, 0) },
   };
@@ -633,7 +646,7 @@ export function faunaMaterial(motion) {
         ${coats.map((c, k) => `if (k == ${k}) return ${COAT_FN[c.kind]}(vCoat.xyz, vCoatP, base, uCoatA[${k}], uCoatB[${k}], uCoatDark[${k}], uCoatMid[${k}]);`).join('\n        ')}
         return base;
       }\n` : '';
-    shader.fragmentShader = 'varying float vMeat; varying float vDry; varying float vLight; varying float vShine; varying float vUnder; uniform float uFur;\n' + coatHead + shader.fragmentShader
+    shader.fragmentShader = 'varying float vMeat; varying float vDry; varying float vLight; varying float vShine; varying float vUnder; uniform float uFur, uSkyRim;\n' + coatHead + shader.fragmentShader
       .replace('#include <lights_lambert_pars_fragment>', FAUNA_LIGHT)
       .replace('#include <color_fragment>', `#include <color_fragment>
       ${coats ? 'if (vCoat.w > 0.5) diffuseColor.rgb = mix(diffuseColor.rgb, faunaCoat(diffuseColor.rgb), clamp((vCoat.w - floor(vCoat.w + 0.5)) * 2.2 + 1.0, 0.0, 1.0)); // (a slot a little under its number fades the markings out: Model.add, coatFade)' : ''}

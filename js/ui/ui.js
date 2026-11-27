@@ -1,4 +1,5 @@
 import { meadowNote } from '../sim/beaver-ponds.js';
+import { weakGpu } from '../performance.js';
 import { wallowNote } from '../sim/wallows.js';
 import { dormancyStatus } from '../data/animal-dormancy.js';
 import { roostingNow } from '../data/animal-activity.js';
@@ -250,8 +251,9 @@ export class UI {
   applySettings() {
     this.game.invasives = settings.invasives; // (read by the plants: see updatePlants)
     if (settings.notifications === 'hidden') $('#toasts').replaceChildren();
-    // Menu blur is decorative; Fast detail keeps transparency without the filter.
-    document.body.classList.toggle('menu-effects-off', settings.quality === 'fast');
+    // Menu blur is decorative, and it blurs the moving 3D view again every frame: off on Fast and on
+    // any weak graphics chip (whatever its Detail), where the panels go solid paper (styles.css).
+    document.body.classList.toggle('menu-effects-off', settings.quality === 'fast' || weakGpu(this.renderer?.gpuName?.()));
     // the renderer asks for a lighter Detail level when this computer can't keep up, and a
     // sharper one again once it has had room for a while (see Renderer.autoQuality)
     this.renderer.onQuality ??= (quality, fps, reason, measured = {}) => {

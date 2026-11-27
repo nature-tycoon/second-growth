@@ -647,14 +647,46 @@ export class WildlifePopulation {
       if (st.pop > 0 || !(st.habitatK >= def.minK) || dormancySeason(game, def)) continue;
       // (prey here now, not last month's count: enough to feed some of one)
       let prey = 0;
-      for (const pk of preyFor(def, game) || []) if (game.catalog.animal[pk]) prey += this.state[game.catalog.animal[pk].index].pop;
+      const diet = preyFor(def, game) || [];
+      for (const pk of diet) if (game.catalog.animal[pk]) prey += this.state[game.catalog.animal[pk].index].pop;
       if (prey / preyPer(def, game) < 0.3) continue;
       if (this.agents.some(a => a.sp === def.index)) continue; // (one still leaving counts too)
       // (the wildlife stream, not game.rng: weather and fires draw from that one, decision 0035)
       if (simRandom() >= game.diff.arrivals / 20) continue;
       const n = this.agents.length;
-      if (this.immigrate(def, 1) && this.agents.length > n) this.agents[this.agents.length - 1].passUntil = game.day + 5 + Math.floor(simRandom() * 6);
+      const entry = this.entryNearPrey(def, diet);
+      if (!this.immigrate(def, 1, false, entry) || this.agents.length <= n) continue;
+      const a = this.agents[this.agents.length - 1];
+      a.passUntil = game.day + 5 + Math.floor(simRandom() * 6);
+      // It comes in on its rounds looking for a meal: hungry, and heading straight for where the
+      // prey is (a.trip), so it hunts in the days it is here, rather than arriving fed or wandering
+      // the edge and leaving before it has hunted.
+      a.hunger = Math.max(a.hunger, huntHunger(def));
+      if (entry) a.trip = entry.toward;
     }
+  }
+
+  // Where a passing hunter comes in: it knows its rounds, so it crosses onto the farm from its side
+  // at the open edge spot closest to prey here, not at a random spot that may be the far side it
+  // would never cross in a visit of days (it walks a few tiles a day). toward: that prey's tile,
+  // where it heads. null: no prey, or no open spot.
+  entryNearPrey(def, diet) {
+    const w = this.game.world, preySet = new Set(diet.map(k => this.game.catalog.animal[k]?.index));
+    const prey = this.agents.filter(o => preySet.has(o.sp) && !o.leaving && o.state !== 'dormant');
+    let best = null, bd = Infinity;
+    for (const edge of def.sources) {
+      if (edge === 'S') continue; // (from the south they come up from the river: immigrate)
+      const len = edge === 'N' ? w.w : w.h - 6;
+      for (let k = 0; k < len; k++) {
+        const x = edge === 'N' ? k : edge === 'E' ? w.w - 1 : 0, y = edge === 'N' ? 0 : k, i = w.idx(x, y);
+        if (!passable(w, i, def) || waterGapClosed(w, i)) continue;
+        for (const p of prey) {
+          const d = (x + 0.5 - p.x) ** 2 + (y + 0.5 - p.y) ** 2;
+          if (d < bd) { bd = d; best = { edge, at: k, toward: w.idx(Math.floor(p.x), Math.floor(p.y)) }; }
+        }
+      }
+    }
+    return best;
   }
 
   // At watch pace the animals' clock runs ahead of the calendar (lifePace: calendar days per animal

@@ -341,17 +341,17 @@ export default {
   },
   look: {
     skyHaze: 0.35, // the clear-day sky at eye level: humid lowland, with the volcano gas (0..1, see SKY_DEEP in scene.js)
-    grade: { gain: [1.01, 1.0, 0.98], lift: [0.004, 0.002, 0.0], sat: 1.06, contrast: 1.07 },
-    pasture: ['#a8a468', '#8aa452', '#8aa452', '#b0a46a'],
+    grade: { gain: [1.01, 1.0, 0.98], lift: [0.002, 0.001, 0], sat: 1.07, contrast: 1.12 },
+    pasture: ['#a1a159', '#7b9a48', '#7b9a48', '#ab9d58'],
     soil: [0.2, 0.17, 0.15], mud: [0.25, 0.22, 0.2],      // young volcanic ash soil: near-black
     sand: true,
     volcano: { x: 60, z: -13 }, borderTint: volcanoTint,                           // San Cristóbal's summit, off the north edge
     water: { pond: [0.36, 0.46, 0.42, 0.88], creek: [0.38, 0.5, 0.44, 0.8], river: [0.32, 0.46, 0.46, 0.9], marsh: [0.4, 0.5, 0.4, 0.55] },
     light: [
-      { sun: 0xfff2dc, sunI: 2.8, sky: 0xe4ecf2, ground: 0x6a6a42, hemiI: 1.18 },
-      { sun: 0xfff6e8, sunI: 2.6, sky: 0xe2ecf2, ground: 0x5a6a3a, hemiI: 1.22 },
-      { sun: 0xfff4e4, sunI: 2.6, sky: 0xe2eaf0, ground: 0x5a6a3a, hemiI: 1.2 },
-      { sun: 0xffeccc, sunI: 2.85, sky: 0xe8eaec, ground: 0x706a44, hemiI: 1.15 },
+      { sun: 0xfff2dc, sunI: 2.94, sky: 0xe4ecf2, ground: 0x507550, hemiI: 1.1 },
+      { sun: 0xfff6e8, sunI: 2.73, sky: 0xe2ecf2, ground: 0x46714d, hemiI: 1.13 },
+      { sun: 0xfff4e4, sunI: 2.73, sky: 0xe2eaf0, ground: 0x46714d, hemiI: 1.12 },
+      { sun: 0xffeccc, sunI: 2.99, sky: 0xe8eaec, ground: 0x527750, hemiI: 1.07 },
     ],
     ambience: {
       // bees and butterflies at the flowers (pollinators.js): a morpho (Morpho peleides), a sulphur, honeybees

@@ -73,6 +73,7 @@ const L = {
   sweepSpeed: 1,         // 5: a sweep up and back (to the start view): moves at most its own distance from what it looks at each second (the land slides by at a steady rate however high it is)
   sweepAccel: 1.5,       // 5: ...its acceleration at most 1.5 of that distance a second, a second
   sweepJerk: 8,          // 5: ...and no lurches
+  headMargin: .08,       // 7: in a close shot of an animal's head (plan: camera.frameHead), its whole head (skull, ears, antlers) inside the frame every frame, by 8% of the half-frame (Cole, s8: the buck's head was cut off). The head is measured from the model's head vertices, not the drawn pixels: about 0.1 of the half-frame off on the cougar, hence the room
   bodyGap: .1,           // 4: predator and prey never touch: the gap between their bodies (centres apart less half of each one's length) stays over 0.1 tiles (0.8 m)            // 6: the tracking lens fully on the key animal (focus.uFocusAmt) in every forest shot
 };
 
@@ -278,6 +279,20 @@ for (const layer of LAYERS) {
         row('6 cover', shot, `tracking lens on ${key}`, on.toFixed(2), `≥${L.lensOn}`, on >= L.lensOn);
       }
     }
+  }
+
+  // ---- 7 head in frame (a close shot of the key animal's head: the whole head, ears and antlers too)
+  if (layer.frameHead) {
+    const key = (SUBJECTS[shot] || [])[0];
+    let worst = { v: Infinity, t: null }, seen = 0, all = 0;
+    for (const f of frames) {
+      if (f.t < layer.from) continue; all++;
+      const b = f.animals[key]?.headBox; if (!b) continue; seen++;
+      const m = Math.min(1 - b.x1, b.x0 + 1, 1 - b.y1, b.y0 + 1); // (inside the frame by this much; negative: cut off)
+      if (m < worst.v) worst = { v: m, t: f.t, b };
+    }
+    row('7 head', shot, `${key}'s whole head in the frame`, seen ? `${(worst.v * 100).toFixed(1)}% inside` : 'not measured', `≥${L.headMargin * 100}%`, seen === all && worst.v >= L.headMargin,
+      worst.b ? `tightest at ${sec(worst.t)}: x ${worst.b.x0}…${worst.b.x1}, y ${worst.b.y0}…${worst.b.y1}` : `${seen}/${all} frames measured`);
   }
 
   // ---- 5 camera

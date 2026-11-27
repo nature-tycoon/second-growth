@@ -84,6 +84,20 @@ const morph = (p, x, y, col) => {
 const mixc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 const FLOOR_FERN = [0.32, 0.46, 0.22]; // (forest-floor ferns: see the floor in rebuild)
 const vary = (c, x, y, salt, amt = 0.08) => { const f = 1 + (hash2(x, y, salt) - 0.5) * amt * 2; return [c[0] * f, c[1] * f, c[2] * f]; };
+// Each tree crown its own shade of its species' green, so a mixed forest doesn't read as a
+// plantation: lighter or darker by up to `value`, and a few degrees warmer (yellower) or cooler
+// (bluer) by up to `hue`. The map's look sets how much (look.crownVary: rainforests most); conifers
+// vary less. An instance colour, so it reaches the far cards too (0042) at no cost per frame.
+// `sat` lifts the colour of what lives in the water (the reef's corals and sponges, which the sea's
+// blue-green otherwise greys out).
+const CROWN_VARY = { value: 0.085, hue: 0.03 };
+const saturate = (c, s) => { const l = c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11; return [l + (c[0] - l) * s, l + (c[1] - l) * s, l + (c[2] - l) * s].map(v => Math.max(0, v)); };
+const crownVary = (c, x, y, cv, conifer, aquatic) => {
+  const k = conifer ? 0.6 : 1;
+  const f = 1 + (hash2(x, y, 12) - 0.5) * cv.value * 2 * k, h = (hash2(x, y, 31) - 0.5) * cv.hue * 2 * k;
+  const v = [c[0] * f * (1 + h), c[1] * f, c[2] * f * (1 - h * 1.5)];
+  return aquatic && cv.sat ? saturate(v, cv.sat) : v;
+};
 
 export function leafColor(p, phase) {
   return paletteLeafColor(p, phase, p.mapId || 'pnw');
@@ -433,6 +447,7 @@ export class Flora {
     const x0 = -BORDER, y0 = -BORDER, x1 = w.w + BORDER, y1 = w.h + BORDER;
     const hAt = (x, y) => w.heightAt(x, y) * LEVEL;
     const seaY = game.catalog.definition.look.underwater ? game.catalog.definition.look.underwater.level * LEVEL : null;
+    const crownLook = game.catalog.definition.look.crownVary ?? CROWN_VARY; // (how much crowns vary: crownVary)
 
     // (only the changed regions' tiles, in the same order as a pass over the whole map)
     const size = this.chunkSize, all = [[x0, x1]], rows = dirty ? new Map() : null;
@@ -493,6 +508,9 @@ export class Flora {
         const n0 = titan ? 1 : lush ? (g < 0.65 ? 4 : 6) : g < 0.3 ? 4 : g < 0.65 ? (grassy ? 4 : 3) : (type === 'fern' || type === 'skunk' || type === 'tallforb' ? 3 : grassy ? 7 : 4); // a healthy sward fills its tile
         // meadow patches: thicker, taller and deeper green in some places, thinner and more golden in others
         const pt = meadowPatch(x + 0.5, y + 0.5), aquaticT = type === 'lily' || type === 'cattail' || type === 'tule';
+        // wildflowers bloom in drifts: thick in the lush patches, a few stragglers in the thin ones,
+        // about as many in all, so a meadow shows patches of colour rather than an even sprinkle
+        const drift = 0.35 + 1.6 * clamp((pt.lush - 0.3) / 0.4, 0, 1);
         // and a sward comes in clumps a couple of tiles across with thin, near-bare ground between
         // (clumpMask): a tile's tufts run from one to nearly twice the usual
         const mask = aquaticT || titan || lush ? 1 : clumpMask(x, y);
@@ -551,16 +569,16 @@ export class Flora {
           const py = type === 'lily' && inside && isWater(w.terrain[i]) ? (waterSurfaceY(w, px, pz) ?? hAt(px, pz)) + 0.01 : hAt(px, pz) + (tussock && k % 3 !== 2 ? 0.035 * (0.6 + 0.4 * g) : 0);
           const turn = hash2(x, y, 80 + k) * 6.28;
           pool.add(px, py, pz, sc, sc, sc, turn, bloomT === 'titanbloom' ? rgb(p.look.flower || '#6a1a2a').map(c => c * dim) : vary(col.map(c => c * dim), x, y, k));
-          if (blossoms) blossoms.add(px, py, pz, sc, sc, sc, turn, vary([dim, dim, dim], x, y, k, 0.035));
+          if (blossoms && hash2(x, y, 110 + k) < drift) blossoms.add(px, py, pz, sc, sc, sc, turn, vary([dim, dim, dim], x, y, k, 0.035));
           if (seedHeads && k % 2 === 0) seedHeads.add(px, py, pz, sc, sc, sc, turn, [dim, dim, dim]);
           if (grassHeads && (drawType === 'papyrus' || k % 2 === 0)) grassHeads.add(px, py, pz, sc, sc, sc, turn, [dim, dim, dim]);
           if (acc) acc.add(px, py, pz, sc, sc, sc, turn, vary(accCol.map(c => c * dim), x, y, 70 + k));
           // flowers, seed heads and spathes
           if (phase === 'bloom' && p.look.flower && !acc && !titan && !form) {
             const fc = rgb(p.look.flower);
-            if (type === 'tallforb') for (let f = 0; f < 3; f++) dots.add(px, py + (0.22 + f * 0.04) * sc, pz, 0.8, 1.3, 0.8, 0, fc);
+            if (type === 'tallforb') for (let f = 0; f < 3 && hash2(x, y, 110 + k) < drift; f++) dots.add(px, py + (0.22 + f * 0.04) * sc, pz, 0.8, 1.3, 0.8, 0, fc);
             else if (type === 'skunk') dots.add(px, py + 0.12, pz, 1.6, 2.6, 1.6, 0, fc);
-            else for (let f = 0; f < (lush ? 4 : 3); f++) { const ds = lush ? 1.15 : 0.9; dots.add(px + (hash2(x, y, 90 + k * 3 + f) - 0.5) * 0.14, py + 0.14 * sc + f * 0.02, pz + (hash2(x, y, 95 + k * 3 + f) - 0.5) * 0.14, ds, ds, ds, 0, fc); }
+            else for (let f = 0, nf = Math.round((lush ? 4 : 3) * drift); f < nf; f++) { const ds = lush ? 1.15 : 0.9; dots.add(px + (hash2(x, y, 90 + k * 3 + f) - 0.5) * 0.14, py + 0.14 * sc + f * 0.02, pz + (hash2(x, y, 95 + k * 3 + f) - 0.5) * 0.14, ds, ds, ds, 0, fc); }
           }
           // (lush: the gardens are left standing through fall and winter: dark cones and pale plumes, silvered by frost)
           if (lush && !form && (phase === 'fall' || phase === 'winter') && p.look.flower && k % 2 === 0) {
@@ -613,6 +631,7 @@ export class Flora {
           const type = p.look.type;
           const shape = shrubShape(p);
           let col = vary(morph(p, x, y, leafColor(p, phase)).map(c => c * dim), x, y, 8, 0.045);
+          if (p.aquatic && crownLook.sat) col = saturate(col, crownLook.sat); // (sponges, sea fans: as the corals)
           if (inside && w.bleach && p.bleach && w.bleach[i] > 0) col = mixc(col, BLEACHED, w.bleach[i]);
           const sseed = 200 + v * 31 + shape.length;
           this.pool(`shrub:${shape}:${v}`, () => G.shrub(shape, sseed), this.shrubs, { kind: 'shrub', far: G.FAR_SHRUBS.has(shape) ? () => G.shrub(shape, sseed, 3) : true }, () => G.shrub(shape, sseed, 1), () => G.shrub(shape, sseed, 2)).add(sx, sy, sz, sc, sc, sc, rot, col);
@@ -697,7 +716,7 @@ export class Flora {
           let leaf = morph(p, x, y, leafColor(p, phase));
           if (phase === 'fall') leaf = mixc(leaf, rgb(p.look.leaf), hash2(x, y, 11) * 0.35);
           if (inside && w.bleach && w.bleach[i] > 0) leaf = mixc(leaf, BLEACHED, w.bleach[i]); // (a coral bleaching in a marine heatwave)
-          const crownColor = vary(leaf.map(c => c * dim * grove.tint), x, y, 12, 0.045);
+          const crownColor = crownVary(leaf.map(c => c * dim * grove.tint), x, y, crownLook, p.conifer, p.aquatic);
           if (!fringeG && !p.aquatic) this.site(canopyKey, new CanopySite(shape.trunk, [tx, ty, tz, sx, sy, sz, rot], bark, canopyKey, p.id, [x, y], { geo: shape.crown, color: crownColor }));
           this.pools.get(`crown:${key}`).add(tx, ty, tz, sx, sy, sz, rot, crownColor);
           this.pools.get(`trunk:${key}`).add(tx, ty, tz, sx, sy, sz, rot, bark);

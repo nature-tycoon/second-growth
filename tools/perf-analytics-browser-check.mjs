@@ -43,6 +43,13 @@ try {
     // the frame cap and battery state, so a capped 29 fps doesn't read as slow; the release stays 'dev' locally
     assert.ok([30, 60].includes(result.event.props.target_fps), 'target_fps is the frame cap');
     assert.ok([true, false, null].includes(result.event.props.on_battery), 'on_battery is known or null');
+    // the render stage part by part (performance-review-2026-11-26.md), and the screen's refresh as measured
+    const P = result.event.props, parts = ['camera', 'ground', 'plants', 'overlay', 'impostors', 'animals', 'plant_view', 'shadows', 'effects', 'other'];
+    for (const k of parts) for (const field of [`draw_${k}_ms`, `draw_${k}_p95_ms`]) assert.ok(Number.isFinite(P[field]) && P[field] >= 0, `${field} is numeric`);
+    const sum = parts.reduce((a, k) => a + P[`draw_${k}_ms`], 0) + P.cpu_submit_ms;
+    assert.ok(sum <= P.cpu_render_ms * 1.1 + 0.6 && sum >= P.cpu_render_ms * 0.6 - 0.6, `the parts add up to about the render stage (${sum.toFixed(1)} of ${P.cpu_render_ms} ms)`);
+    assert.ok(P.refresh_hz === null || (P.refresh_hz >= 20 && P.refresh_hz <= 500), `refresh_hz is measured (${P.refresh_hz})`);
+    console.log(`  render ${P.cpu_render_ms} ms = ${parts.map(k => `${k} ${P[`draw_${k}_ms`]}`).join(', ')}, submit ${P.cpu_submit_ms}; refresh ${P.refresh_hz} Hz`);
     assert.equal(result.event.props.renderer_revision, 'dev', 'renderer_revision is the release, stamped only at deploy');
     assert.equal(result.overlay, diagnostic); assert.equal(result.probes, diagnostic, 'deeper probes stay opt-in');
     b.assertHealthy();

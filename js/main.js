@@ -1,5 +1,5 @@
 import { Game, PENDING_KEY } from './game.js';
-import { Renderer } from './render3d/scene.js';
+import { Renderer, LATE_START } from './render3d/scene.js';
 import { UI } from './ui/ui.js';
 import { Input } from './input.js';
 import { music } from './audio/music.js';
@@ -104,6 +104,9 @@ async function boot() {
     ui.intro = intro;
     const input = new Input(game, renderer, ui);
     renderer.resetView();
+    // (no intro film: open late in the afternoon, so the first minute runs into golden hour. The film
+    // ends on the renderer's own starting hour, todClock, and must keep it: intro-film-check)
+    if (!intro) renderer.setTimeOfDay(LATE_START);
     window.addEventListener('resize', () => {
       scrollTo(0, 0);
       if (innerWidth === renderer.vw && innerHeight === renderer.vh) return;
@@ -155,7 +158,9 @@ async function boot() {
     let onBattery = null; // (unknown: Safari and Firefox don't say)
     navigator.getBattery?.().then(b => { const upd = () => { onBattery = !b.charging; }; upd(); b.addEventListener('chargingchange', upd); }).catch(() => {});
     const targetFps = () => settings.fps === '60' ? 60 : settings.fps === '30' ? 30 : touch || onBattery ? 30 : 60;
-    renderer.frameCap = () => ({ target_fps: targetFps(), on_battery: onBattery });
+    let frame = null; // (the frame loop, made below)
+    // (refresh_hz: the screen's refresh as the frame loop measured it, which decides how often it draws for the cap)
+    renderer.frameCap = () => ({ target_fps: targetFps(), on_battery: onBattery, refresh_hz: frame?.pace().refreshHz ?? null });
     // (once ever each: the browser drawing without the graphics chip, and a slow spell on battery)
     const notices = new PerfNotices({
       settings, save: saveSettings, track, gpu: renderer.gpuName(), ua: navigator.userAgent, onBattery: () => onBattery,
@@ -166,7 +171,7 @@ async function boot() {
     const frameErrors = new Set();
     const diagnostics = new URLSearchParams(location.search).get('perf') === '1'
       ? new PerformanceOverlay(game, renderer) : null;
-    const frame = createFrameLoop({
+    frame = createFrameLoop({
       targetFps,
       onFrameStart: diagnostics ? () => diagnostics.begin() : null,
       onFrame: sample => { renderer.recordCpuFrame(sample); diagnostics?.record(sample); },
@@ -194,6 +199,7 @@ async function boot() {
       },
     });
     // (counted: a phone short of graphics memory drops the view, and nothing else would tell us how often)
+    renderer.pace = frame.pace; // (its frame interval decides which frames count as slow: Renderer.draw)
     renderer.onContextLost = () => {
       track('webgl_context_lost', { stage: loaded ? 'playing' : loadLabel, seconds: Math.round(performance.now() / 1000), quality: settings.quality, gpu: renderer.gpuName(), map: game.map });
       game.notify('Graphics were interrupted. The farm is waiting for the view to recover.', 'warn');

@@ -192,6 +192,8 @@ button, select { font-family: inherit; color: inherit; }
   --glass: rgba(248, 251, 242, 0.44);
   --glass-dense: rgba(248, 251, 242, 0.62); /* (panels full of text) */
   --glass-solid: rgba(244, 248, 236, 0.94); /* (nothing blurred behind it) */
+  /* (a paper grain for solid panels: soft fibres of the ink's green-grey, about 4% dark on average) */
+  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85 .55' numOctaves='3' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .22 0 0 0 0 .28 0 0 0 0 .2 0 0 0 1.6 -.62'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url(%23g)' opacity='.34'/%3E%3C/svg%3E");
   --glass-blur: blur(14px) saturate(1.4);
   --glass-edge: rgba(255, 255, 255, 0.6);
   --glass-shadow: 0 1px 2px rgba(17, 43, 24, 0.07), 0 12px 32px -10px rgba(17, 43, 24, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.75);
@@ -217,6 +219,14 @@ body.choosing-map .panel, body.choosing-map #joystick, body.choosing-map #btn-un
 body:has(#modal-root .modal-back) :is(.panel, #joystick, #btn-undo-float) { opacity: 0; visibility: hidden; }
 body.menu-effects-off .panel { background: var(--glass-solid); -webkit-backdrop-filter: none; backdrop-filter: none; }
 @media (pointer: coarse) { .panel { background: var(--glass-solid); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+/* Solid panels (Fast, weak graphics chips, touch screens) are paper rather than flat plastic: the
+   solid fill with a fine grain over it, one small tile drawn once (no work per frame). */
+body.menu-effects-off :is(#toolpanel, #infopanel, #quest, #legend) { background-color: var(--glass-solid); }
+body.menu-effects-off :is(.panel, .modal.glass-menu, #toolpanel, #infopanel, #quest, #legend) { background-image: var(--paper-grain); background-size: 128px; }
+@media (pointer: coarse) {
+  :is(#toolpanel, #infopanel, #quest, #legend) { background-color: var(--glass-solid); }
+  :is(.panel, #toolpanel, #infopanel, #quest, #legend) { background-image: var(--paper-grain); background-size: 128px; }
+}
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
   .panel, #toolpanel, #infopanel, #quest, #legend { background: #eef3e3; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: #55724c; }
 }
@@ -1350,6 +1360,8 @@ body.moment-on #joystick, body.moment-on #view-ctrls, body.moment-on #toolpanel,
   .er-row { grid-template-columns: 110px 1fr 84px; }
 }
 
+/* (Fast and weak graphics chips too, on a computer: ui.js menu-effects-off) */
+body.menu-effects-off :is(#watch .w-bar, #watch .w-expand, #watch .w-menu, #moment .mo-card, #photo-bar) { -webkit-backdrop-filter: none; backdrop-filter: none; }
 /* Touch screens: no frosted blur on the dark cards over the moving view either (like .panel): a
    phone's graphics chip blurs what's behind them again every frame. (Last, to win over each card's own rule.) */
 @media (pointer: coarse) {
