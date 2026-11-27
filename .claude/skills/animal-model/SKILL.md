@@ -1,6 +1,6 @@
 ---
 name: animal-model
-description: Reshape or add detail to an animal's 3D model so it looks like the real animal, step by step against real photos with Cole judging each step. Use when Cole says an animal looks off, fake or wrong, asks for a close-up detail pass on a species, or a new species needs a model. Not for colours of whole maps, lighting or animation timing.
+description: Reshape or add detail to an animal's 3D model so it looks as much like the real animal as the frame budget allows, step by step against real photos with Cole judging each step. Use when Cole says an animal looks off, fake or wrong, asks for a close-up detail pass on a species, or a new species needs a model. Not for colours of whole maps, lighting or animation timing.
 ---
 
 # Animal model: fit it to the real animal, one step at a time
@@ -44,8 +44,10 @@ neck). Measure to find the biggest mismatch, then judge by eye against the photo
 
 ## Cole's taste (from the cougar; holds for every animal)
 
-- **Stylized, not realistic.** Bought or sculpted photoreal models are "too realistic". Stay on the
-  procedural builders and the shared animal material: shape plus soft vertex-colour markings.
+- **As realistic as possible, cheaply** (Cole, 2026-11-26). The goal is the real animal, limited only by
+  the frame budget, not a stylized look. That's why the work stays on the procedural builders and the
+  shared animal material (shape, then soft vertex-colour markings): it costs almost nothing per frame.
+  Bought high-detail models were turned down; don't offer them as the way to realism.
 - **Nothing stuck on.** Parts that read as separate objects look fake: ball noses, puffy ellipsoid pads,
   big white chin lobes, sausage brows, rods floating off the face. Every added part is sized small and
   sunk into the surface so only a gentle bulge shows. If a mark can be painted, paint it.
@@ -80,6 +82,18 @@ neck). Measure to find the biggest mismatch, then judge by eye against the photo
 - Before/after pictures and shading cost: `nice -n 15 node tools/animal-shots.mjs <map:key> <dir> <tag>
   [compare species]`. Take "before" pictures before the first change (or from a detached worktree of
   the base commit with `CLOSEUP_ROOT`).
+
+## Budget (realism has to fit in it)
+
+- No new shader program: no new `pixelCoat` kind or material for one species (`first-frame-profile`).
+- Triangles by how many are on screen at once: a rare animal (one or two on a map: cougar, bear) may
+  carry about 20k in its usual model and 50k in the close-up (cougar: 19.1k / 46.4k); a herd or flock
+  animal stays near its current count, since dozens draw at once. `perf-guard-check` must stay within
+  10% (or the rise is checked against the budget and the baseline refreshed with the change).
+- Detail goes where the camera sees it up close: the close-up model (drawn above `CLOSE_PIXELS`) and the
+  face first; `detail: true` only where markings need the vertices.
+- Shading cost: `tools/animal-shots.mjs` bench beside a similar species, same within noise.
+- No extra animated parts (processor cost per animal per frame).
 
 ## Checks before the commit
 
