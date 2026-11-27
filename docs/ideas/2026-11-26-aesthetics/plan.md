@@ -30,6 +30,6 @@ Assumptions (no blocking questions; taste picks are logged as open questions for
 - [x] s3
 - [x] s4
 - [x] s5
-- [ ] s6 (cougar)
+- [x] s6 (cougar)
 - [ ] s7 (film)
 - [ ] catalog (`open.md`), then one PR
