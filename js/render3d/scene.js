@@ -93,6 +93,26 @@ const LAND_MELT = 7; // tiles over which the land's far edge melts into the haze
 // the melt's colour: how far it leans from the haze toward the ground's bounce light (hemi.groundColor
 // x LIFT), and toward the light's own colour in proportion to the hour's warmth (tod.sunAmt)
 const MELT_LAND = 0.25, MELT_LAND_LIFT = 1.5, MELT_SUN = 0.8, MELT_NIGHT = 0.45;
+// The washes the 2D layer once painted over the whole view, now the light's own tint (haze.uLightTint,
+// atmosphere.js): each is the old wash's colour and strength over a mid-tone, turned into a multiplier
+// on the diffuse light (washInto). Season: look.tint; the savanna's dry-season glare; the golden hour
+// in the sun's colour; and the night, a darker, bluer light (was a navy veil). Tune here.
+// water at golden hour: how much sharper (shininess) and stronger (specular) its highlights get; a
+// low sun ahead already turns a creek to a bright sheet, so sharper breaks it into glints rather than
+// brighter. And the 2D sparkles on open water (drawEffects): more of them, in the sun's colour,
+// which shows whichever way the view faces.
+const WATER_GLINT = [1.5, 0.15], SPARKLE_GOLD = [0.2, 0.7];
+// (WASH_SEASON scales the map's look.tint and the glare: as light they read stronger than as a wash)
+const WASH_SEASON = 0.6, WASH_GLARE = [236 / 255, 216 / 255, 180 / 255, 0.015], WASH_GOLD = 0.045;
+const WASH_NIGHT = [12 / 255, 20 / 255, 44 / 255, 0.12], WASH_NIGHT_REF = 0.35;
+// how a wash of colour c (sRGB 0..1) at strength a would shift a surface of brightness ref, as a
+// multiplier on its linear light, folded into t (a Color)
+function washInto(t, r, g, b, a, ref = 0.5) {
+  if (!(a > 0)) return t;
+  const m = c => Math.pow(Math.max(0.05, 1 - a + a * c / ref), 2.2);
+  t.r *= m(r); t.g *= m(g); t.b *= m(b);
+  return t;
+}
 // The eye-level sky's colours (linear), before the time of day and the weather tint and dim them:
 // overhead and at the horizon on a clear day, and the grey of an overcast and a stormy sky.
 const SKY_TOP = new THREE.Color(0.15, 0.34, 0.76), SKY_LOW = new THREE.Color(0.6, 0.71, 0.84);
@@ -1262,6 +1282,21 @@ export class Renderer {
     const hazeTo = balance.haze * (humid ? 1.25 : 1) * (this.light ? .75 : 1) * (0.6 + .4 * Math.min(1, tod.sun));
     haze.uHazeAmount.value += (hazeTo - haze.uHazeAmount.value) * k;
     haze.uHazeColor.value.copy(this.hemi.color).multiplyScalar(.5 * (0.65 + .35 * Math.min(1, Math.max(tod.sun, 1 - this.night)))); // (a veil as light as the sky until nightfall)
+    // the season, the dry glare, the golden hour and the night as a tint on the light (WASH_*)
+    const wash = haze.uLightTint.value;
+    {
+      const to = (this.washTo || (this.washTo = new THREE.Color())).setRGB(1, 1, 1);
+      if (!this.eyeOn) {
+        const def = game.catalog.definition, key = def.look.tint[game.season];
+        if (key !== this.washKey) { this.washKey = key; this.washTint = parseRgba(key); }
+        const st = this.washTint, sc = tod.sunCol;
+        washInto(to, st[0], st[1], st[2], st[3] * WASH_SEASON);
+        if (def.savanna && game.month >= 3 && game.month <= 7) washInto(to, WASH_GLARE[0], WASH_GLARE[1], WASH_GLARE[2], WASH_GLARE[3] * WASH_SEASON);
+        washInto(to, sc.r, sc.g, sc.b, WASH_GOLD * tod.sunAmt);
+        washInto(to, WASH_NIGHT[0], WASH_NIGHT[1], WASH_NIGHT[2], WASH_NIGHT[3] * this.night, WASH_NIGHT_REF);
+      }
+      if (this.eyeOn) wash.setRGB(1, 1, 1); else wash.lerp(to, k); // (eye level never had the washes: off at once)
+    }
     // the far edge of the land melts into that haze, and the page behind the canvas is the haze as
     // it lands on screen, so the two meet without a seam (atmosphere.js uMelt, backdrop.js)
     {
@@ -1279,6 +1314,8 @@ export class Renderer {
         melt.lerp(warm, MELT_SUN * tod.sunAmt);
       }
       melt.multiplyScalar(1 - MELT_NIGHT * this.night); // (the night sky darker than the moonlit land)
+      // (the light's wash once, on both: the old 2D washes covered the land and the backdrop alike)
+      melt.multiply(wash); haze.uHazeColor.value.multiply(wash);
       if (!this.eyeOn) {
         const exposure = this.gl.toneMappingExposure, under = this.backUnder || (this.backUnder = new THREE.Color());
         screenColor(melt, this.grade, exposure, this.backStops[0]);
@@ -1320,6 +1357,18 @@ export class Renderer {
     this.terrain.rain.value += ((raining ? 1 : 0) - this.terrain.rain.value) * Math.min(1, dt * 1.5);
     this.terrain.tiles.wet.value += ((raining ? 1 : 0) - this.terrain.tiles.wet.value) * Math.min(1, dt * (raining ? 0.4 : 0.3)); // dries within a few seconds
     this.terrain.sky.value.copy(this.hemi.color);
+    // a low, warm sun flashes off the water: sharper and stronger highlights toward golden hour and
+    // sunset (and dawn), none of it under the midday sun or the blue moonlight (WATER_GLINT)
+    {
+      const gold = this.waterGold = this.eyeOn ? 0 : clamp(tod.sunAmt * (tod.sunCol.r - tod.sunCol.b) * 2, 0, 1);
+      for (let i = 0; i < 2; i++) {
+        const m = i ? this.terrain.floodMat : this.terrain.waterMat;
+        if (!m) continue;
+        m.userData.spec0 ??= m.specular.clone(); m.userData.shine0 ??= m.shininess;
+        m.shininess = m.userData.shine0 * (1 + WATER_GLINT[0] * gold);
+        m.specular.copy(m.userData.spec0).multiplyScalar(1 + WATER_GLINT[1] * gold);
+      }
+    }
     const r = this.right();
     this.actors.clean = !!ui.clean;
     this.actors.nightOut = this.nightOut;
@@ -1485,15 +1534,18 @@ export class Renderer {
     // sparkles on open water
     if (this.zoom > 0.55) {
       ctx.lineCap = 'round'; ctx.lineWidth = 1.2;
+      // (at golden hour more of them, in the low sun's colour: SPARKLE_GOLD)
+      const gold = this.waterGold || 0, from = 0.55 - SPARKLE_GOLD[0] * gold, sc = this.tod?.sunCol, k = SPARKLE_GOLD[1] * gold;
+      const mix = (c, s) => Math.round(255 * (c / 255 + ((s ?? c / 255) - c / 255) * k)), rgb = `${mix(235, sc?.r)},${mix(248, sc?.g)},${mix(248, sc?.b)}`;
       for (let z = bz0; z <= bz1; z++) for (let x = bx0; x <= bx1; x++) {
         const t = this.terrain.terrainAt(x, z);
         if (t !== T.POND && t !== T.CREEK && t !== T.RIVER) continue;
         const h = hash2(x, z, 99);
         const a = 0.5 + 0.5 * Math.sin(this.time * (1.2 + h) + h * 20);
-        if (a < 0.55) continue;
+        if (a < from) continue;
         const px = x + 0.2 + h * 0.6, pz = z + 0.2 + hash2(x, z, 98) * 0.6;
         const p = this.project(px, w.heightAt(clamp(px, -BORDER, w.w + BORDER - 0.01), clamp(pz, -BORDER, w.h + BORDER - 0.01)) * LEVEL + 0.04, pz);
-        ctx.strokeStyle = `rgba(235,248,248,${(a - 0.55) * 1.2})`;
+        ctx.strokeStyle = `rgba(${rgb},${Math.min(1, (a - from) * 1.2 * (1 + gold))})`;
         ctx.beginPath(); ctx.moveTo(p.x - 3 * this.zoom, p.y); ctx.lineTo(p.x + 3 * this.zoom, p.y); ctx.stroke();
       }
     }
@@ -1549,22 +1601,7 @@ export class Renderer {
       }
     }
 
-    // season tint and weather
-    const tint = game.catalog.definition.look.tint[game.season];
-    ctx.fillStyle = tint; ctx.fillRect(0, 0, this.vw, this.vh);
-    if (game.catalog.definition.savanna && game.month >= 3 && game.month <= 7) {
-      const gr = ctx.createLinearGradient(0, 0, 0, this.vh * 0.4);
-      gr.addColorStop(0, 'rgba(236,216,180,0.05)'); gr.addColorStop(1, 'rgba(236,216,180,0)');
-      ctx.fillStyle = gr; ctx.fillRect(0, 0, this.vw, this.vh);
-    }
-    // golden hour and dusk wash the whole view in their light, strongest toward the sky
-    const tod = this.tod;
-    if (tod && tod.sunAmt > 0.04) {
-      const c = tod.sunCol, rgb = `${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)}`;
-      const gr = ctx.createLinearGradient(0, 0, 0, this.vh);
-      gr.addColorStop(0, `rgba(${rgb},${(tod.sunAmt * 0.08).toFixed(3)})`); gr.addColorStop(1, `rgba(${rgb},${(tod.sunAmt * 0.015).toFixed(3)})`);
-      ctx.fillStyle = gr; ctx.fillRect(0, 0, this.vw, this.vh);
-    }
+    // weather (the season tint, dry glare and golden hour are the light's own now: WASH_*)
     const wp = this.weatherParticles, kind = game.weather;
     const want = this.weatherOn === false ? 0 : (kind === 'rain' ? 240 : kind === 'snow' ? 150 : 0) * (this.light ? 0.5 : 1);
     while (wp.length < want) wp.push({ x: Math.random() * this.vw, y: Math.random() * this.vh, s: 0.6 + Math.random() * 0.8 });
@@ -1713,12 +1750,7 @@ function drawCatchPuffs(r, ctx, game, dt, random) {
 const FIREFLY_HAB = new Set([H.MEADOW, H.MARSH, H.SHRUB, H.RIPARIAN, H.YOUNG_FOREST]);
 Renderer.prototype.drawNight = function (ctx, game, dt, bx0, bx1, bz0, bz1) {
   const n = this.night || 0, w = this.world, flies = this.flies || (this.flies = []);
-  // deepen the dusk a little so the small lights read
-  if (n > 0.02) {
-    const g = ctx.createRadialGradient(this.vw / 2, this.vh / 2, Math.min(this.vw, this.vh) * 0.2, this.vw / 2, this.vh / 2, Math.hypot(this.vw, this.vh) * 0.6);
-    g.addColorStop(0, `rgba(12,20,44,${(0.24 * n).toFixed(3)})`); g.addColorStop(1, `rgba(8,14,34,${(0.44 * n).toFixed(3)})`);
-    ctx.fillStyle = g; ctx.fillRect(0, 0, this.vw, this.vh);
-  }
+  // (the night's darker, bluer light is the light's own now: WASH_NIGHT)
   const flyOn = ((game.catalog.definition.id === 'pnw' || game.catalog.definition.id === 'atlanta') && (game.season === 1 || game.season === 2)) || game.catalog.definition.id === 'amazon' || (game.catalog.definition.id === 'chinandega' && (game.season === 1 || game.season === 2));
   const want = n > 0.05 && flyOn && this.zoom > 0.5 && game.weather !== 'rain' ? Math.round(90 * n * (this.fireflyBoost || 1) * (this.light ? 0.5 : 1)) : 0;
   for (let tries = 0; flies.length < want && tries < 12 * (this.fireflyBoost || 1); tries++) {

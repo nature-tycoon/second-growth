@@ -10,6 +10,7 @@
 // Spots are worked out once per tree shape, shared by every tree drawn with it.
 import * as THREE from 'three';
 import { treeLevel } from './tree-stature.js';
+import { withClouds } from './atmosphere.js';
 
 const spotsByShape = new WeakMap();
 const leafMat = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
@@ -97,7 +98,7 @@ export class PerchBough {
   constructor(scene) {
     const geo = new THREE.CylinderGeometry(.45, 1, 1, 7, 1);
     geo.translate(0, .5, 0); // (from its base at the trunk, up its axis to the tip)
-    this.mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0x5a4634 }));
+    this.mesh = new THREE.Mesh(geo, withClouds(new THREE.MeshLambertMaterial({ color: 0x5a4634 }))) // (lit like the land round it);
     this.mesh.visible = false; this.mesh.castShadow = true; this.mesh.receiveShadow = true;
     scene?.add(this.mesh);
     this.used = false;

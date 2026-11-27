@@ -27,7 +27,7 @@ Assumptions (no blocking questions; taste picks are logged as open questions for
 
 - [x] s2
 - [x] s3
-- [ ] s4
+- [x] s4
 - [ ] s5
 - [ ] s6
 - [ ] catalog (`open.md`), then one PR

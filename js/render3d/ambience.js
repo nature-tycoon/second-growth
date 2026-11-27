@@ -161,7 +161,8 @@ export class Ambience {
 
     // vignette
     if (this.vignette) {
-      ctx.globalAlpha = game.weather === 'rain' || game.weather === 'snow' ? 1 : 0.8;
+      // (full at night in the usual view: the old night veil was darker toward the edges)
+      ctx.globalAlpha = game.weather === 'rain' || game.weather === 'snow' ? 1 : 0.8 + 0.2 * (R.eyeOn ? 0 : R.night || 0);
       ctx.drawImage(this.vignette, 0, 0, vw, vh);
       ctx.globalAlpha = 1;
     }

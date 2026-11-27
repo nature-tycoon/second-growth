@@ -53,9 +53,13 @@ try {
     for (let i = 0; i < 4; i++) r.draw(g, ui.state, 0.05);
     if (!r.eyeOn) { r.setEyeLevel(null); return null; }
     r.draw(g, ui.state, 0.05);
-    const melt = haze.uMelt.value; r.setEyeLevel(null); r.draw(g, ui.state, 0.05);
-    return { melt, back: haze.uMelt.value };
+    const melt = haze.uMelt.value, t = haze.uLightTint.value, tint = [t.r, t.g, t.b];
+    r.setEyeLevel(null); r.draw(g, ui.state, 0.05);
+    return { melt, tint, back: haze.uMelt.value };
   })()`);
-  if (eye) { assert.equal(eye.melt, 0, 'no melt at eye level'); assert.ok(eye.back > 0, 'the melt returns with the usual view'); console.log('PASS eye level: melt off, back on leaving'); } else console.log('SKIP eye level: no animal to ride along with');
+  if (eye) {
+    // (the light's wash, season, golden hour and night, is the usual view's alone: off at once at eye level)
+    assert.ok(eye.tint.every(v => v === 1), `no light tint at eye level, even from night (${eye.tint.map(v => v.toFixed(3))})`);
+    assert.equal(eye.melt, 0, 'no melt at eye level'); assert.ok(eye.back > 0, 'the melt returns with the usual view'); console.log('PASS eye level: melt off, back on leaving'); } else console.log('SKIP eye level: no animal to ride along with');
   b.assertHealthy();
 } finally { await b.close(); }

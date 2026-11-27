@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/BufferGeometryUtils.js';
 import { clamp } from '../config.js';
 import { mulberry32 } from '../rng.js';
+import { withClouds } from './atmosphere.js';
 
 // ---------------------------------------------------------------- light bone primitives
 // Every part is indexed and coloured, with no welding: a skeleton is a few thousand shared
@@ -439,7 +440,7 @@ function remainsMaterial() {
       .replace('#include <color_vertex>', '#include <color_vertex>\n        if (aBone.w > 5.5) vColor.rgb = color.rgb;');
   };
   mat.customProgramCacheKey = () => 'carcass-remains';
-  return mat;
+  return withClouds(mat); // (the light's tint at night and dusk, and the far edge's melt, like everything else)
 }
 
 export class Remains {

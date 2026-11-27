@@ -20,6 +20,12 @@
   minute runs into golden hour; the film's first visit keeps the renderer's own start (`todClock`,
   0.45), which `intro-film-check` holds to the film's last frame.
 - No new shader programs (the melt is in the shared patch); check `node tools/first-frame-profile.mjs`.
+- The season tint, the savanna's dry glare, the golden hour and the night are light, not 2D washes
+  (2026-11-26, aesthetics s4): one shared multiplier on the diffuse light, `haze.uLightTint` in
+  `withClouds` (specular untouched, so water keeps its sparkle at night), computed by `washInto` from
+  `WASH_*` in scene.js, (1, 1, 1) at eye level. It is multiplied into the melt and haze colours once,
+  before `screenColor`, so the backdrop still matches. Never paint a full-screen wash on the 2D layer
+  again; a lit material outside `withClouds` (the reef's sea surface, `sea.js`) applies the tint itself.
 
 ## History
 
@@ -31,3 +37,8 @@ backdrop had a bluer top band; it outlined the land's far corner, so the top is 
 alone read cold and foggy at golden hour, hence the lean toward the ground and the sun. Starting every
 session in late afternoon would have meant re-filming the intro (its last frame must match the start
 hour), so the late start applies only when no film plays.
+
+2026-11-26, aesthetics session 4: the washes moved into the light (rule above). The old washes greyed
+highlights and lifted the shadows (a translucent fill); as a multiplier on the light the medians match
+the old pictures and only the highlights and shadows separate (`docs/ideas/2026-11-26-aesthetics/s4/`).
+`release-scenes` never drew the 2D layer, so `value-capture --fx` puts it back for a fair comparison.

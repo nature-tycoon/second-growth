@@ -123,9 +123,11 @@ export class SeaSurface {
     u.uT.value = time;
     u.uSun.value.copy(sun.position).sub(sun.target.position).normalize();
     u.uView.value.copy(viewDir).normalize();
-    u.uSky.value.copy(hemi.color);
+    // (the light's wash, haze.uLightTint, reaches the sea's own colours too: not its glint)
+    const wash = haze.uLightTint.value;
+    u.uSky.value.copy(hemi.color).multiply(wash);
     const l = Math.min(1.3, hemi.intensity * 0.5 + sun.intensity * 0.15);
-    u.uLight.value.setRGB(l, l, l);
+    u.uLight.value.setRGB(l, l, l).multiply(wash);
     u.uGlint.value = Math.min(1, sun.intensity / 2.2);
     u.uEye.value = eye ? 1 : 0;
     // at eye level the surface runs on past the edge of the map, out into the haze, rather than
@@ -136,6 +138,6 @@ export class SeaSurface {
     // the weather closes in (fog.far is 34 on a clear day, 31 in cloud, 22 in rain: scene.js)
     const o = u.uFogOut.value, lum = o.r * 0.3 + o.g * 0.6 + o.b * 0.1, clearAir = Math.min(1, Math.max(0, (fog.far - 22) / 12));
     u.uSeaFar.value.setRGB(SEA_FAR[0] * lum, SEA_FAR[1] * lum, SEA_FAR[2] * lum).lerp(o, 1 - clearAir * 0.85);
-    const sl = sea.uSeaLight.value; sl[0] = hemi.color.r * l; sl[1] = hemi.color.g * l; sl[2] = hemi.color.b * l;
+    const sl = sea.uSeaLight.value; sl[0] = hemi.color.r * l * wash.r; sl[1] = hemi.color.g * l * wash.g; sl[2] = hemi.color.b * l * wash.b;
   }
 }

@@ -18,6 +18,12 @@ export const haze = {
   uLand: { value: new Vector4(0, 0, 1, 1) },
   uMelt: { value: 0 },
   uMeltColor: { value: new Color() }, // (the haze nudged toward the land's own tone: scene.js)
+  // The season's tint, the savanna's dry glare, the golden hour's warmth and the night's darker,
+  // bluer light, as one multiplier on every lit material's diffuse light (scene.js WASH_*). They
+  // used to be washes painted over the whole picture on the 2D layer, which greyed the highlights;
+  // as light, highlights stay bright and the water's sparkle (specular) keeps through the night.
+  // (1, 1, 1) at eye level, which never had the washes. The haze and melt colours carry it too.
+  uLightTint: { value: new Color(1, 1, 1) },
 };
 
 // How far into the haze a point near the far edge has melted (0..1), in JS for checks: the same
@@ -85,7 +91,7 @@ const CLOUD_GLSL = `
   uniform vec3 uSeaShallow, uSeaDeep, uSeaLight;
   uniform vec2 uHazeOrigin, uHazeDir;
   uniform float uHazeSpan, uHazeAmount;
-  uniform vec3 uHazeColor;
+  uniform vec3 uHazeColor, uLightTint;
   ${MELT_GLSL}
   varying vec2 vCloudXZ;
   varying float vSeaY;
@@ -121,6 +127,8 @@ export function withClouds(mat) {
       clW = modelMatrix * clW;
       vCloudXZ = clW.xz; vSeaY = clW.y;`);
     shader.fragmentShader = CLOUD_GLSL + shader.fragmentShader.replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+      reflectedLight.directDiffuse *= uLightTint;
+      reflectedLight.indirectDiffuse *= uLightTint;
       if (uCloudAmt > 0.001) {
         float clS = 1.0 - uCloudAmt * cloudShade(vCloudXZ);
         reflectedLight.directDiffuse *= clS;
