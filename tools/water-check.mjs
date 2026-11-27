@@ -132,17 +132,17 @@ check('Floodwater clouds out over the river it rose from instead of stopping at 
       const x = a.position.getX(v), z = a.position.getZ(v), y = a.position.getY(v), al = a.color.getW(v), key = x + ',' + z;
       // one value per corner, so neighbouring tiles share an edge with no step in height or opacity
       if (at.has(key)) assert.deepEqual(at.get(key), [y, al], `${map} corner ${key}`); else at.set(key, [y, al]);
-      const k = ((z - t.Y0) * (t.TW + 1) + x - t.X0) * 2;
-      if (s[k + 1]) assert.ok(y >= s[k] - 1e-6, `${map}: floodwater at ${key} sits on, not under, the river`);
+      const k = ((z - t.Y0) * (t.TW + 1) + x - t.X0) * 2; // (corners: a tile's centre vertex is its corners' mean)
+      if (Number.isInteger(x) && Number.isInteger(z) && s[k + 1]) assert.ok(y >= s[k] - 1e-6, `${map}: floodwater at ${key} sits on, not under, the river`);
       const water = [[-1, -1], [0, -1], [-1, 0], [0, 0]].every(([dx, dy]) => isWater(t.terrainAt(x + dx, z + dy)));
       if (water && al > 0) overWater++;
     }
     assert.ok(overWater > 0, `${map}: some silt reaches out over the river`);
-    // at the far edge of its reach it has thinned to nothing
+    // at the far edge of its reach it has thinned to nothing (tiles counted whole: a tile's centre vertex sits at .5)
     for (const [key, [, al]] of at) {
       const [x, z] = key.split(',').map(Number);
       let near = Infinity;
-      for (let y = z - 5; y <= z + 5; y++) for (let xx = x - 5; xx <= x + 5; xx++) if (w.inb(xx, y) && w.flood[w.idx(xx, y)]) near = Math.min(near, Math.hypot(xx + .5 - x, y + .5 - z));
+      for (let y = Math.floor(z) - 5; y <= z + 5; y++) for (let xx = Math.floor(x) - 5; xx <= x + 5; xx++) if (w.inb(xx, y) && w.flood[w.idx(xx, y)]) near = Math.min(near, Math.hypot(xx + .5 - x, y + .5 - z));
       if (near >= 3.5) assert.equal(al, 0, `${map}: floodwater at ${key} fades out`);
     }
     dispose(t);

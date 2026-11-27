@@ -122,7 +122,9 @@ export class Terrain {
     this.rain = { value: 0 }; this.sky = { value: new THREE.Color(0.8, 0.86, 0.9) };
     this.waterMat = withClouds(waterLook(waves(new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 1, shininess: 140, specular: 0xb4ccd8, depthWrite: false }), this.time, 1), this.time, this.noise, this.rain, this.sky));
     // floodwater uses the same living water as ponds and rivers (silty, running downhill: see buildFlood)
+    // (FLOOD: one even muddy sheet with a soft edge, not the river's depth tint and silt plume: terrain-materials.js)
     this.floodMat = withClouds(waterLook(waves(new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 1, shininess: 110, specular: 0x9aaab0, depthWrite: false }), this.time, 0.45), this.time, this.noise, this.rain, this.sky));
+    this.floodMat.defines = { FLOOD: '' };
     // falling water (waterfalls, dam spills) and the wet rock ledge a fall pours off: see buildFalls
     this.viewH = { value: 800 }; // (the view's height in CSS pixels: scene.js sets it each frame, for the mist's fade)
     this.fallMat = withClouds(fallLook(new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide }), this.time, this.noise, this.viewH));
@@ -840,7 +842,11 @@ export class Terrain {
   // Floodwater: a shallow, silty sheet over the flooded land in the living-water look. It follows
   // the ground rather than lying level (a flood spreads over the floodplain's slopes), a little
   // deeper where it covers a whole stretch, and dips under the ground at its edges so the
-  // waterline follows the land's contours with foam where it meets it, instead of tile squares.
+  // waterline follows the land's contours instead of tile squares. Its depth at a corner comes from
+  // how much of the ground within a couple of tiles is under water, so the depth, and the waterline
+  // where it crosses zero, are smooth and rounded; a corner touching dry ground is always under it,
+  // so the waterline lies inside the flooded tiles (it was cut off along their edges). The shader
+  // (FLOOD in waterLook) draws it one even colour and thins it to nothing at that waterline.
   // It runs downhill, carrying the drifting silt and streaks of the water shader with it.
   // Over the river or creek it rose from it carries on at that water's surface for a few tiles,
   // thinning with distance from the flooded ground, so the silt clouds out into the channel
@@ -869,13 +875,24 @@ export class Terrain {
     // how far a corner is from the flooded ground: the nearest flooded tile's centre
     const reach = (vx, vy) => {
       let best = Infinity;
-      for (let y = vy - R - 1; y <= vy + R; y++) for (let x = vx - R - 1; x <= vx + R; x++)
+      for (let y = Math.floor(vy) - R - 1; y <= vy + R; y++) for (let x = Math.floor(vx) - R - 1; x <= vx + R; x++)
         if (flooded(x, y)) best = Math.min(best, Math.hypot(x + 0.5 - vx, y + 0.5 - vy));
       return best;
     };
-    // how much of the land around a corner is under water (flooded, or the river it rose from)
-    const wetTile = (x, y) => flooded(x, y) || water(x, y);
+    // how much of the land around a corner is under water (flooded, or the river it rose from):
+    // the four tiles touching it, and a smooth share of those within FR tiles (nearer ones weigh more)
+    const wetK = new Map(); // (worked out once a tile: share and cover ask each many times)
+    const wetTile = (x, y) => { const k = (y + 8192) * 16384 + x + 8192; let e = wetK.get(k); if (e === undefined) wetK.set(k, e = flooded(x, y) || water(x, y)); return e; };
     const cover = (vx, vy) => Number(wetTile(vx - 1, vy - 1)) + Number(wetTile(vx, vy - 1)) + Number(wetTile(vx - 1, vy)) + Number(wetTile(vx, vy));
+    const FR = 2.3, share = (vx, vy) => {
+      let s = 0, n = 0;
+      for (let y = Math.floor(vy) - 3; y <= vy + 2; y++) for (let x = Math.floor(vx) - 3; x <= vx + 2; x++) {
+        const q = ((x + 0.5 - vx) ** 2 + (y + 0.5 - vy) ** 2) / (FR * FR);
+        if (q >= 1) continue;
+        const k = (1 - q) * (1 - q); s += k * Number(wetTile(x, y)); n += k;
+      }
+      return s / n;
+    };
     // the colour of the water it shades into
     const wc = this.catalog.definition.look.water, COL = { [T.POND]: wc.pond, [T.CREEK]: wc.creek, [T.RIVER]: wc.river, [T.MARSH]: wc.marsh };
     const beside = (vx, vy) => {
@@ -891,45 +908,79 @@ export class Terrain {
       const tx = vx - X0, ty = vy - Y0, k = (ty * (TW + 1) + tx) * 2, s = this.shoreVertices;
       return s && tx >= 0 && ty >= 0 && tx <= TW && ty <= TH && s[k + 1] ? s[k] / LEVEL : NaN;
     };
-    const DEPTH = [-0.08, -0.06, 0.05, 0.13, 0.2]; // (in height levels, by how many of the four tiles are wet)
+    const DRY = -0.08, FULL = 0.2; // (in height levels: under the ground at the edge, over a whole stretch)
+    const depthAt = sh => { const f = clamp((sh - 0.45) / 0.45, 0, 1); return DRY + (FULL - DRY) * f * f * (3 - 2 * f); };
     const vert = (x, y) => w.vert(clamp(x, 0, w.w), clamp(y, 0, w.h));
-    const muddy = this.catalog.definition.look.flood || [0.46, 0.41, 0.28, 0.9];
-    const n = tiles.length * 6;
+    const muddy = this.catalog.definition.look.flood || [0.46, 0.41, 0.28, 0.96]; // (turbid: the grass hardly shows through)
+    // Each tile is a fan of four triangles round a centre vertex, which keeps them in the ground's own
+    // two triangles (split A-C), so the depth stays exact; the centre lets a strip of flood one tile
+    // wide, whose every corner touches dry ground, still hold water in its middle (CENTRE_MIN).
+    const CENTRE_MIN = 0.05;
+    const n = tiles.length * 12;
     const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 4);
     const dep = new Float32Array(n), flow = new Float32Array(n * 2), bend = new Float32Array(n), qual = new Float32Array(n);
     const corner = new Map();
+    const fade = (vx, vy) => { const t = clamp((reach(vx, vy) - 0.75) / (R - 0.25), 0, 1); return t * t * (3 - 2 * t); };
+    const cornerAt = (vx, vy) => {
+      const ck = vy * 4096 + vx;
+      let c = corner.get(ck);
+      if (c) return c;
+      const cv = cover(vx, vy), g = w.vert(vx, vy), S = shore(vx, vy);
+      let d = depthAt(share(vx, vy));
+      if (cv < 4) d = Math.min(d, -0.01); // (a corner touching dry ground: the waterline lies inside the flood)
+      let h = g + d, river = false;
+      // (on the river: at its surface; this wins over the dry-ground clamp, as before, so no seam at the bank)
+      if (S === S && S + 0.01 > h) { h = S + 0.01; d = Math.min(h - g, 0.42); river = true; }
+      // downhill, quicker on steeper ground
+      let fx = vert(vx - 1, vy) - vert(vx + 1, vy), fy = vert(vx, vy - 1) - vert(vx, vy + 1);
+      const l = Math.hypot(fx, fy);
+      if (l > 1e-4) { const sp = clamp(l * 2.5, 0.2, 0.8) / l; fx *= sp; fy *= sp; } else fx = fy = 0;
+      // silty and opaque over the flooded ground, thinning into the river's own colour beyond it
+      const m = fade(vx, vy);
+      const near = beside(vx, vy), rgb = near ? muddy.map((e, k) => e + (near[k] - e) * m) : muddy;
+      // (aDepth shades it and fades its edge: over the river it is no deeper to the eye than over the land)
+      c = { x: vx, y: vy, g, h, d: Math.min(d, FULL), fx, fy, rgb, q: 0.12 + 0.5 * m, a: muddy[3] * (1 - m), river };
+      corner.set(ck, c);
+      return c;
+    };
+    // the current's coordinates are laid out on the corners alone (flowCoords takes whole-number corners)
+    const quads = tiles.map(([x, y]) => [cornerAt(x, y), cornerAt(x + 1, y), cornerAt(x + 1, y + 1), cornerAt(x, y + 1)]);
+    const cp = new Float32Array(quads.length * 12), cf = new Float32Array(quads.length * 8);
+    quads.forEach((q, i) => q.forEach((c, k) => { const o = i * 4 + k; cp[o * 3] = c.x; cp[o * 3 + 2] = c.y; cf[o * 2] = c.fx; cf[o * 2 + 1] = c.fy; }));
+    const cc = flowCoords(cp, cf, quads.length * 4), cur = new Float32Array(n * 2);
     let v = 0;
-    for (const [x, y] of tiles) {
-      for (const [vx, vy] of [[x, y], [x + 1, y + 1], [x + 1, y], [x, y], [x, y + 1], [x + 1, y + 1]]) {
-        const ck = vy * 4096 + vx;
-        let c = corner.get(ck);
-        if (!c) {
-          const cv = cover(vx, vy), g = w.vert(vx, vy), S = shore(vx, vy);
-          let d = DEPTH[cv], h = g + d;
-          if (S === S && S + 0.01 > h) { h = S + 0.01; d = Math.min(h - g, 0.42); } // (on the river: at its surface)
-          // downhill, quicker on steeper ground
-          let fx = vert(vx - 1, vy) - vert(vx + 1, vy), fy = vert(vx, vy - 1) - vert(vx, vy + 1);
-          const l = Math.hypot(fx, fy);
-          if (l > 1e-4) { const sp = clamp(l * 2.5, 0.2, 0.8) / l; fx *= sp; fy *= sp; } else fx = fy = 0;
-          // silty and opaque over the flooded ground, thinning into the river's own colour beyond it
-          const r = reach(vx, vy), t = clamp((r - 0.75) / (R - 0.25), 0, 1), m = t * t * (3 - 2 * t);
-          const near = beside(vx, vy), rgb = near ? muddy.map((e, k) => e + (near[k] - e) * m) : muddy;
-          c = { h, d, fx, fy, rgb, q: 0.12 + 0.5 * m, a: cv >= 2 ? muddy[3] * (1 - m) : 0 };
-          corner.set(ck, c);
-        }
-        pos[v * 3] = vx; pos[v * 3 + 1] = c.h * LEVEL; pos[v * 3 + 2] = vy; nor[v * 3 + 1] = 1;
-        dep[v] = c.d; flow[v * 2] = c.fx; flow[v * 2 + 1] = c.fy; qual[v] = c.q;
-        col[v * 4] = lin(c.rgb[0]); col[v * 4 + 1] = lin(c.rgb[1]); col[v * 4 + 2] = lin(c.rgb[2]); col[v * 4 + 3] = c.a;
-        v++;
+    const put = (c, cu0, cu1) => {
+      pos[v * 3] = c.x; pos[v * 3 + 1] = c.h * LEVEL; pos[v * 3 + 2] = c.y; nor[v * 3 + 1] = 1;
+      dep[v] = c.d; flow[v * 2] = c.fx; flow[v * 2 + 1] = c.fy; qual[v] = c.q; cur[v * 2] = cu0; cur[v * 2 + 1] = cu1;
+      col[v * 4] = lin(c.rgb[0]); col[v * 4 + 1] = lin(c.rgb[1]); col[v * 4 + 2] = lin(c.rgb[2]); col[v * 4 + 3] = c.a;
+      v++;
+    };
+    quads.forEach((q, i) => {
+      const [x, y] = tiles[i], avg = f => (f(q[0]) + f(q[1]) + f(q[2]) + f(q[3])) / 4;
+      // the centre: on the ground's A-C diagonal; over the river (or beside it) the corners' mean
+      let h, d;
+      const g = (q[0].g + q[2].g) / 2;
+      if (q.some(c => c.river) || !flooded(x, y)) { h = avg(c => c.h); d = h - g; }
+      else { d = Math.max(depthAt(share(x + 0.5, y + 0.5)), CENTRE_MIN); h = g + d; }
+      const m = { x: x + 0.5, y: y + 0.5, h, d: Math.min(d, FULL), fx: avg(c => c.fx), fy: avg(c => c.fy), q: avg(c => c.q), a: muddy[3] * (1 - fade(x + 0.5, y + 0.5)), // (its own fade: out at the reach's end, as the corners)
+        rgb: [0, 1, 2].map(k => avg(c => c.rgb[k])) };
+      // (the current's coordinates: the mean of its flowing corners; still ones have none)
+      let mc0 = 0, mc1 = 0, mn = 0;
+      for (let k = 0; k < 4; k++) if (Math.hypot(q[k].fx, q[k].fy) >= 0.01) { mc0 += cc[(i * 4 + k) * 2]; mc1 += cc[(i * 4 + k) * 2 + 1]; mn++; }
+      if (mn) { mc0 /= mn; mc1 /= mn; }
+      // (M, next, previous round A B C D: facing up, as the ground's A C B)
+      for (let k = 0; k < 4; k++) {
+        const nx = (k + 1) % 4;
+        put(m, mc0, mc1); put(q[nx], cc[(i * 4 + nx) * 2], cc[(i * 4 + nx) * 2 + 1]); put(q[k], cc[(i * 4 + k) * 2], cc[(i * 4 + k) * 2 + 1]);
       }
-    }
+    });
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
     geo.setAttribute('color', new THREE.BufferAttribute(col, 4));
     geo.setAttribute('aDepth', new THREE.BufferAttribute(dep, 1));
     geo.setAttribute('aFlow', new THREE.BufferAttribute(flow, 2));
-    geo.setAttribute('aCurrent', new THREE.BufferAttribute(flowCoords(pos, flow, n), 2));
+    geo.setAttribute('aCurrent', new THREE.BufferAttribute(cur, 2));
     geo.setAttribute('aBend', new THREE.BufferAttribute(bend, 1));
     geo.setAttribute('aQual', new THREE.BufferAttribute(qual, 1));
     // (floodwater keeps its own edge)
