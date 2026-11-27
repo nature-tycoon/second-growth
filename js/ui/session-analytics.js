@@ -9,6 +9,10 @@ import { watchInteractions } from '../interaction-latency.js';
 const secondsSince = t => t == null ? null : Math.round((performance.now() - t) / 1000);
 // a warning's wording without its numbers, so "12%" and "14%" count as one message
 const gist = text => String(text).replace(/<[^>]+>/g, '').replace(/[\d,.]+/g, '#').slice(0, 90);
+// frame rate as a band, so funnels and exits can be split by how smoothly the game ran
+export const fpsBand = fps => !Number.isFinite(fps) ? null : fps < 15 ? 'under_15' : fps < 25 ? '15_25' : fps < 40 ? '25_40' : '40_up';
+// play_milestone: active minutes reached this page load, once each (docs/posthog-events.md)
+export const MILESTONE_MINUTES = [1, 3, 10, 30];
 
 export class SessionAnalytics {
   constructor(game, renderer, getUiState) {
@@ -41,7 +45,15 @@ export class SessionAnalytics {
       seconds_since_tool: secondsSince(T.lastTool), seconds_since_fail: secondsSince(T.lastFail),
       seconds_since_reward: secondsSince(T.lastReward), seconds_since_fire: secondsSince(T.lastFire), seconds_since_flood: secondsSince(T.lastFlood),
       paused_seconds: T.paused_s, fast_seconds: T.fast_s, last_month_net: Math.round(sum(l.in) - sum(l.out)),
-      zoom: +(this.renderer.zoom ?? 0).toFixed(2), ...this.progress() };
+      zoom: +(this.renderer.zoom ?? 0).toFixed(2), ...this.progress(), ...this.where() };
+  }
+
+  // Where a player stood (for play_milestone, went_idle and game_left): a first visit or not, the
+  // opening's step, the last tool and panel, the frame rate's band and the quality setting.
+  where() {
+    const g = this.game, p = this.renderer.perfSample?.(false);
+    return { first_visit: !!loadState.firstVisit, opening_stage: g.flags?.opening?.stage ?? null, last_tool: this.tally.lastToolKey ?? null,
+      last_panel: this.getUiState().last_panel ?? null, fps_band: fpsBand(p?.fps), quality: this.renderer.quality ?? null };
   }
 
   snapshot() {
@@ -61,7 +73,7 @@ export class SessionAnalytics {
 
   trackTool(stroke) {
     const tool = stroke.tool, T = this.tally;
-    if (stroke.count) { T.tools++; T.lastTool = performance.now();
+    if (stroke.count) { T.tools++; T.lastTool = performance.now(); T.lastToolKey = tool.key;
     } else if (stroke.broke || stroke.unsuitable) { T[stroke.broke ? 'fails_money' : 'fails_unsuitable']++; T.lastFail = performance.now(); }
     if (stroke.count) {
       track('tool_used', { tool: tool.key, category: tool.cat, tiles: stroke.count, cost: Math.round(stroke.cost) });
@@ -162,7 +174,10 @@ export class SessionAnalytics {
       // active time: the tab is visible and the player has touched something in the last two minutes
       if (idle < 120) {
         if (g.speed === 0) T.paused_s++; else if (g.speed >= 3) T.fast_s++;
-        S.active++; if (S.active % 300 === 0) track('play_heartbeat', { active_minutes: S.active / 60, ...snapshot() });
+        S.active++;
+        // (the funnel's play-time steps: 1, 3, 10 and 30 active minutes, map and how it ran)
+        if (MILESTONE_MINUTES.includes(S.active / 60)) track('play_milestone', { minutes: S.active / 60, map: g.map, tools_session: T.tools, rewards_session: T.rewards, ...snapshot(), ...this.where() });
+        if (S.active % 300 === 0) track('play_heartbeat', { active_minutes: S.active / 60, ...snapshot() });
         // how smoothly it's running: early (many phone sessions are short; 10 s is the opening view), then every five minutes
         if (S.active === 10 || S.active === 30 || S.active === 120 || S.active % 300 === 0) track('perf_sample', { active_minutes: +(S.active / 60).toFixed(1), ...this.renderer.perfSample?.(), ...this.latency?.sample() });
       }

@@ -115,4 +115,23 @@ for (const host of ['localhost', '127.0.0.1', '']) {
   assert.equal(api.initAnalytics(), true);
   assert.equal(scripts.length, 1, 'Existing explicit local analytics testing still works');
 }
-console.log('PASS saved opt-out, lazy/idempotent opt-in, queued-event consent changes, live SDK opt-out, exit/context gates, browser privacy signals, local silence and explicit feedback. No network requests made.');
+{
+  // page_crashed's breadcrumb: only stage, map and two numbers ever leave it, whatever is stored;
+  // stale or unreadable ones send nothing, and a cleared one is gone.
+  const { api } = await fixture({ enabled: true });
+  stored.set('second-growth-crumb', JSON.stringify({ stage: 'Catching the light' + 'x'.repeat(80), map: 'reef', at: Date.now() - 120e3, t0: Date.now() - 150e3, email: 'someone@example.com', name: 'A Player' }));
+  const c = api.lastCrash();
+  assert.deepEqual(Object.keys(c).sort(), ['map', 'minutes_ago', 'seconds', 'stage'], 'page_crashed carries only stage, map, seconds and minutes_ago');
+  assert.ok(c.stage.length <= 40 && c.map === 'reef' && c.seconds === 30 && c.minutes_ago === 2);
+  assert.ok(!JSON.stringify(c).includes('@'), 'no stored extra reaches the event');
+  stored.set('second-growth-crumb', JSON.stringify({ stage: 'playing', at: Date.now() - 2 * 864e5 }));
+  assert.equal(api.lastCrash(), null, 'a breadcrumb over a day old is not sent');
+  stored.set('second-growth-crumb', '{not json');
+  assert.equal(api.lastCrash(), null, 'an unreadable breadcrumb is not sent');
+  api.noteCrumb('Growing the landscape', 'pnw');
+  assert.deepEqual(Object.keys(JSON.parse(stored.get('second-growth-crumb'))).sort(), ['at', 'map', 'stage', 't0'], 'the breadcrumb stores only the step, the map and two times');
+  globalThis.localStorage.removeItem = key => stored.delete(key);
+  api.clearCrumb();
+  assert.equal(stored.has('second-growth-crumb'), false, 'clearCrumb removes it');
+}
+console.log('PASS saved opt-out, lazy/idempotent opt-in, queued-event consent changes, live SDK opt-out, exit/context gates, browser privacy signals, local silence, explicit feedback and the crash breadcrumb (page_crashed sends only stage, map, seconds). No network requests made.');

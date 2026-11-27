@@ -97,7 +97,7 @@ New decisions take the next unused number, start with `## Rules` (5–15 lines) 
 
 Monthly newsletter notes: `node tools/monthly-notes.mjs [YYYY-MM]` drafts the month's player-facing changes from `git log main` into `docs/newsletter/<YYYY-MM>.md` (Cole writes and sends the email himself in Kit; how-to and tone in [docs/newsletter/README.md](docs/newsletter/README.md)); `tools/monthly-notes-check.mjs` covers the filtering.
 
-Reference: [PostHog player performance lookups](docs/posthog-player-perf.md).
+Reference: [PostHog player performance lookups](docs/posthog-player-perf.md). Every event the game sends, the drop-off funnel and the "Player drop-off" dashboard: [docs/posthog-events.md](docs/posthog-events.md); a new event goes there and into `play-analytics-browser-check`.
 
 Backend (`server/`, a Cloudflare Worker: feedback email via Resend, Kit newsletter signup, average rating): Cole's setup steps and the endpoint contract the game and website follow are in [docs/backend-setup.md](docs/backend-setup.md); `node tools/backend-check.mjs` runs it headless and fails if an error code or allowed origin drifts from that doc. Never log message bodies or addresses; keys are Wrangler secrets, never in the repo.
 

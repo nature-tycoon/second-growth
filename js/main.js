@@ -6,7 +6,7 @@ import { music } from './audio/music.js';
 import { createFrameLoop } from './frame-loop.js';
 import { PerformanceOverlay, probeGpu, weakGpu } from './performance.js';
 import { settings, saveSettings } from './settings.js';
-import { initAnalytics, track, loadState, reportLoadingLeft } from './analytics.js';
+import { initAnalytics, track, loadState, reportLoadingLeft, noteCrumb, clearCrumb, lastCrash } from './analytics.js';
 import { initLang } from './i18n.js';
 import { BIOMES } from './biome.js';
 import { sharedFarmAtBoot, startVisit, openError } from './ui/share.js';
@@ -29,8 +29,18 @@ let loadLabel = 'Starting', loaded = false;
 // every step, and visibilitychange is the event that survives a closing tab.
 document.addEventListener('visibilitychange', () => { if (document.hidden) reportLoadingLeft(); });
 window.addEventListener('pagehide', reportLoadingLeft);
+// The crash breadcrumb (analytics.js): the last page's, read before this one writes; kept while the
+// page is on screen, cleared when it's hidden or closed, so only a page that died leaves one.
+const crashed = lastCrash();
+// (visibilityState, and nothing written once the page is going: a write after pagehide would outlive it)
+let pageGone = false;
+const onScreen = () => document.visibilityState !== 'hidden' && !pageGone;
+document.addEventListener('visibilitychange', () => { if (!onScreen()) clearCrumb(); else noteCrumb(loaded ? 'playing' : loadLabel); });
+window.addEventListener('pagehide', () => { pageGone = true; clearCrumb(); });
+window.addEventListener('pageshow', e => { if (e.persisted) { pageGone = false; noteCrumb(loaded ? 'playing' : loadLabel); } }); // (back from the back-forward cache)
 function stage(label, progress) {
   loadSteps[label] = Math.round(performance.now()); loadLabel = label; loadState.stage = label;
+  if (onScreen()) noteCrumb(label === 'Ready' ? 'playing' : label);
   loadingStatus.textContent = label;
   setProgress(progress);
 }
@@ -77,6 +87,8 @@ async function boot() {
 
     // analytics first, so events from a game started on load (after a map switch) aren't lost
     initAnalytics();
+    if (onScreen()) noteCrumb(loadLabel, startMap);
+    if (crashed) track('page_crashed', crashed);
     // A first visit plays the intro film (after analytics, so intro_started is sent) over the loading screen while the game loads underneath
     // (ui/intro.js); the farm waits for it and opens at the film's last frame.
     const fresh = !pending && !shared && !Game.hasSave(), introNot = fresh ? introBlocked(startMap) : 'visit';
@@ -241,7 +253,7 @@ async function boot() {
         frame(now);
         stage('Ready', 100); loaded = true; loadState.loaded = true;
         // (page start to the first drawn frame, and each loading step's start, in ms)
-        track('game_loaded', { load_ms: loadSteps.Ready, steps: loadSteps, map: game.map, quality: settings.quality, gpu: renderer.gpuName() });
+        track('game_loaded', { load_ms: loadSteps.Ready, steps: loadSteps, map: game.map, quality: settings.quality, gpu: renderer.gpuName(), first_visit: !!loadState.firstVisit });
         requestAnimationFrame(() => {
           // (a first visit's film not playing yet: the loading screen stays up until it starts or is
           // dropped, so the farm never shows for a moment before the film covers it)

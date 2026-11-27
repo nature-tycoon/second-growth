@@ -37,6 +37,8 @@ Which interaction hurts most: `slow_interaction` grouped by `interaction`, p75 o
 
 ## Why players stop
 
+The full event list, the drop-off funnel and dashboard: [posthog-events.md](posthog-events.md) (from 2026-11-27 also `play_milestone`, `opening_prompt`, `page_crashed`, and `game_left`'s `opening_stage`, `last_tool`, `last_panel`, `fps_band`).
+
 `game_left` (and `went_idle`) carry the session's story: tools used, refusals for money and
 unsuitable ground, rewards (goals, objectives, new species) and the seconds since the last tool,
 refusal, reward, fire and flood, time paused and at speed 3+, last month's net money, zoom, and

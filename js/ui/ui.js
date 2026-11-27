@@ -151,7 +151,7 @@ export class UI {
       setSpeed: speed => this.setSpeed(speed), afterRestore: () => this.afterNewGame(),
     });
     this.analytics = new SessionAnalytics(game, renderer, () => ({
-      open_panel: this.modalOpen ? this.lastModal : null, tool: this.state.tool || null, category: this.state.cat || null,
+      open_panel: this.modalOpen ? this.lastModal : null, last_panel: this.lastModal || null, tool: this.state.tool || null, category: this.state.cat || null,
     }));
     this.cinematics = new Cinematics(game, renderer, this.state, {
       isBusy: () => this.modalOpen || this.photo || this.timelapse?.on, isPhoto: () => !!this.photo || !!this.watch?.on, // (after a moment, the view stays clean in either)

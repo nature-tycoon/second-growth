@@ -17,7 +17,8 @@
 //
 // game.flags.opening = { stage: 'fence' | 'culvert' | 'pull' | 'trees' | 'meadow' | 'done' } (saved
 // with the farm, so a reload in the middle carries on; fence-gate.js holds the waiting deer while the
-// stage is 'fence'). opening_step { step: 'pull'|'trees'|'meadow', how: 'button'|'hand'|'drag'|'skipped', seconds }.
+// stage is 'fence'). opening_step { step: 'pull'|'trees'|'meadow', how: 'button'|'hand'|'drag'|'skipped', seconds }
+// (and step 'fence'|'culvert' with how 'skipped' when that prompt is closed); opening_prompt { step, map, seconds } as each shows.
 // farm_opened { how: 'fence'|'culvert', seconds, prompted } goes once per farm and kind, for a hand
 // Demolish of the boundary fence or the culvert too (onTool).
 
@@ -113,8 +114,22 @@ export class Opening {
       text: `${cap(many(def))} are waiting at the forest edge, but the old boundary fence keeps them out.`,
       kind: 'tip', date: g.dateString(), life: 10 * 60e3, sticky: true,
       action: { label: `Tear out the fence (${money(cost)})`, run: () => this.tearFence() },
-      onClose: () => this.finish(),
+      onClose: () => { this.skipped('fence'); this.finish(); },
     });
+    this.shown('fence');
+  }
+
+  // opening_prompt { step, map, seconds }: each opening prompt the first time it shows this page load
+  // (fence, culvert, pull, trees, meadow), so a player who never saw a prompt is told apart from one
+  // who saw it and left; seconds since the opening began. × on the fence or culvert prompt is
+  // opening_step { how: 'skipped' } as for the planting steps (it was silent before 2026-11-27).
+  shown(step) {
+    if ((this.prompted ||= new Set()).has(step)) return;
+    this.prompted.add(step);
+    track('opening_prompt', { step, map: this.game.map, seconds: Math.round((performance.now() - this.t0) / 1000) });
+  }
+  skipped(step) {
+    if (this.stage === step) track('opening_step', { step, how: 'skipped', seconds: Math.round((performance.now() - this.t0) / 1000) });
   }
 
   tearFence() {
@@ -150,8 +165,9 @@ export class Opening {
       text: `${this.opened && !g.flags.opening.followOffered ? 'They\'re in. ' : ''}Next, the road culvert: it keeps ${t.culvertBlocks || 'fish'} out of the creek.`,
       kind: 'tip', date: g.dateString(), life: 10 * 60e3, sticky: true,
       action: { label: `Pull it out (${money(costOf(g, [i]))})`, run: () => this.pullCulvert() },
-      onClose: () => this.finish(),
+      onClose: () => { this.skipped('culvert'); this.finish(); },
     });
+    this.shown('culvert');
   }
 
   pullCulvert() {
@@ -184,6 +200,7 @@ export class Opening {
       if (!plan.need) { // (the pull: one button)
         this.prompt = this.ui.toast({ text: plan.text, kind: 'tip', date: g.dateString(), life: 10 * 60e3, sticky: true, onClose,
           action: { label: `${plan.label} (${money(plan.cost)})`, run: () => this.doStep(key, 'button') } });
+        this.shown(key);
         return;
       }
       // the player's own strokes: the mix in hand, the ground to plant glowing, a count toward done
@@ -199,6 +216,7 @@ export class Opening {
       this.guide = { step: key, tiles: new Set(plan.tiles), list: plan.tiles, path: plan.path, need: plan.need, got: 0, text: plan.text, last: performance.now(), hint: false };
       this.ui.state.guide = this.guide;
       this.prompt = this.ui.toast({ text: this.guideText(), kind: 'tip', date: g.dateString(), life: 10 * 60e3, sticky: true, onClose });
+      this.shown(key);
       return;
     }
     this.stage = 'done';

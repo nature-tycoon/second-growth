@@ -97,11 +97,38 @@ export function reportLoadingLeft() {
   trackExit('loading_left', { stage: loadState.stage, seconds: Math.round(performance.now() / 1000) });
 }
 
+// ---- Page crashes. iOS Safari can kill a heavy WebGL page outright (out of memory): no pagehide, no
+// visibilitychange, so neither loading_left nor game_left is sent and the player just vanishes (one
+// iPhone in Nov 2026 vanished at 82% of loading some 25 times, seen only as a lone 'Welcome back'
+// panel_opened under a new id). The page keeps a breadcrumb in localStorage while it's on screen,
+// the loading step or 'playing', and clears it when hidden or closed; a breadcrumb found at the next
+// start was a page that died: page_crashed { stage, map, seconds, minutes_ago }. Never personal data.
+const CRUMB_KEY = 'second-growth-crumb';
+let crumb = null;
+export function noteCrumb(stage, map) {
+  crumb = { stage, map: map ?? crumb?.map ?? null, at: Date.now(), t0: crumb?.t0 ?? Date.now() };
+  try { localStorage.setItem(CRUMB_KEY, JSON.stringify(crumb)); } catch (e) { /* storage unavailable */ }
+}
+export function clearCrumb() { try { localStorage.removeItem(CRUMB_KEY); } catch (e) { /* ignore */ } }
+// Read once at start, before this page writes its own; sent once analytics runs (within a day only).
+export function lastCrash() {
+  try {
+    const c = JSON.parse(localStorage.getItem(CRUMB_KEY) || 'null');
+    if (!c?.stage || !(Date.now() - c.at < 864e5)) return null;
+    return { stage: String(c.stage).slice(0, 40), map: c.map ? String(c.map).slice(0, 20) : null,
+      seconds: Math.round((c.at - (c.t0 || c.at)) / 1000), minutes_ago: Math.round((Date.now() - c.at) / 60000) };
+  } catch (e) { return null; }
+}
+
 // Events for the first-minutes work (docs/ideas/2026-11-21-first-minutes/plan.md). Sent today:
 //   first_animal_seen { seconds, species, beyond_fence? }   first time a larger animal is on screen, first visit only
 //   farm_opened { how: 'fence'|'culvert', seconds, prompted }   boundary fence or culvert out (ui/opening.js)
 //   (a shared farm opened as a visit is shared_farm_opened { map, game_year, from: 'link'|'file' }, ui/share.js: renamed from farm_opened, g1)
 //   first_tool { seconds_since_load, ... }   (session-analytics.js)
+//   play_milestone { minutes: 1|3|10|30, first_visit, opening_stage, fps_band, quality, ... }   active play time reached (session-analytics.js)
+//   opening_prompt { step: 'fence'|'culvert'|'pull'|'trees'|'meadow', map, seconds }   each opening prompt as it first shows (ui/opening.js)
+//   page_crashed { stage, map, seconds, minutes_ago }   the last page died without closing (sent on the next start, above)
+//   (all of these, and the funnel and dashboard built on them: docs/posthog-events.md)
 //   opening_step { step: 'pull'|'trees'|'meadow', how: 'button'|'hand'|'skipped', seconds }   the opening's guided planting (ui/opening.js, timelapse-2)
 //   timelapse_started { map, from: 'auto'|'menu', first_visit, year }, timelapse_watched { map, seconds, years, ended, from, fps, days_per_s }
 //   (ui/timelapse.js: plays on its own after a first visit's guided planting; timelapse_offered and from: 'offer' were retired then)
