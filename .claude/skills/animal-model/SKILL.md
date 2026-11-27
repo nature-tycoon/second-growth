@@ -59,6 +59,15 @@ neck). Measure to find the biggest mismatch, then judge by eye against the photo
 - **Smooth, muscular limbs.** Legs taper from a full thigh or shoulder to a slim ankle over a broad paw
   or hoof; no angular bends (more rings, `legSub`), no tube "trousers" with a rim on the flank. Hind
   thighs run back into the rump (`thighBack`, `stifle`). Not chunky, not thin.
+- **Hind thighs end inside the rump** (deer): side on, one line runs from the tail down the back of the
+  thigh to the hock. No round thigh top showing as a shelf, no rump bulging behind the thigh ("protruding
+  butt"), no thigh sticking out past the rump's sides. The thigh tapers up into the rump.
+- **Backs are straight** where the animal's is (deer, antelope): a level topline that rounds off only
+  near the withers and rump, not an arch.
+- **Ears pinch in at the root** where they meet the head (deer, and any big-eared animal), broadest in
+  the middle; size them from photos and err small ("a little too large" on the first try).
+- **Face colours close to the body's**: the head no darker than the coat, white marks soft (they read
+  "too strong" at full white).
 - **Parts grow out of the body.** A tail leaves the rump below the topline, thick at the root, with no
   mound over it. A neck leaves the top of the chest; no long, drooping neck.
 - **Head carried as the animal carries it,** small moves only. A big move of the head made the neck
