@@ -133,13 +133,26 @@ neck). Measure to find the biggest mismatch, then judge by eye against the photo
   using that colour (it greyed the deer's whole coat). Always `.clone()` before `lerp` or `multiply`.
 - In the review page's sun, antlers and horns cast dark streaks on the face: compare with the before
   picture before chasing them as paint.
+- **Relatives of a fitted animal start from its fitted build** (flight-cats s6: white-tailed deer, elk,
+  sambar from the black-tailed deer): turn the build on (`slender`), then add per-species sprite fields
+  that default to the fitted animal's values, so it stays byte-identical (hash its geometry before and
+  after; `docs/ideas/2026-11-27-flight-cats/s6.md`). Deer fields: `earSize`, `earWide`, `earShape`,
+  `tailLen`, `tailW`, `tailFringe`, `tailTop`, `depth` (shallower body, belly kept: the thigh top and tail
+  follow it down, or they poke out of the rump as knobs), `headSize`, `snoutLen`, `muzzleDepth`, `legs`,
+  `rump` (painted patch), `neck` (dark head and neck, its cape fading onto the shoulders), `face` strengths.
+- **Read photo marks off the photo's own pixels.** A thumbnail shown in a viewer may be scaled (a
+  900-pixel thumbnail displayed 960 wide put every mark 7% off): divide by the size you actually measured on.
+- **Head size is a photo question, not a memory one**: the elk's ears looked right "small" from field-guide
+  numbers and came out half the size of a cow's in profile. Size ears and heads in the overlay's head mode.
+- **Chevrotains and other small hunched animals**: measure leg length as ground to belly against body
+  depth (the mouse-deer's legs are about 0.55 of it), and set the hind legs back under the rump (`hindX`).
 
 ## Toolbox
 
 - Shape options in `quadruped()` (`js/render3d/animals/model-core.js`), each defaulting to the old
   look so one species can use it without changing the rest: `legRoot`, `thighBack`, `stifle`, `paw`,
   `legSub`, `eyeFwd`, `eyeOut`, `eyeColor`, `noseColor`, `muzzleDepth`, `jawDepth`, `brow`, `earTurn`,
-  `earUp`, `earSide`, `earFwd`, `earTurn` (pointed ears too), `noseSize`, `headSeg`, `eyeFar`, `flatBack`, `thighZ`, `thighUp`, `thighTaper`, ear shape `deer`, `neckPath`/`neckRadii`, plus the older `hip`, `shoulder`, `chest`, `haunch`,
+  `earUp`, `earSide`, `earFwd`, `earTurn` (pointed ears too), `noseSize`, `headSeg`, `eyeFar`, `flatBack`, `thighZ`, `thighUp`, `thighTaper`, `hindX`, ear shape `deer`, `neckPath`/`neckRadii`, plus the older `hip`, `shoulder`, `chest`, `haunch`,
   `tuck`, `sag`, `wide`. Add a new option there rather than a per-species branch, defaulted off.
 - A species-specific look goes behind a trait or a sprite field (the cougar: the plain coat), never a
   species name (`node tools/species-name-count.mjs`).
@@ -147,7 +160,7 @@ neck). Measure to find the biggest mismatch, then judge by eye against the photo
   `detail: true` so the head has enough vertices for soft edges. Never a new `pixelCoat` kind for one
   animal (a coat adds its kind to the program key: a new shader program).
 - Face points for review tools: `motion.faceMarks` (nose, eye, ear root and tip, brow).
-- Before/after pictures and shading cost: `nice -n 15 node tools/animal-shots.mjs <map:key> <dir> <tag>
+- Before/after pictures and shading cost (nine views, one from behind for tails and rumps): `nice -n 15 node tools/animal-shots.mjs <map:key> <dir> <tag>
   [compare species]`. Take "before" pictures before the first change (or from a detached worktree of
   the base commit with `CLOSEUP_ROOT`).
 
