@@ -68,6 +68,9 @@ neck). Measure to find the biggest mismatch, then judge by eye against the photo
   the middle; size them from photos and err small ("a little too large" on the first try).
 - **Face colours close to the body's**: the head no darker than the coat, white marks soft (they read
   "too strong" at full white).
+- **Antlers and horns root on the cranium**, between the eyes and the ears, never behind or over the
+  ears. Moving the head or ears means moving the roots with them: `carcass-decay-check` fails when the
+  roots leave the skull (the deer's did after s7's shorter skull).
 - **Parts grow out of the body.** A tail leaves the rump below the topline, thick at the root, with no
   mound over it. A neck leaves the top of the chest; no long, drooping neck.
 - **Head carried as the animal carries it,** small moves only. A big move of the head made the neck

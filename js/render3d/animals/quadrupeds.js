@@ -595,7 +595,8 @@ const MAMMALS = {
       },
       antlers: s.antlers ? (m, hp, hr, hd) => {
         for (const side of [1, -1]) {
-          const z = side * hr[2] * 0.5, base = [hp[0] - hr[0] * 0.3, hp[1] + hr[1] * 0.7, z];
+          const z = side * hr[2] * 0.5, base = [hp[0] + hr[0] * (fit ? 0.05 : -0.3), // (the slender deer's short skull: the roots over its cranium, between the eye and the ears)
+            hp[1] + hr[1] * 0.7, z];
           const r = H * 0.05, bone = '#cdb994', tip = '#efe6d0';
           const point = (x, y, spread) => [base[0] + H * x, base[1] + H * y, z + side * H * spread];
           const branch = (a, b, thick = 0.7) => m.limb(a, b, r * thick, r * 0.16, tip, { ...hd, caps: false });
