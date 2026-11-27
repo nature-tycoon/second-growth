@@ -532,9 +532,9 @@ function deerFace(s, H, hp, hr, snout, eyeFwd) {
   const f = { brow: 0.35, bridge: 0.35, ring: 0.4, tear: 0.55, band: 0.6, chin: 0.6, spot: 0.8, throat: 0.6, grey: 0.35, ...s.face };
   const sn = [hp[0] + hr[0] * 0.78, hp[1] - hr[1] * 0.28], nose = [sn[0] + snout * 1.22, sn[1] + hr[1] * 0.1];
   const eye = [hp[0] + hr[0] * eyeFwd, hp[1] + hr[1] * 0.28, hr[2] * 0.78], r = Math.max(0.55, H * 0.05);
-  const face = col(s.color).clone().lerp(col('#8a847b'), f.grey), dark = col(s.dark), black = col('#16120f'), white = col('#f1ece3');
+  const face = col(s.neck || s.color).clone().lerp(col('#8a847b'), f.grey), dark = col(s.dark), black = col('#16120f'), white = col('#f1ece3');
   const blob = (p, c, k) => Math.exp(-(((p.x - c[0]) / k[0]) ** 2 + ((p.y - c[1]) / k[1]) ** 2 + ((Math.abs(p.z) - c[2]) / k[2]) ** 2));
-  const out = col('#000').clone(), base = grad(s.color, s.belly, -0.4, 0.5), coat = col('#000').clone();
+  const out = col('#000').clone(), base = grad(s.neck || s.color, s.neck ? s.neck : s.belly, -0.4, 0.5), coat = col('#000').clone(); // (s.neck: a dark head and neck, an elk's)
   return (u, p) => {
     const az = Math.abs(p.z), onHead = smooth(hp[0] - hr[0] * 0.9, hp[0] - hr[0] * 0.3, p.x), top = u.y / (Math.hypot(u.y, u.z) || 1); // (top: 1 on the top of the head, 0 at the side)
     out.copy(coat.copy(base(u))).lerp(face, 0.6 * onHead);
@@ -569,31 +569,39 @@ const MAMMALS = {
     const fit = !!s.slender, nw = s.neckWidth ?? 0.17;
     // (per species, on the fitted build: earSize scales the ears, tailLen and tailW the tail; 1 = the black-tailed deer's)
     const es = s.earSize ?? 1, tl = s.tailLen ?? 1, tw = s.tailW ?? 1, fr = s.tailFringe ?? 0; // (tailFringe: white edges round the tail's dark top, a white-tail's)
+    // (depth: the body that much shallower, the belly kept where it was, for a longer-bodied deer; snoutLen: a longer face)
+    const dp = s.depth ?? 1, sl = s.snoutLen ?? 1, hs = s.headSize ?? 1, snout = H * (fit ? 0.24 * sl * hs : 0.28);
+    const hrF = [H * 0.26 * hs, H * 0.21 * hs, H * 0.19 * hs]; // (headSize: the fitted head that much bigger, an elk's)
     const head = fit ? [L * 0.545, by + H * 0.62] : [L * 0.5, by + H * 0.95];
     return {
       H, leg, legR0: H * 0.12, legR1: H * 0.055, hoof: '#2a211a', neckR: H * nw, neckColor: s.neck,
       ...(fit ? {
-        shoulder: -0.02, hip: 0.05, chest: 0.84, haunch: 0.84, keel: 0.16, tuck: 0.5, sag: 0.005, flatBack: 0.5,
+        shoulder: -0.02 - 0.54 * (1 - dp), hip: 0.05 - 0.54 * (1 - dp), chest: 0.84 * dp, haunch: 0.84 * dp, keel: 0.16, tuck: 0.5, sag: 0.005, flatBack: 0.5,
         // slim legs over small split hooves; the hind thigh reaching back into the rump, the knee (stifle) high
-        legR0: H * 0.12, legR1: H * 0.045, thighBack: H * 0.22, thighZ: 0.7, thighUp: 0.2, thighTaper: 0.75, stifle: 0.74,
+        legR0: H * 0.12, legR1: H * 0.045, thighBack: H * 0.22, thighZ: 0.7, thighUp: 0.2 - (1 - dp), thighTaper: 0.75, stifle: 0.74,
         foot: (m, foot, r, o) => m.ell([foot[0] + r * 0.35, r * 0.72, foot[2]], [r * 1.35, r * 0.78, r * 0.85], '#1d1814', { part: o.part, pivot: o.pivot, lo: true, gloss: 1 }), // (a small pointed hoof, not a ball)
-        legColor: shade(s.color, -0.05),
+        legColor: s.legs || shade(s.color, -0.05), // (legs: a darker leg colour, an elk's)
+        // (rump: a pale rump patch painted on the body's back end, soft-edged, not a ball stuck on)
+        // (and a dark neck's cape running on over the front of the shoulders and chest with a soft edge, so there's no line where the neck meets the body)
+        coat: s.rump ? b => { const pale = col(s.rump), cape = col(s.neck || s.dark), o = col('#000').clone(); return (u, p) => o.copy(b(u, p)).lerp(pale, smooth(-0.62, -0.8, u.x) * smooth(-0.55, -0.15, u.y) * smooth(0.95, 0.75, Math.abs(u.z) * (1 + u.x) * 4))
+          .lerp(cape, s.neck ? smooth(0.6, 0.82, u.x + 0.08 * u.y) : 0); } : undefined,
         neckPath: [[L * 0.32, by + H * 0.04, 0], [L * 0.44, by + H * 0.36, 0], [L * 0.53, by + H * 0.58, 0]],
         neckRadii: [[H * 0.3, H * 0.23], [H * 0.2 * nw / 0.17, H * 0.17 * nw / 0.17], [H * 0.16 * nw / 0.17, H * 0.15 * nw / 0.17]], neckSub: 4, neckSeg: 10,
       } : {}),
-      head, headR: fit ? [H * 0.26, H * 0.21, H * 0.19] : [H * 0.3, H * 0.24, H * 0.21], snout: H * (fit ? 0.24 : 0.28),
+      head, headR: fit ? hrF : [H * 0.3, H * 0.24, H * 0.21], snout,
       ears: 'point', ear: H * 0.34, earOut: 0.8, earBack: 0.1, earW: 0.3, headColor: s.neck ? s.neck : null,
       // (a short skull behind big ears set at its back, the eye halfway along, a slim jaw: the photos)
-      ...(fit ? { eyeFwd: 0.68, jawDepth: 0.8, earFwd: -0.55, ear: H * 0.29 * es, earShape: 'deer', earTurn: 0.55, earBack: 0.2, earOut: 0.95, earW: 0.45,
-        eyeR: Math.max(0.55, H * 0.05), eyeOut: 0.52, eyeColor: deerEye(), eyeFar: '#20150e', headSeg: [20, 16], headPaint: deerFace(s, H, head, [H * 0.26, H * 0.21, H * 0.19], H * 0.24, 0.68), noseColor: '#16120f', noseSize: 0.6,
+      ...(fit ? { eyeFwd: 0.68, jawDepth: 0.8, ...(s.muzzleDepth ? { muzzleDepth: s.muzzleDepth } : {}), // (muzzleDepth: a deeper, blunter muzzle, an elk's)
+         earFwd: -0.55, ear: H * 0.29 * es, earShape: 'deer', earTurn: 0.55, earBack: 0.2, earOut: 0.95, earW: 0.45,
+        eyeR: Math.max(0.55, H * 0.05), eyeOut: 0.52, eyeColor: deerEye(), eyeFar: '#20150e', headSeg: [20, 16], headPaint: deerFace(s, H, head, hrF, snout, 0.68), noseColor: '#16120f', noseSize: 0.6,
         earColor: shade(s.color, -0.12), earInner: '#ece5d8', earCup: 0.3, earRim: shade(s.dark, -0.2) } : {}),
-      extra: s.rump ? (m, b) => m.ell([-L * 0.33, b.by + H * 0.08, 0], [L * 0.12, H * 0.34, H * 0.36], s.rump) : null,
+      extra: s.rump && !fit ? (m, b) => m.ell([-L * 0.33, b.by + H * 0.08, 0], [L * 0.12, H * 0.34, H * 0.36], s.rump) : null,
       // (tailTop: a black-tailed deer's tail is dark on the outer side, pale only underneath)
       tail: fit ? (m, b) => {
         // a flat tail hanging from just under the rump's top down over the white rump: dark on the
         // outer side (all black on a black-tailed deer), white underneath against the rump
-        const base = [-L * 0.44, b.by + H * 0.3, 0], pale = col('#f2ede4'), dark = col(s.tailTop || s.color);
-        tube(m, [base, [-L * 0.47, b.by + H * (0.3 - 0.18 * tl), 0], [-L * (0.47 + 0.008 * tl), b.by + H * (0.3 - 0.38 * tl), 0]], [[H * 0.06 * tw, H * 0.085 * tw], [H * 0.055 * tw, H * 0.075 * tw], [H * 0.035 * tw, H * 0.04 * tw]],
+        const ty = 0.3 - (1 - dp), base = [-L * 0.44, b.by + H * ty, 0], pale = col('#f2ede4'), dark = col(s.tailTop || s.color); // (ty: under the rump's top, lower on a shallower body)
+        tube(m, [base, [-L * 0.47, b.by + H * (ty - 0.18 * tl), 0], [-L * (0.47 + 0.008 * tl), b.by + H * (ty - 0.38 * tl), 0]], [[H * 0.06 * tw, H * 0.085 * tw], [H * 0.055 * tw, H * 0.075 * tw], [H * 0.035 * tw, H * 0.04 * tw]],
           u => tmp.copy(pale).lerp(dark, smooth(-0.45, 0.05, u.y) * (1 - fr * smooth(0.5, 0.85, Math.abs(u.z)))), { part: P.TAIL, pivot: base, sub: 3, seg: 8, capRings: 2, up: [-1, 0, 0] });
       } : (m, b) => {
         const pale = col(s.rump || shade(s.belly, 0.4)), dark = s.tailTop && col(s.tailTop);
@@ -637,7 +645,8 @@ const MAMMALS = {
           beam.forEach((pt, n) => { m.limb(prev, pt, r * (1 - n * 0.12), r * (0.9 - n * 0.14), n === 3 ? tip : bone, hd); prev = pt; });
           // brow tine forward, then upswept tines along the beam
           m.limb(beam[0], [beam[0][0] + H * 0.32, beam[0][1] + H * 0.1, beam[0][2] + side * H * 0.05], r * 0.7, r * 0.2, tip, { ...hd, caps: false });
-          for (const n of [1, 2, ...(s.antlers === 'elk' ? [3] : [])]) m.limb(beam[n], [beam[n][0] + H * 0.08, beam[n][1] + H * 0.36, beam[n][2] + side * H * 0.04], r * 0.65, r * 0.18, tip, { ...hd, caps: false });
+          const lean = s.antlers === 'elk' ? 0.2 : 0.08; // (an elk's tines reach forward off the swept-back beam)
+          for (const n of [1, 2, ...(s.antlers === 'elk' ? [3] : [])]) m.limb(beam[n], [beam[n][0] + H * lean, beam[n][1] + H * 0.34, beam[n][2] + side * H * 0.04], r * 0.65, r * 0.18, tip, { ...hd, caps: false });
         }
       } : null,
     };
