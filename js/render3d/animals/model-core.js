@@ -263,8 +263,18 @@ class Model {
 function eyes(m, at, rx, ry, rz, r, part, pivot, color = '#15110e') {
   m.eyeSpot ||= [at[0] + rx, at[1] + ry, rz]; // (where the eyes are, for fitting a kill's skull; eyeAt is for eye-shine)
   const first = m.parts.length;
-  // (color may be a painter (u, p), for an iris, pupil and rim drawn on the eyeball: it gets the finer sphere)
-  for (const side of [1, -1]) m.ell([at[0] + rx, at[1] + ry, side * rz], [r, r, r], color, { lo: typeof color !== 'function', part, pivot, gloss: 2 });
+  // (color may be a painter (u, p), for an iris, pupil and rim drawn on the eyeball: it gets the finer
+  // sphere, turned so its pole looks along color.gaze ([forward, up, out]); u.y is then 1 at the
+  // pupil's middle, so rings of u.y paint a round pupil and iris)
+  for (const side of [1, -1]) {
+    let rot = [0, 0, 0];
+    if (color && color.gaze) {
+      const g = new THREE.Vector3(color.gaze[0], color.gaze[1], side * color.gaze[2]).normalize();
+      const e = new THREE.Euler().setFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), g));
+      rot = [e.x, e.y, e.z];
+    }
+    m.ell([at[0] + rx, at[1] + ry, side * rz], [r, r, r], color, { lo: typeof color !== 'function', fine: !!(color && color.gaze), part, pivot, gloss: 2, rot });
+  }
   for (let i = first; i < m.parts.length; i++) m.parts[i].userData.eye = true; // (not solid body for branch clearance)
 }
 
@@ -514,7 +524,12 @@ function headLoft(m, hp, hr, snout, sn, paint, muzzlePaint, o, hd) {
       // the brow stands out over the eyes (up and out, on the upper side), the cheeks below and behind them
       const ang = Math.abs(Math.atan2(sn2, c)); // 0 on top, pi underneath
       const out = fb * Math.exp(-(((ang - 0.8) / 0.38) ** 2)) * ry + fc * Math.exp(-(((ang - 1.95) / 0.45) ** 2)) * rz;
-      pos.push(x, cy + e(c) * h + c * out, e(sn2) * w + sn2 * out);
+      // (crown: the skull wider across its upper half, back from the muzzle: a cat's broad head over a narrower jaw)
+      const cw = o.crown ? 1 + o.crown * Math.exp(-(((ang - 0.75) / 0.5) ** 2)) * smooth(hx + rx * 0.7, hx + rx * 0.1, x) : 1;
+      // (skullUnder: the skull's underside pulled up behind the jaw, a share of its depth, so the head
+      // doesn't hang a second chin below the real one; the muzzle and chin are left as they are)
+      const uh = o.skullUnder && c < 0 ? 1 - (1 - o.skullUnder) * smooth(hx + rx * 0.9, hx + rx * 0.45, x) : 1;
+      pos.push(x, cy + e(c) * h * uh + c * out, (e(sn2) * w + sn2 * out) * cw);
       u.push(ux, c * ur, sn2 * ur);
     }
   }

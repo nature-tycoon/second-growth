@@ -38,6 +38,11 @@ eyes sit on the head surface, no new shader program.
 7. **When Cole says "less prominent", "thicker" or similar, ask yourself what he's looking at** and
    change that feature's size or place, not just its colour (cougar: "less prominent" eye streaks meant
    shorter and higher, not thinner and paler).
+8. **Fold each approved fix into this checklist,** in the same commit: say it as a rule for every
+   animal (what to look for, which `quadruped()` option fixes it), not as a cougar note. Cole's
+   feedback is only kept if it lands here.
+9. **After each fix, look at its neighbours.** Fixes move other parts: pulling up the head's underside
+   left the chin sticking out; sinking the eyes crossed them and pulled the streaks off them.
 
 Numbers help but never decide. A model can match ten measured ratios and still look wrong (the drooped
 neck). Measure to find the biggest mismatch, then judge by eye against the photo, then Cole decides.
@@ -63,6 +68,14 @@ neck). Measure to find the biggest mismatch, then judge by eye against the photo
   pupil, rim on the eyeball (`eyeColor` may be a painter, see `cougarEye`). Never black beads.
 - **Mouth and chin:** a strong but slim chin, a lip line where it meets the muzzle, the upper lip
   parted under the nose. Not a fat lower lip.
+- **Check the head head-on, not only side on.** A cat's skull is broad across the top, widest about
+  the eyes, with the ears at its corners; the shared head is widest low (a pear). Widen the upper half
+  (`crown`), not with an extra ball (that shows as lumps).
+- **No double chin, no fat neck.** The head's underside runs cleanly from the chin back to a lean
+  throat (`skullUnder`, `jawDepth`, a slimmer `neckR`). The lower jaw still shows under the mouth: long
+  enough to taper back into the jaw's line, neither a lump that sticks out nor tucked away to nothing.
+- **Streaks and marks belong to their features:** a cat's tear streak starts at the brow's inner end
+  and runs down past the eye's inner corner.
 - **Markings soft and placed exactly:** fur, not paint. Short marks where the animal has them (eye
   streaks from the inner corner), pale and dark patches with soft edges (`plainFace` in quadrupeds.js).
 - **No thin painted lines or outlines.** A dark outline round the muzzle and creases on the brow read
@@ -71,8 +84,13 @@ neck). Measure to find the biggest mismatch, then judge by eye against the photo
   "less prominent" means less depth perpendicular to it, not shorter or thinner. Turn the part to lie
   along the face's slope and cut only that dimension. A brow sits over the top of the eyeball, a
   little in front of it, so the eye never clips through it (and leaves no gap).
-- **Pupils face forward,** where the animal looks (a hunter's straight ahead), not along the side of
-  the head.
+- **Eyes look natural and relaxed, not bulgy or starey.** Set them into the head so little eyeball
+  shows from the side (`eyeOut`). Pupils round and clearly formed: paint them on an eyeball turned to
+  look along the gaze (`eyeColor` painter with `gaze`, so rings of `u.y` are the pupil and iris), never
+  on the side of a sphere (they stretch into slits). Both eyes look the same way, ahead; head on, each
+  pupil sits in the middle of its eye (turn the gaze out to match how the eyes are set, or they look
+  crossed). The iris covers all of the eye that shows: a black band on the side reads as a second pupil.
+  Pupils a little small rather than big.
 - **Words of size and place are about one dimension.** When Cole says "less prominent", "thicker",
   "narrow", ask which axis he means if it isn't plain, rather than changing the obvious one twice.
 
