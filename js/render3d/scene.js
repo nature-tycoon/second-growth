@@ -29,6 +29,7 @@ import { SeaSurface } from './sea.js';
 import { building, diveBoat, JETTY_BOAT } from './geometry/buildings.js';
 import { hash2, mulberry32 } from '../rng.js';
 import { Border } from '../world.js';
+import { skyRim } from './animals/animal-material.js';
 import { FrameCpuStats, CPU_STAGES, DRAW_PARTS, DRAW_REPORTED, slowFrameMs, CHECK_SHADERS, GpuTimer, weakGpu } from '../performance.js';
 import { RELEASE } from '../release.js';
 import { updateHydrology, updateEnvironment } from '../sim/environment.js';
@@ -90,6 +91,9 @@ function timeOfDay(u) {
 }
 const BASE_PPU = 46; // screen pixels per scene unit at zoom 1
 const LAND_MELT = 7; // tiles over which the land's far edge melts into the haze (atmosphere.js uMelt)
+// the animals' sky rim at play zoom (animal-material.js skyRim): a faint outline on the side turned
+// from the sun, so an animal reads against the grass; 0 turns it off
+const SKY_RIM = 6;
 // the melt's colour: how far it leans from the haze toward the ground's bounce light (hemi.groundColor
 // x LIFT), and toward the light's own colour in proportion to the hour's warmth (tod.sunAmt)
 const MELT_LAND = 0.25, MELT_LAND_LIFT = 1.5, MELT_SUN = 0.8, MELT_NIGHT = 0.45;
@@ -1303,6 +1307,9 @@ export class Renderer {
       const tr = this.terrain;
       haze.uLand.value.set(tr.X0, tr.Y0, tr.X0 + tr.TW, tr.Y0 + tr.TH);
       haze.uMelt.value = this.eyeOn ? 0 : LAND_MELT;
+      // (the animals' sky rim: full at play zoom, where a deer is a few dozen pixels in the grass,
+      // fading as the view closes in, faint at eye level: animal-material.js skyRim)
+      skyRim.value = this.eyeOn ? SKY_RIM * 0.35 : SKY_RIM * clamp((3.2 - this.zoom) / 2, 0.4, 1);
       // (distant country, not fog: the haze taken a little toward the land's bounce light)
       const melt = haze.uMeltColor.value.copy(this.hemi.groundColor).multiplyScalar(MELT_LAND_LIFT).lerp(haze.uHazeColor.value, 1 - (this.meltLand ?? MELT_LAND));
       // ...and toward the colour of the light when it has one (gold at sunset, blue by moonlight;

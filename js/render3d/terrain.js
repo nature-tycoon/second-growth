@@ -47,6 +47,15 @@ const mixRgb = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t,
 // over every tile, so it allocates nothing per tile).
 const TRI_CORNER = [0, 2, 1, 0, 3, 2], TRI_VERTS = new Int32Array(6);
 
+// Restoration should read as richer, not just different (aesthetics s5): native groundcover's tint
+// is a little deeper and more saturated than the pasture round it; invasive, exotic and weedy
+// cover and bare pasture a little flatter; bare earth darker and wetter beside water.
+// Reef keeps its own substrate colours (no palette); a savanna's restored grass is deepened but
+// barely saturated, so it stays gold-green rather than turning lime.
+const RESTORED = { value: 0.93, sat: 1.14, savannaSat: 1.05 }, DEGRADED = { sat: 0.86 }, WET_SOIL = 0.2;
+const resat = (c, sat, value = 1) => { const l = c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11; return c.map(v => Math.max(0, (l + (v - l) * sat) * value)); };
+const degraded = p => p.invasive || p.exotic || p.weedy;
+
 // Tint for groundcover: a meadow's color comes from what's growing in it.
 function turfColor(p, month, season, catalog) {
   const pasture = pastureColor(catalog.definition.id, season, catalog.definition.look.pasture[season]);
@@ -376,6 +385,7 @@ export class Terrain {
     const turfCache = new Map(), atlasKeys = new Map();
     // grassland of any kind shares one texture, tinted by what grows there
     const pasture = pastureColor(game.catalog.definition.id, season, game.catalog.definition.look.pasture[season]).map((v, q) => v / [0.86, 0.88, 0.8][q]);
+    const barePasture = PALETTES[game.catalog.definition.id] ? resat(pasture, DEGRADED.sat) : pasture; // (grazed-out pasture, nothing native in it)
     for (let ty = T0.ty0; ty <= T0.ty1; ty++) for (let tx = T0.tx0; tx <= T0.tx1; tx++) {
       const x = tx + this.X0, y = ty + this.Y0, k = ty * this.TW + tx;
       const inside = w.inb(x, y);
@@ -408,7 +418,7 @@ export class Terrain {
         const canopy = inside ? w.canopy[i] : 0;
         const gid = inside ? w.ground[i] : (bi >= 0 ? B.ground[bi] : 0);
         const gg = inside ? w.groundG[i] : 1;
-        if (tex === T.PASTURE) { tex = S.TURF; c = pasture; }
+        if (tex === T.PASTURE) { tex = S.TURF; c = gid ? pasture : barePasture; }
         else if (tex === T.SOIL) { tex = S.TURF; c = game.catalog.definition.look.soil; }
         else if (tex === T.MUD) { tex = S.TURF; c = game.catalog.definition.look.mud; }
         if (gid && gg > 0.12 && t !== T.TRAIL) {
@@ -418,7 +428,11 @@ export class Terrain {
           if ((p.look.type === 'fern' || p.look.type === 'skunk') && (!def.look.litter || gg > 0.3)) { tex = T.DUFF; if (def.look.litter) c = [1, 1, 1]; }
           else if (tex !== T.DUFF) {
             let tc = turfCache.get(gid);
-            if (!tc) { tc = turfColor(p, month, season, game.catalog); turfCache.set(gid, tc); }
+            if (!tc) {
+              tc = turfColor(p, month, season, game.catalog);
+              if (PALETTES[def.id]) tc = degraded(p) ? resat(tc, DEGRADED.sat) : resat(tc, def.savanna ? RESTORED.savannaSat : RESTORED.sat, RESTORED.value);
+              turfCache.set(gid, tc);
+            }
             const f = clamp((gg - 0.12) * 2, 0, 1);
             bare *= 1 - f;
             if (p.layer === 0 && !p.aquatic) tc = patchColor(tc, meadowPatch(x + 0.5, y + 0.5), 1); // (the same patches as the tufts on it)
@@ -445,6 +459,10 @@ export class Terrain {
         if (inside && game.catalog.definition.locked?.(game, i)) { const l = (c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11) * 1.08; c = mixRgb(c, [l, l, l * 0.96], 0.55); }
         if (inside && (w.marks[i] & 1)) c = mixRgb(c, [1, 1, 0.96], 0.24); // (a snorkel trail: just a faint line on the seabed under the buoys)
         if (inside && game.catalog.definition.look.groundTint) c = game.catalog.definition.look.groundTint(w, i, c) || c; // (Sumatra: dark peat showing through)
+        // (bare earth by water is darker, damp: the shore's mud grading into the bank)
+        // (only the tiles touching water: a ground patch repaints one tile beyond what changed, so a
+        // wider band could lag behind a dug pond until the next whole repaint)
+        if (inside && bare > 0.3 && w.distWater[i] <= 1 && !game.catalog.definition.look.underwater) c = c.map(q => q * (1 - WET_SOIL * bare));
         if (inside && w.scorch[i] > 0) { const f = clamp(w.scorch[i] / 160, 0, 1) * 0.7; c = mixRgb(c, [0.22, 0.2, 0.18], f); bare = Math.max(bare, f); }
       }
       {

@@ -23,11 +23,13 @@ Assumptions (no blocking questions; taste picks are logged as open questions for
 | s3 | Canopy variety, Serengeti soil, reef | 3, 4 | Opus | small–medium |
 | s4 | Light instead of overlay washes, water glint at golden hour | 6, 7 | Opus | medium |
 | s5 | Animal rim, glass menus on weak GPUs, restoration contrast | 8, 9, 11 | Opus | small–medium |
-| s6 | Re-stage the intro film's first shot, re-film | 10 | Opus | medium (long film runs) |
+| s6 | Cougar close-up detail (Cole, 2026-11-26): a rare, solitary animal, so a richer model costs almost nothing per frame; stays on the shared animal material | added | Opus | medium |
+| s7 | Re-stage the intro film's first shot, re-film (after s6: the film shows a cougar close-up) | 10 | Opus | medium (long film runs) |
 
 - [x] s2
 - [x] s3
 - [x] s4
-- [ ] s5
-- [ ] s6
+- [x] s5
+- [ ] s6 (cougar)
+- [ ] s7 (film)
 - [ ] catalog (`open.md`), then one PR

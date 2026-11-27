@@ -3,23 +3,25 @@
 // node tools/value-capture.mjs <outDir> [maps...] [--hours=midday,golden,sunset,night] [--month=0..11] [--fx] [--water]
 // (writes <map>-<hour>[-m<month>].png and values.json; --month sets the game's month, so its season's light and tint;
 // --fx draws the 2D effects layer too, as players see it: washes, sparkles, vignette; release-scenes leaves it out;
-// --water centres on the open water nearest the view, closer in, for the water's highlights)
+// --water centres on the open water nearest the view, closer in, for the water's highlights;
+// --scene=start pictures the farm as a new game opens it, unrestored, instead of the restored forest;
+// --animals=deer,elk puts a few of each on open ground near the view, at play zoom (1.2), to see how they read)
 import { writeFile, mkdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { openBrowser } from './browser-session.mjs';
 
 const args = process.argv.slice(2), flag = n => args.find(a => a.startsWith(`--${n}=`))?.split('=')[1];
 const [outArg, ...mapArgs] = args.filter(a => !a.startsWith('--'));
-const ALL_HOURS = { midday: 0.4, golden: 0.79, sunset: 0.855, night: 0.91 }, month = flag('month'), fx = args.includes('--fx'), water = args.includes('--water');
+const ALL_HOURS = { midday: 0.4, golden: 0.79, sunset: 0.855, night: 0.91 }, month = flag('month'), fx = args.includes('--fx'), water = args.includes('--water'), scene = flag('scene') || 'forest', animals = flag('animals')?.split(',');
 if (!outArg) throw new Error('usage: node tools/value-capture.mjs <outDir> [maps...]');
 const out = resolve(outArg); await mkdir(out, { recursive: true });
 const maps = mapArgs.length ? mapArgs : ['pnw', 'atlanta', 'amazon', 'sumatra', 'serengeti', 'chinandega', 'reef'];
-const HOURS = (flag('hours') || 'midday,golden').split(',').map(h => [h, ALL_HOURS[h]]), tag = month != null ? `-m${month}` : '';
+const HOURS = (flag('hours') || 'midday,golden').split(',').map(h => [h, ALL_HOURS[h]]), tag = (month != null ? `-m${month}` : '') + (scene !== 'forest' ? '-' + scene : '') + (animals ? '-animals' : '');
 const b = await openBrowser({ label: 'value', width: 960, height: 600 });
 const stats = {};
 try {
   for (const map of maps) {
-    await b.navigate('/tools/release-scenes.html?' + new URLSearchParams({ map, scene: 'forest', quality: 'high' }));
+    await b.navigate('/tools/release-scenes.html?' + new URLSearchParams({ map, scene, quality: 'high' }));
     await b.waitFor(`!!window.releaseScene?.ready && window.releaseScene.map === ${JSON.stringify(map)}`, 'scene ready');
     for (const [hour, u] of HOURS) {
       const r = await b.evaluate(`(async () => {
@@ -36,6 +38,25 @@ try {
           }
           if (best) r.centerOn(best[0] + 0.5, best[1] + 0.5);
           r.updateCamera();
+        }` : ''}
+        ${animals ? `{
+          const { ANIMAL } = await import('/js/data/animals.js'), { DAYS_PER_YEAR } = await import('/js/config.js'), w = g.world;
+          if (!window.valueAnimals) {
+          let best = null, bd = Infinity; // (open ground: something growing, no tree or water, near the view)
+          for (let z = 2; z < w.h - 2; z++) for (let x = 2; x < w.w - 2; x++) {
+            let open = 0;
+            for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) { const i = w.idx(x + dx, z + dz); open += !w.tree[i] && w.ground[i] && w.vh[i] >= 0 ? 1 : 0; }
+            const d = Math.hypot(x - r.target.x, z - r.target.z) - open; if (open > 20 && d < bd) { bd = d; best = [x, z]; }
+          }
+          const [cx, cz] = best || [r.target.x, r.target.z], defs = ${JSON.stringify(animals)}.map(k => ANIMAL[k]).filter(Boolean);
+          defs.forEach((def, k) => { for (let n = 0; n < 3; n++) {
+            const x = cx + 0.5 + (n - 1) * 1.3 + k * 0.4, y = cz + 0.5 + (k - (defs.length - 1) / 2) * 1.6 + (n % 2) * 0.5;
+            const a = g.wildlife.spawn(def, x, y, { silent: true, age: def.mature * DAYS_PER_YEAR + 1 });
+            Object.assign(a, { x, y, tx: x, ty: y, wait: 1000, heading: -0.35 + n, hunger: 0, thirst: 0 });
+          } });
+          g.wildlife.recount(); window.valueAnimals = [cx, cz];
+          }
+          const [cx, cz] = window.valueAnimals; r.zoom = 1.2; r.centerOn(cx + 0.5, cz + 0.5); r.updateCamera();
         }` : ''}
         for (let i = 0; i < 30; i++) r.draw(g, ui, 0.5);
         const c = r.capture(g, ui, false), ctx = c.getContext('2d'), d = ctx.getImageData(0, 0, c.width, c.height).data;

@@ -2,25 +2,25 @@
  "maps": {
   "pnw": {
    "counts": {
-    "instances.m2.plants.contact": 10159,
+    "instances.m2.plants.contact": 10160,
     "instances.m2.plants.crown": 6225,
     "instances.m2.plants.dot": 32,
     "instances.m2.plants.floorfern": 454,
-    "instances.m2.plants.flower": 7078,
+    "instances.m2.plants.flower": 6289,
     "instances.m2.plants.litter": 1682,
     "instances.m2.plants.rocks": 2,
-    "instances.m2.plants.shrub": 3934,
+    "instances.m2.plants.shrub": 3935,
     "instances.m2.plants.shrubflower": 9583,
     "instances.m2.plants.snag": 1,
     "instances.m2.plants.trunk": 6225,
-    "instances.m2.plants.tuft": 50309,
+    "instances.m2.plants.tuft": 50317,
     "m2.wide.draws": 96,
-    "m2.wide.triangles": 1432716,
+    "m2.wide.triangles": 1432764,
     "m2.wide.shadowDraws": 34,
     "m2.wide.shadowTriangles": 350038,
     "m2.wide.animals": 251,
     "m2.play.draws": 113,
-    "m2.play.triangles": 1982343,
+    "m2.play.triangles": 1959735,
     "m2.play.shadowDraws": 33,
     "m2.play.shadowTriangles": 351808,
     "instances.play.animals.pnw:vole.far": 4,
@@ -55,24 +55,24 @@
     "instances.play.animals.pnw:woodduck.far": 1,
     "m2.play.animals": 69,
     "m2.close.draws": 59,
-    "m2.close.triangles": 857983,
+    "m2.close.triangles": 849327,
     "m2.close.shadowDraws": 21,
     "m2.close.shadowTriangles": 229696,
     "m2.close.animals": 5,
-    "instances.m8.plants.contact": 10159,
+    "instances.m8.plants.contact": 10160,
     "instances.m8.plants.crown": 6225,
     "instances.m8.plants.dot": 32,
     "instances.m8.plants.floorfern": 454,
     "instances.m8.plants.litter": 1682,
     "instances.m8.plants.rocks": 2,
     "instances.m8.plants.seed": 11027,
-    "instances.m8.plants.shrub": 3934,
+    "instances.m8.plants.shrub": 3935,
     "instances.m8.plants.shrubfruit": 5775,
     "instances.m8.plants.snag": 1,
     "instances.m8.plants.trunk": 6225,
-    "instances.m8.plants.tuft": 50309,
+    "instances.m8.plants.tuft": 50317,
     "m8.wide.draws": 92,
-    "m8.wide.triangles": 1409644,
+    "m8.wide.triangles": 1409692,
     "m8.wide.shadowDraws": 34,
     "m8.wide.shadowTriangles": 350038,
     "m8.wide.animals": 251,
@@ -90,9 +90,9 @@
     "frames100.plantTilesWorked": 31924
    },
    "timings": {
-    "floraRebuildMs": 358.84,
-    "actorsUpdateMs": 21.98,
-    "gameUpdateMs": 8.51
+    "floraRebuildMs": 571.77,
+    "actorsUpdateMs": 34.47,
+    "gameUpdateMs": 9.89
    }
   },
   "amazon": {
@@ -147,7 +147,7 @@
     "instances.m8.plants.contact": 12951,
     "instances.m8.plants.crown": 8314,
     "instances.m8.plants.floorfern": 13,
-    "instances.m8.plants.flower": 12638,
+    "instances.m8.plants.flower": 11229,
     "instances.m8.plants.litter": 2752,
     "instances.m8.plants.log": 9,
     "instances.m8.plants.shrub": 4649,
@@ -162,12 +162,12 @@
     "m8.wide.shadowTriangles": 444100,
     "m8.wide.animals": 250,
     "m8.play.draws": 114,
-    "m8.play.triangles": 4164911,
+    "m8.play.triangles": 4096871,
     "m8.play.shadowDraws": 43,
     "m8.play.shadowTriangles": 1030944,
     "m8.play.animals": 91,
     "m8.close.draws": 91,
-    "m8.close.triangles": 1705701,
+    "m8.close.triangles": 1648821,
     "m8.close.shadowDraws": 52,
     "m8.close.shadowTriangles": 390924,
     "m8.close.animals": 20,
@@ -175,16 +175,16 @@
     "frames100.plantTilesWorked": 49414
    },
    "timings": {
-    "floraRebuildMs": 362.38,
-    "actorsUpdateMs": 17.76,
-    "gameUpdateMs": 6.66
+    "floraRebuildMs": 469.24,
+    "actorsUpdateMs": 24.9,
+    "gameUpdateMs": 8.04
    }
   },
   "serengeti": {
    "counts": {
     "instances.m2.plants.contact": 2948,
     "instances.m2.plants.crown": 1722,
-    "instances.m2.plants.flower": 456,
+    "instances.m2.plants.flower": 427,
     "instances.m2.plants.grasshead": 22963,
     "instances.m2.plants.litter": 238,
     "instances.m2.plants.log": 8,
@@ -238,7 +238,7 @@
     "m2.close.animals": 7,
     "instances.m8.plants.contact": 2948,
     "instances.m8.plants.crown": 1722,
-    "instances.m8.plants.flower": 8295,
+    "instances.m8.plants.flower": 7450,
     "instances.m8.plants.grasshead": 22963,
     "instances.m8.plants.litter": 238,
     "instances.m8.plants.log": 8,
@@ -253,12 +253,12 @@
     "m8.wide.shadowTriangles": 118204,
     "m8.wide.animals": 253,
     "m8.play.draws": 95,
-    "m8.play.triangles": 1414215,
+    "m8.play.triangles": 1393587,
     "m8.play.shadowDraws": 35,
     "m8.play.shadowTriangles": 123136,
     "m8.play.animals": 80,
     "m8.close.draws": 45,
-    "m8.close.triangles": 632756,
+    "m8.close.triangles": 612596,
     "m8.close.shadowDraws": 19,
     "m8.close.shadowTriangles": 24976,
     "m8.close.animals": 7,
@@ -266,9 +266,9 @@
     "frames100.plantTilesWorked": 52037
    },
    "timings": {
-    "floraRebuildMs": 265.73,
-    "actorsUpdateMs": 19.06,
-    "gameUpdateMs": 5.55
+    "floraRebuildMs": 360.26,
+    "actorsUpdateMs": 29.21,
+    "gameUpdateMs": 7.71
    }
   },
   "sumatra": {
@@ -330,7 +330,7 @@
     "instances.m8.plants.brush": 982,
     "instances.m8.plants.contact": 12743,
     "instances.m8.plants.crown": 8242,
-    "instances.m8.plants.flower": 516,
+    "instances.m8.plants.flower": 402,
     "instances.m8.plants.fruit": 112,
     "instances.m8.plants.litter": 2439,
     "instances.m8.plants.log": 60,
@@ -347,7 +347,7 @@
     "m8.wide.shadowTriangles": 627950,
     "m8.wide.animals": 250,
     "m8.play.draws": 125,
-    "m8.play.triangles": 3335830,
+    "m8.play.triangles": 3335790,
     "m8.play.shadowDraws": 62,
     "m8.play.shadowTriangles": 1107788,
     "m8.play.animals": 60,
@@ -360,9 +360,9 @@
     "frames100.plantTilesWorked": 55280
    },
    "timings": {
-    "floraRebuildMs": 344.08,
-    "actorsUpdateMs": 26.89,
-    "gameUpdateMs": 6.26
+    "floraRebuildMs": 468.23,
+    "actorsUpdateMs": 44.52,
+    "gameUpdateMs": 7.72
    }
   },
   "atlanta": {
@@ -370,7 +370,7 @@
     "instances.m2.plants.boardwalk": 8,
     "instances.m2.plants.contact": 3595,
     "instances.m2.plants.crown": 2168,
-    "instances.m2.plants.flower": 4848,
+    "instances.m2.plants.flower": 4269,
     "instances.m2.plants.litter": 253,
     "instances.m2.plants.log": 3,
     "instances.m2.plants.shrub": 1427,
@@ -385,7 +385,7 @@
     "m2.wide.shadowTriangles": 126976,
     "m2.wide.animals": 256,
     "m2.play.draws": 153,
-    "m2.play.triangles": 2265233,
+    "m2.play.triangles": 2243673,
     "m2.play.shadowDraws": 59,
     "m2.play.shadowTriangles": 355880,
     "instances.play.animals.atlanta:monarch.far": 5,
@@ -423,14 +423,14 @@
     "instances.play.animals.atlanta:hummingbird.far": 4,
     "m2.play.animals": 153,
     "m2.close.draws": 114,
-    "m2.close.triangles": 1165284,
+    "m2.close.triangles": 1141412,
     "m2.close.shadowDraws": 51,
     "m2.close.shadowTriangles": 248248,
     "m2.close.animals": 26,
     "instances.m8.plants.boardwalk": 8,
     "instances.m8.plants.contact": 3595,
     "instances.m8.plants.crown": 2168,
-    "instances.m8.plants.flower": 2215,
+    "instances.m8.plants.flower": 1958,
     "instances.m8.plants.litter": 253,
     "instances.m8.plants.log": 3,
     "instances.m8.plants.seed": 8892,
@@ -445,12 +445,12 @@
     "m8.wide.shadowTriangles": 126976,
     "m8.wide.animals": 256,
     "m8.play.draws": 160,
-    "m8.play.triangles": 2340789,
+    "m8.play.triangles": 2317101,
     "m8.play.shadowDraws": 59,
     "m8.play.shadowTriangles": 355880,
     "m8.play.animals": 153,
     "m8.close.draws": 122,
-    "m8.close.triangles": 1267056,
+    "m8.close.triangles": 1242352,
     "m8.close.shadowDraws": 51,
     "m8.close.shadowTriangles": 248248,
     "m8.close.animals": 26,
@@ -458,9 +458,9 @@
     "frames100.plantTilesWorked": 13954
    },
    "timings": {
-    "floraRebuildMs": 287.86,
-    "actorsUpdateMs": 16.76,
-    "gameUpdateMs": 4.59
+    "floraRebuildMs": 414.69,
+    "actorsUpdateMs": 26.12,
+    "gameUpdateMs": 5.07
    }
   },
   "chinandega": {
@@ -516,7 +516,7 @@
     "instances.m8.plants.fencepost": 391,
     "instances.m8.plants.fencerail": 367,
     "instances.m8.plants.floorfern": 290,
-    "instances.m8.plants.flower": 18765,
+    "instances.m8.plants.flower": 16736,
     "instances.m8.plants.litter": 820,
     "instances.m8.plants.log": 4,
     "instances.m8.plants.shrub": 1380,
@@ -531,12 +531,12 @@
     "m8.wide.shadowTriangles": 244908,
     "m8.wide.animals": 251,
     "m8.play.draws": 112,
-    "m8.play.triangles": 2728051,
+    "m8.play.triangles": 2666083,
     "m8.play.shadowDraws": 45,
     "m8.play.shadowTriangles": 579424,
     "m8.play.animals": 72,
     "m8.close.draws": 92,
-    "m8.close.triangles": 1219603,
+    "m8.close.triangles": 1180547,
     "m8.close.shadowDraws": 48,
     "m8.close.shadowTriangles": 216520,
     "m8.close.animals": 16,
@@ -544,9 +544,9 @@
     "frames100.plantTilesWorked": 47378
    },
    "timings": {
-    "floraRebuildMs": 304.46,
-    "actorsUpdateMs": 13.02,
-    "gameUpdateMs": 4.88
+    "floraRebuildMs": 459.84,
+    "actorsUpdateMs": 18.63,
+    "gameUpdateMs": 6.27
    }
   },
   "reef": {
@@ -617,9 +617,9 @@
     "frames100.plantTilesWorked": 40335
    },
    "timings": {
-    "floraRebuildMs": 193.53,
-    "actorsUpdateMs": 9.96,
-    "gameUpdateMs": 5.03
+    "floraRebuildMs": 282.3,
+    "actorsUpdateMs": 12.85,
+    "gameUpdateMs": 6.71
    }
   }
  },
