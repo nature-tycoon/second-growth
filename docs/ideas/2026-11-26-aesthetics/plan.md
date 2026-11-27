@@ -34,4 +34,5 @@ Assumptions (no blocking questions; taste picks are logged as open questions for
 - [x] s6 (cougar)
 - [x] s7 (black-tailed deer)
 - [x] s8 (film)
-- [ ] catalog (`open.md`), then one PR
+- [x] catalog (`open.md`)
+- [ ] one PR
