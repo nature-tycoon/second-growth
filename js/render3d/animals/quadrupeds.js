@@ -463,10 +463,10 @@ function riverMammalFoot(m, foot, r, o, color, webbed = false) {
 // A cougar's eye, painted on the eyeball (seen from the photos): a large pale yellow-amber iris
 // filling most of what shows, a small round pupil, a thick black rim all round, and the upper lid
 // drawn straighter and heavier than the lower, so the eye reads almond-shaped under the brow.
-// The eye's outward direction is about forward-out and a little up (the head is narrow there).
+// The iris and pupil face where the cat looks: forward, a little out (n).
 function cougarEye(H, hs) {
   const iris = col('#c2ad55'), irisIn = col('#8f7a2e'), rim = col('#17100b'), pupil = col('#0b0807'), out = col('#000000').clone();
-  const n = [0.55, 0.12, 0.83], nl = Math.hypot(...n);
+  const n = [0.8, 0.08, 0.6], nl = Math.hypot(...n); // (the gaze: mostly forward and a little out, a hunter's forward-facing eyes)
   return (u, p) => {
     const side = p.z < 0 ? -1 : 1, d = (u.x * n[0] + u.y * n[1] + u.z * side * n[2]) / nl;
     const up = u.y - d * n[1] / nl; // (how far up the eyeball, across the line of sight)
@@ -634,7 +634,8 @@ const MAMMALS = {
           const e = m.eyeAt, r = Math.max(0.55, H * 0.045);
           for (const side of [1, -1]) {
             const z = side * e[2];
-            m.ell([e[0] - r * 0.1, e[1] + r * 0.72, z - side * r * 0.3], [H * 0.075, H * 0.017, H * 0.045], s.color, { ...hd, rot: [0, 0, -0.18] });
+            m.ell([e[0] - r * 0.1 + r * 0.14, e[1] + r * 0.8, z + side * r * 0.22], // (over the top of the eyeball, a little in front of it, so the eye never shows through)
+              [H * 0.075, H * 0.017, H * 0.018], s.color, { ...hd, rot: [0, side * 0.585, -0.18] }); // (as long and tall as the lion's, but thin out of the face: turned to lie along the side of the face, so it shades the eye without standing off it)
             tube(m, [[e[0] + r * 0.75, e[1] - r * 0.15, z - side * r * 0.35], [e[0] + r * 1.15, e[1] - r * 0.65, z - side * r * 0.55], [e[0] + r * 1.45, e[1] - r * 1.2, z - side * r * 0.75]], [H * 0.0075, H * 0.006, H * 0.003], '#6a4c38', { ...hd, sub: 3, seg: 6 }); // (short, from the inner corner, a warm dark brown)
           }
           // the mouth: a dark lip line round the top of the chin, where it meets the muzzle (on the

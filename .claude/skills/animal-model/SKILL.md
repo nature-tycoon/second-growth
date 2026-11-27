@@ -65,6 +65,16 @@ neck). Measure to find the biggest mismatch, then judge by eye against the photo
   parted under the nose. Not a fat lower lip.
 - **Markings soft and placed exactly:** fur, not paint. Short marks where the animal has them (eye
   streaks from the inner corner), pale and dark patches with soft edges (`plainFace` in quadrupeds.js).
+- **No thin painted lines or outlines.** A dark outline round the muzzle and creases on the brow read
+  as "dirty and smeared"; keep markings to broad soft patches and short shaped marks.
+- **Brows: thick and as long as the eye, shallow out of the face.** Cole thinks of the face as a plane:
+  "less prominent" means less depth perpendicular to it, not shorter or thinner. Turn the part to lie
+  along the face's slope and cut only that dimension. A brow sits over the top of the eyeball, a
+  little in front of it, so the eye never clips through it (and leaves no gap).
+- **Pupils face forward,** where the animal looks (a hunter's straight ahead), not along the side of
+  the head.
+- **Words of size and place are about one dimension.** When Cole says "less prominent", "thicker",
+  "narrow", ask which axis he means if it isn't plain, rather than changing the obvious one twice.
 
 ## Toolbox
 
