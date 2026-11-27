@@ -475,7 +475,7 @@ function cougarEye(H, hs) {
     if (d > 0) return out.copy(irisIn).lerp(iris, smooth(0.9, 0.7, d) * smooth(0, 0.35, d));
     return rim;
   };
-  paint.gaze = [1, 0.04, 0.3]; // (ahead, both eyes the same way; out a little to match the eye's set, or head on they look crossed)
+  paint.gaze = [1, 0.04, 0.5]; // (ahead, both eyes the same way; out to match the eye's set, or head on they look crossed: 0.3 still read as crossed in the film, Cole 2026-11-27)
   return paint;
 }
 
