@@ -505,7 +505,7 @@ export class Renderer {
       // too wide; it was 0.85 to 1.45 tiles whatever the animal)
       let radius = pose.branch ? clamp(.05 + pose.h * .3, .06, .25) : clamp(.05 + pose.h * .35, .06, .3);
       let span = 0, body = 0, reach = 0;
-      let bottom = -Math.max(pose.h, pose.foot || 0) * .6, back = -.08 * radius, front = .08 * radius;
+      let bottom = -Math.max(pose.h, pose.foot || 0) * .6, back = -.08 * radius, front = .08 * radius, top = pose.center.y + Math.max(pose.h, .12) * .5;
       const invD = this.eyeOn ? 1 / Math.max(0.05, this.eye.pos.distanceTo(pose.center)) : 0;
       const V = focus.uViewDir.value, U = focus.uCamUp.value;
       if (pose.revealBounds && pose.revealMatrix) {
@@ -513,8 +513,11 @@ export class Renderer {
         // below its projected silhouette, and clear cover through its full
         // depth rather than stopping at the centre of the animal.
         const point = this.focusCorner ||= new THREE.Vector3(), bounds = pose.revealBounds;
+        top = -Infinity;
         for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) {
-          point.set(x, y, z).applyMatrix4(pose.revealMatrix).sub(focus.uFocus.value);
+          point.set(x, y, z).applyMatrix4(pose.revealMatrix);
+          top = Math.max(top, point.y);
+          point.sub(focus.uFocus.value);
           const along = point.dot(V), height = point.dot(U);
           bottom = Math.min(bottom, height - .025); back = Math.min(back, along - .025); front = Math.max(front, along + .025);
           if (pose.branch) span = Math.max(span, Math.sqrt(Math.max(0, point.lengthSq() - along * along)));
@@ -555,10 +558,22 @@ export class Renderer {
       focus.uLookD.value += (see - focus.uLookD.value) * e;
       // (the creek, river or pond surface over it while the eye is above that, in every view (watch
       // mode's follow shot from above too): look-through.js leaves what's under it to the water. Never
-      // the reef's sea, where the lens shows fish through coral)
+      // the reef's sea, where the lens shows fish through coral. Nor an animal wholly under the
+      // surface, a fish or a diver: it is seen faintly through the water, as through leaves (Cole,
+      // 2026-11-27: a followed fish was lost in the Amazon's murky river). Only one that breaks the
+      // surface keeps its underwater part to the water, or it looked to swim on top.)
       const water = this.terrain && this.seaY == null ? this.terrain.waterAt?.(sel.x, sel.y) : NaN;
       const eyeY = this.eyeOn ? this.eye.pos.y : this.camera.position.y;
-      focus.uLookWater.value = Number.isFinite(water) && eyeY > water ? water : -1e9;
+      // (wholly under: its box's top below the surface, by a hair (a piranha swims barely under it);
+      // and it must stay on the new side for a moment before the lens turns, easing, so a fish at the
+      // surface or a boto coming up to breathe doesn't flicker)
+      const wet = Number.isFinite(water) && eyeY > water;
+      const under = wet && top < water - pose.h * .03;
+      this.lookUnderT = under === this.lookUnder ? 0 : (this.lookUnderT || 0) + dt;
+      const switched = this.focusFor !== this.lookUnderFor; // (a new animal: no hold, no easing)
+      if (switched || this.lookUnderT > .4) { this.lookUnder = under; this.lookUnderT = 0; this.lookUnderFor = this.focusFor; }
+      focus.uLookUnder.value = switched ? +this.lookUnder : focus.uLookUnder.value + ((this.lookUnder ? 1 : 0) - focus.uLookUnder.value) * Math.min(1, dt * 4);
+      focus.uLookWater.value = wet ? water : -1e9;
       if (pose.trunk) focus.uFocusTrunk.value.set(pose.trunk[0], pose.trunk[1], pose.trunk[2]); else focus.uFocusTrunk.value.z = -1;
       lookTrunks(this.world, pose, V, this.flora, game.border);
     } else if (ft) { // (a spot on the ground, not an animal: a moment about a plant)
@@ -569,7 +584,7 @@ export class Renderer {
       focus.uFocusBodyR.value = .3; focus.uLookD.value = focus.uLookNear.value = .3;
       focus.uFocusTrunk.value.z = -1;
       focus.uFocusInvD.value = 0;
-      focus.uLookWater.value = -1e9;
+      focus.uLookWater.value = -1e9; focus.uLookUnder.value = 0;
     }
   }
 

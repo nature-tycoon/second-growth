@@ -33,7 +33,7 @@ export function withLookShift(mat, { near = false } = {}) {
   const prev = mat.onBeforeCompile, baseKey = mat.customProgramCacheKey();
   mat.onBeforeCompile = (shader, renderer) => {
     if (prev) prev.call(mat, shader, renderer);
-    Object.assign(shader.uniforms, { uLookShift: lookShift, uLookTrunks: focus.uLookTrunks, uLookDir: focus.uViewDir, uLookAt: focus.uFocus, uLookNear: focus.uLookNear, uLookWater: focus.uLookWater });
+    Object.assign(shader.uniforms, { uLookShift: lookShift, uLookTrunks: focus.uLookTrunks, uLookDir: focus.uViewDir, uLookAt: focus.uFocus, uLookNear: focus.uLookNear, uLookWater: focus.uLookWater, uLookUnder: focus.uLookUnder });
     shader.vertexShader = 'uniform float uLookShift;\nvarying vec3 vLookW;\n' + shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
       vec4 lookW = vec4(transformed, 1.0);
       #ifdef USE_INSTANCING
@@ -50,10 +50,12 @@ export function withLookShift(mat, { near = false } = {}) {
     // this pass, so it passes behind the trunk rather than seeming to walk in front of it
     // Water is not cover: it writes no depth, so this pass showed a swimmer's body through the
     // surface as if it swam on top (Cole, 2026-11-14: every animal in the water at eye level). What
-    // is under the water (focus.uLookWater, set while the eye is above it) is left to the normal draw.
-    shader.fragmentShader = `uniform float uLookShift; uniform vec4 uLookTrunks[${LOOK_TRUNKS}]; uniform vec3 uLookDir; uniform vec3 uLookAt; uniform float uLookNear; uniform float uLookWater; varying vec3 vLookW;\n` + shader.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+    // is under the water (focus.uLookWater, set while the eye is above it) is left to the normal draw,
+    // unless the whole animal is under it (focus.uLookUnder: a followed fish, Cole 2026-11-27): then it
+    // shows through the surface, fainter the deeper it is (below), so it reads as under the water.
+    shader.fragmentShader = `uniform float uLookShift; uniform vec4 uLookTrunks[${LOOK_TRUNKS}]; uniform vec3 uLookDir; uniform vec3 uLookAt; uniform float uLookNear; uniform float uLookWater; uniform float uLookUnder; varying vec3 vLookW;\n` + shader.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
       ${near ? 'if (uLookShift > 0.0 && distance(vLookW, uLookAt) > uLookNear) discard;' : ''}
-      if (uLookShift > 0.0 && vLookW.y < uLookWater) discard;
+      if (uLookShift > 0.0 && vLookW.y < uLookWater && uLookUnder < 0.01) discard;
       if (uLookShift > 0.0) {
         vec3 lookTo = isOrthographic ? uLookDir : cameraPosition - vLookW; // (to the eye: as far as the eye)
         float lookA = dot(lookTo.xz, lookTo.xz);
@@ -67,6 +69,9 @@ export function withLookShift(mat, { near = false } = {}) {
           }
         }
       }`);
+    // (under the water: fading with depth, to at most about half as strong half a tile down)
+    shader.fragmentShader = shader.fragmentShader.replace('#include <dithering_fragment>', `#include <dithering_fragment>
+      if (uLookShift > 0.0 && vLookW.y < uLookWater) gl_FragColor.a *= uLookUnder * (1.0 - 0.55 * smoothstep(0.0, 0.5, uLookWater - vLookW.y));`);
     // (the branch fades out round it)
     if (near) shader.fragmentShader = shader.fragmentShader.replace('#include <dithering_fragment>', `#include <dithering_fragment>
       if (uLookShift > 0.0) gl_FragColor.a *= 1.0 - smoothstep(0.4 * uLookNear, uLookNear, distance(vLookW, uLookAt));`);
