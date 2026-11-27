@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Second Growth — animal against a photo</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>
+body{margin:0;padding:16px;background:#edf0e8;color:#26392e;font:14px system-ui}h1{font-size:20px;margin:0 0 6px}p{margin:6px 0 10px;max-width:960px}
+label{margin-right:14px;white-space:nowrap}select,input,button{font:inherit}button{padding:3px 8px}
+#stage{position:relative;width:min(960px,100%);aspect-ratio:16/9;background:#9fb27a;border-radius:6px;overflow:hidden;cursor:crosshair}
+#stage canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+.row{margin:8px 0}#credit{font-size:12px;color:#4d5f52}#marks{font:12px ui-monospace,monospace}
+button.on{background:#26392e;color:#fff}
+</style>
+<h1>Animal against a photo</h1>
+<p>A real animal's photo laid over the game's model, seen exactly side on, scaled so the photo's nose tip,
+tail base (where the tail leaves the rump) and ground line land on the model's. Where the outlines part,
+the model is off. Photos load from Wikimedia Commons and are never copied into the game. Pick a photo,
+match the pose (walking photos: Walking and the step slider), then slide the photo's opacity.
+To add a photo, paste a Commons file name, set its three marks by clicking, and copy the line under the picture into <code>PHOTOS</code> here.</p>
+<div class="row">
+ <label>Animal <select id="species"></select></label>
+ <label>Photo <select id="photo"></select></label>
+ <label>Model <select id="model"><option value="detail">Usual</option><option value="close">Close-up</option></select></label>
+</div>
+<div class="row">
+ <label>Pose <select id="pose"><option value="rest">Standing</option><option value="walk">Walking</option></select></label>
+ <label>Step <input id="phase" type="range" min="0" max="6.283" step="0.05" value="1.1"></label>
+ <label>Photo opacity <input id="alpha" type="range" min="0" max="1" step="0.05" value="0.5"></label>
+ <label>Show <select id="blend"><option value="normal">Photo over model</option><option value="difference">Difference</option><option value="outline">Photo with model outline</option></select></label>
+</div>
+<div id="stage"><canvas id="gl"></canvas><canvas id="photoLayer"></canvas><canvas id="markLayer"></canvas></div>
+<div class="row"><label>Commons file <input id="file" size="52" placeholder="File:Some cougar.jpg"></label><button id="load">Load</button>
+ <label><input id="flip" type="checkbox"> Flip (photo faces left)</label>
+ Set mark: <button data-mark="nose">Nose tip</button> <button data-mark="base">Tail base</button> <button data-mark="ground">Ground</button></div>
+<div id="marks"></div>
+<div id="credit"></div>
+<script type="module">
+import * as THREE from 'three';
+import {adultAnimalScale} from '../js/render3d/animal-scale.js';
+import {loadAnimals,ANIMALS} from '../js/data/animals.js';
+const revision=Date.now(),{buildSpecies,faunaMaterial}=await import('../js/render3d/fauna.js?overlay='+revision);
+const P_BODY=0,P_HEAD=8;
+// Reference photos, side on, with marks in the photo's own pixels: nose tip, tail base, ground line.
+// Only the file name and the marks live here; the picture loads from Commons.
+const PHOTOS={
+ 'pnw:cougar':[
+  {file:'File:Puma concolor camera trap Arizona 2.jpg',nose:[405,140],base:[135,103],ground:230,pose:'walk',note:'walking, camera trap, Saguaro National Park'},
+  {file:'File:Puma concolor camera trap Arizona 1 (cropped).jpg',nose:[303,117],base:[86,86],ground:197,pose:'walk',note:'walking, camera trap, Saguaro National Park'},
+ ],
+};
+const query=new URLSearchParams(location.search),$=id=>document.getElementById(id);
+const W=960,H=540,DPR=Math.min(2,devicePixelRatio||1);
+const renderer=new THREE.WebGLRenderer({canvas:$('gl'),antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(DPR);renderer.setSize(W,H,false);
+renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.NeutralToneMapping;
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x9fb27a);
+scene.add(new THREE.HemisphereLight(0xe4eeff,0x5f6e3c,1.25));const sun=new THREE.DirectionalLight(0xfff3dc,2.5);sun.position.set(-30,55,40);scene.add(sun);
+const camera=new THREE.OrthographicCamera(-1,1,1,-1,-500,500);
+for(const c of ['photoLayer','markLayer']){$(c).width=W*DPR;$(c).height=H*DPR;}
+// species list: every one with photos, plus ?species=map:key
+const ids=[...new Set([...Object.keys(PHOTOS),...(query.get('species')?[query.get('species')]:[])])];
+$('species').innerHTML=ids.map(id=>`<option>${id}</option>`).join('');if(query.get('species'))$('species').value=query.get('species');
+let entry=null,photo=null,photoInfo=null,marking=null;
+async function loadSpecies(){
+ const [map,key]=$('species').value.split(':');
+ loadAnimals((await import(`../js/data/animals-${map}.js?overlay=${revision}`)).default);
+ const def=ANIMALS.find(d=>d.key===key);
+ if(entry){scene.remove(entry.mesh);entry.geo.dispose();}
+ const {geo,motion}=buildSpecies(def,{close:$('model').value==='close'}),anim=new THREE.InstancedBufferAttribute(new Float32Array(4),4);geo.setAttribute('aAnim',anim);
+ const mesh=new THREE.InstancedMesh(geo,faunaMaterial(motion),1);mesh.frustumCulled=false;scene.add(mesh);
+ const s=adultAnimalScale(def.sprite);mesh.setMatrixAt(0,new THREE.Matrix4().makeScale(s,s,s));
+ // the model's marks (resting pose): nose tip = the head's farthest point forward, tail base = the body's rear end, ground = its lowest point
+ const pos=geo.attributes.position,part=geo.attributes.aPart;let nose=[-1e9,0],base=[1e9,0],ground=1e9;
+ for(let i=0;i<pos.count;i++){const x=pos.getX(i),y=pos.getY(i),p=part.getX(i);ground=Math.min(ground,y);if(p===P_HEAD&&x>nose[0])nose=[x,y];if(p===P_BODY&&x<base[0])base=[x,y];}
+ // (the tail base: the body's rear end at the top of the rump, where the tail leaves it)
+ let top=-1e9;for(let i=0;i<pos.count;i++)if(part.getX(i)===P_BODY&&pos.getX(i)<base[0]+(nose[0]-base[0])*0.06)top=Math.max(top,pos.getY(i));base=[base[0],top-(top-ground)*0.08];
+ geo.computeBoundingBox();entry={def,geo,mesh,anim,scale:s,nose:nose.map(v=>v*s),base:base.map(v=>v*s),ground:ground*s};
+ const list=PHOTOS[$('species').value]||[];$('photo').innerHTML=list.map((p,i)=>`<option value="${i}">${p.file.slice(5)}</option>`).join('')+'<option value="custom">(your own)</option>';
+ await loadPhoto(list[0]||null);
+}
+async function loadPhoto(info){
+ photoInfo=info?{...info}:null;photo=null;$('credit').textContent='';
+ if(!info){draw();return;}
+ $('file').value=info.file;$('flip').checked=!!info.flip;if(info.pose)$('pose').value=info.pose;
+ const r=await fetch('https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&titles='+encodeURIComponent(info.file)+'&prop=imageinfo&iiprop=url|size|extmetadata').then(r=>r.json());
+ const ii=Object.values(r.query.pages)[0].imageinfo?.[0];if(!ii){$('credit').textContent='Not found on Commons: '+info.file;draw();return;}
+ const m=ii.extmetadata,strip=s=>(s||'').replace(/<[^>]+>/g,'').trim();
+ $('credit').innerHTML=`Photo: <a href="${ii.descriptionurl}" target="_blank" rel="noopener">${info.file.slice(5)}</a> by ${strip(m.Artist?.value)||'unknown'}, ${strip(m.LicenseShortName?.value)}${info.note?' · '+info.note:''}`;
+ const im=new Image();im.crossOrigin='anonymous';im.src=ii.url;await im.decode();photo=im;
+ if(!photoInfo.nose)Object.assign(photoInfo,{nose:[im.naturalWidth*0.85,im.naturalHeight*0.4],base:[im.naturalWidth*0.25,im.naturalHeight*0.35],ground:im.naturalHeight*0.85});
+ draw();
+}
+const toScreen=(x,y)=>{const v=new THREE.Vector3(x,y,0).project(camera);return [(v.x+1)/2*W,(1-v.y)/2*H];};
+function draw(){
+ if(!entry)return;
+ const walk=$('pose').value==='walk';entry.anim.setXYZW(0,+$('phase').value,walk?1:0,0,0);entry.anim.needsUpdate=true;entry.mesh.instanceMatrix.needsUpdate=true;
+ // exactly side on, the model filling most of the frame
+ const box=entry.geo.boundingBox.clone();box.min.multiplyScalar(entry.scale);box.max.multiplyScalar(entry.scale);
+ const c=box.getCenter(new THREE.Vector3()),sz=box.getSize(new THREE.Vector3()),half=Math.max(sz.y*0.62,sz.x*0.62*H/W);
+ camera.left=-half*W/H;camera.right=half*W/H;camera.top=half;camera.bottom=-half;camera.position.set(c.x,c.y,200);camera.lookAt(c.x,c.y,0);camera.updateProjectionMatrix();camera.updateMatrixWorld();
+ renderer.render(scene,camera);
+ const pl=$('photoLayer').getContext('2d'),ml=$('markLayer').getContext('2d');
+ for(const g of [pl,ml]){g.setTransform(DPR,0,0,DPR,0,0);g.clearRect(0,0,W,H);}
+ const mN=toScreen(...entry.nose),mB=toScreen(...entry.base),mG=toScreen(0,entry.ground)[1];
+ $('photoLayer').style.opacity=$('alpha').value;$('photoLayer').style.mixBlendMode=$('blend').value==='difference'?'difference':'normal';
+ if(photo&&photoInfo){
+  // scale: the photo's nose-to-tail-base length onto the model's; place: the photo's ground on the model's, its nose over the model's
+  const flip=$('flip').checked?-1:1,pw=photo.naturalWidth;
+  const fx=x=>flip>0?x:pw-x,pN=[fx(photoInfo.nose[0]),photoInfo.nose[1]],pB=[fx(photoInfo.base[0]),photoInfo.base[1]];
+  const k=(mN[0]-mB[0])/(pN[0]-pB[0]);
+  pl.save();pl.translate(mN[0]-pN[0]*k,mG-photoInfo.ground*k);pl.scale(k,k);
+  if(flip<0){pl.translate(pw,0);pl.scale(-1,1);}
+  pl.drawImage(photo,0,0);pl.restore();
+  if($('blend').value==='outline'){$('photoLayer').style.opacity=1;outline(ml);}
+  // the photo's marks, where they land
+  const at=([x,y])=>[mN[0]+(x-pN[0])*k,mG+(y-photoInfo.ground)*k];
+  dot(ml,at(pN),'#ff3b30');dot(ml,at(pB),'#ff3b30');
+  $('marks').textContent=`{file:'${photoInfo.file}',nose:[${photoInfo.nose.map(Math.round)}],base:[${photoInfo.base.map(Math.round)}],ground:${Math.round(photoInfo.ground)}${$('flip').checked?',flip:true':''},pose:'${$('pose').value}'},`;
+ }
+ // the model's marks
+ dot(ml,mN,'#ffd60a');dot(ml,mB,'#ffd60a');ml.strokeStyle='#ffd60a';ml.setLineDash([6,4]);ml.beginPath();ml.moveTo(0,mG);ml.lineTo(W,mG);ml.stroke();ml.setLineDash([]);
+}
+function dot(g,[x,y],c){g.fillStyle=c;g.strokeStyle='#000';g.beginPath();g.arc(x,y,4,0,7);g.fill();g.stroke();}
+// the model's outline: its pixels against the plain background colour, edges drawn over the photo
+function outline(ml){
+ const gl=renderer.getContext(),w=gl.drawingBufferWidth,h=gl.drawingBufferHeight,px=new Uint8Array(w*h*4);gl.readPixels(0,0,w,h,gl.RGBA,gl.UNSIGNED_BYTE,px);
+ const bg=[0x9f,0xb2,0x7a],inside=(x,y)=>{const i=((h-1-y)*w+x)*4;return Math.abs(px[i]-bg[0])+Math.abs(px[i+1]-bg[1])+Math.abs(px[i+2]-bg[2])>18;};
+ const img=ml.createImageData(w,h);
+ for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const a=inside(x,y);if(a!==inside(x+1,y)||a!==inside(x,y+1)){const i=(y*w+x)*4;img.data[i]=255;img.data[i+1]=214;img.data[i+2]=10;img.data[i+3]=255;}}
+ ml.setTransform(1,0,0,1,0,0);ml.putImageData(img,0,0);ml.setTransform(DPR,0,0,DPR,0,0);
+}
+// marks set by clicking on the photo
+for(const b of document.querySelectorAll('[data-mark]'))b.onclick=()=>{marking=marking===b.dataset.mark?null:b.dataset.mark;for(const o of document.querySelectorAll('[data-mark]'))o.classList.toggle('on',o.dataset.mark===marking);};
+$('stage').onclick=e=>{
+ if(!marking||!photo||!photoInfo)return;
+ const r=$('stage').getBoundingClientRect(),sx=(e.clientX-r.left)*W/r.width,sy=(e.clientY-r.top)*H/r.height;
+ const mN=toScreen(...entry.nose),mB=toScreen(...entry.base),mG=toScreen(0,entry.ground)[1],flip=$('flip').checked?-1:1,pw=photo.naturalWidth,fx=x=>flip>0?x:pw-x;
+ const pN=[fx(photoInfo.nose[0]),photoInfo.nose[1]],pB=[fx(photoInfo.base[0]),photoInfo.base[1]],k=(mN[0]-mB[0])/(pN[0]-pB[0]);
+ const px=fx(pN[0]+(sx-mN[0])/k),py=photoInfo.ground+(sy-mG)/k;
+ if(marking==='ground')photoInfo.ground=py;else photoInfo[marking]=[px,py];
+ draw();
+};
+$('species').onchange=loadSpecies;$('model').onchange=loadSpecies;
+$('photo').onchange=()=>{const v=$('photo').value;if(v!=='custom')loadPhoto(PHOTOS[$('species').value][+v]);};
+$('load').onclick=()=>loadPhoto({file:$('file').value.startsWith('File:')?$('file').value:'File:'+$('file').value});
+for(const id of ['pose','phase','alpha','blend','flip'])$(id).addEventListener('input',draw);
+await loadSpecies();document.body.dataset.ready='1';
+</script>
+</html>
