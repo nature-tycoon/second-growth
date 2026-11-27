@@ -150,7 +150,7 @@ export default function buildSumatraAnimals(def) {
     def({ key: 'mousedeer', kg: 2, name: 'Lesser mouse-deer', sci: 'Tragulus kanchil', group: 'Mammals', move: 'ground',
       speed: 1.3, hr: 6, max: 24, sources: ['N', 'E'], mig: 0.35, breed: [0, 4, 8], litter: [1, 1], life: 10, mature: 0.6,
       suit: (W, i) => w[W.habitat[i]] * fruit(W, i, 0.5) * near(W.distCover[i], 1, 0.4),
-      sprite: { kind: 'agouti', len: 11, color: '#8a5a34', belly: '#ece0cc', mousedeer: true, show: 1.4 },
+      sprite: { kind: 'agouti', len: 11, color: '#8a5a34', back: '#6a5638', belly: '#ece0cc', mousedeer: true, show: 1.4 },
       desc: 'A tiny hoofed animal no bigger than a rabbit, on legs as thin as pencils. In Malay and Indonesian folk tales, Sang Kancil the mouse-deer outwits the tiger and the crocodile.',
       hint: 'Thick forest undergrowth with fallen fruit.' });
   }

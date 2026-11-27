@@ -404,23 +404,32 @@ function sumatranRhino(m, s) {
 // higher than its shoulders, on legs as thin as pencils; a small pointed head with big dark eyes and
 // rounded ears, orange-brown above and white below, and the white-and-brown stripes running down
 // its throat from the chin.
+// Fitted to side-on photos of Tragulus kanchil (tools/animal-photo-overlay.html): short pencil legs, the
+// belly a fifth of the body's length off the ground, a gentle arch with the rump highest and rounded,
+// the head carried forward on a short thick neck about level with the back, big eyes, rounded ears.
 function mouseDeer(s) {
-  const L = s.len, H = L * 0.42, leg = L * 0.34, by = leg + H * 0.5, white = col(s.belly), brown = col(shade(s.color, -0.2));
-  const back = grad(shade(s.color, -0.12), s.belly, -0.35, 0.4);
+  const L = s.len, H = L * 0.42, leg = L * 0.21, by = leg + H * 0.5, white = col(s.belly), brown = col(shade(s.color, -0.2));
+  // (grizzled olive-brown along the back, warmer orange-brown down the flanks, white below: the photos)
+  const olive = col(s.back || shade(s.color, -0.12)), warm = col(s.color), bo = col('#000').clone();
+  const side = u => bo.copy(warm).lerp(olive, smooth(-0.1, 0.55, u.y)), back = u => u.y < -0.35 ? bo.copy(warm).lerp(white, smooth(-0.35, -0.55, u.y)) : side(u);
   // (the throat stripes, laid out in world space so they run on from the chin down the neck)
-  const nx = L * 0.3, ny = by + H * 0.05, hx = L * 0.5, hy = by + H * 0.45;
+  const nx = L * 0.32, ny = by, hx = L * 0.62, hy = by + H * 0.3;
+  // (round the neck from its underside: a white line down the middle, brown, then a white stripe up
+  // each side running from the chin back to the chest, then the coat: the kanchil's throat)
   const throat = base => (u, p) => {
     if (p.x < nx - H * 0.1) return base(u);
-    const t = Math.min(1, Math.max(0, (p.x - nx) / (hx - nx))), under = p.y < ny + (hy - ny) * t - H * 0.12;
-    if (!under) return base(u);
-    const az = Math.abs(p.z);
-    return az < H * 0.05 ? white : az < H * 0.1 ? brown : az < H * 0.17 ? white : base(u);
+    const t = Math.min(1, Math.max(0, (p.x - nx) / (hx - nx))), cy = ny + (hy - ny) * t, below = cy - p.y;
+    if (below < H * 0.02) return base(u);
+    const a = Math.atan2(Math.abs(p.z), below);
+    return a < 0.35 ? white : a < 0.7 ? brown : a < 1.1 ? white : base(u);
   };
   return {
-    H, leg, wide: 0.86, hip: 0.26, shoulder: -0.05, haunch: 1.12, chest: 0.82, sag: -0.08, legR0: H * 0.12, legR1: H * 0.035, legColor: shade(s.color, -0.15), hoof: '#1e1612', neckR: H * 0.2,
-    coat: () => throat(back), headPaint: throat(u => (u.y < -0.35 ? white : back(u))),
-    head: [L * 0.49, by + H * 0.42], headR: [H * 0.3, H * 0.21, H * 0.19], snout: H * 0.26, muzzle: shade(s.color, -0.25), eyeR: H * 0.06,
-    ears: 'point', ear: H * 0.2, earW: 0.55, earOut: 0.45, earBack: 0.3, earColor: shade(s.color, -0.25),
+    H, leg, hindX: 0.33, wide: 0.86, hip: 0.1, shoulder: -0.06, haunch: 1.02, chest: 0.8, sag: -0.04, legR0: H * 0.065, legR1: H * 0.028, legColor: shade(s.color, 0.02), hoof: '#1e1612',
+    // (a short thick neck leaving the whole front of the chest, tapering forward to the head, not a pipe off the shoulders)
+    neckPath: [[L * 0.3, by - H * 0.02, 0], [L * 0.44, by + H * 0.14, 0], [L * 0.55, by + H * 0.29, 0]], neckRadii: [[H * 0.32, H * 0.28], [H * 0.26, H * 0.23], [H * 0.2, H * 0.18]], neckSub: 4, neckSeg: 14, // (enough round the neck for its stripes)
+    coat: () => throat(back), headPaint: throat(side), // (the head and neck brown down to the throat's stripes)
+    head: [L * 0.64, by + H * 0.35], headR: [H * 0.3, H * 0.22, H * 0.2], snout: H * 0.24, muzzle: shade(s.color, -0.25), eyeR: H * 0.08, eyeFwd: 0.55, eyeOut: 0.52, eyeColor: deerEye(), eyeFar: '#1a110c', noseColor: '#3a2a26', noseSize: 0.6, // (big dark eyes set into the head, painted on the close-up; a small dark nose)
+    ears: 'point', earShape: 'round', ear: H * 0.21, earW: 0.55, earOut: 0.45, earBack: 0.08, earFwd: 0.1, earColor: shade(s.color, -0.25), earInner: '#b89584',
     tail: (m, b) => m.ell([-L * 0.47, b.by + H * 0.12, 0], [H * 0.09, H * 0.16, H * 0.07], u => (u.x > 0.1 ? white : col(s.color)), { part: P.TAIL, pivot: [-L * 0.45, b.by + H * 0.2, 0], rot: [0, 0, -0.5] }),
   };
 }

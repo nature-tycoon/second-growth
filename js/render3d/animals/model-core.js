@@ -588,7 +588,8 @@ function quadruped(m, s, o) {
   };
   // (one smooth tube per leg, bending at the joints, rather than straight pieces with a ball at each)
   const smoothLegs = o.smoothLegs ?? true;
-  const spots = [[L * 0.26, 1, P.LEG_FL], [L * 0.26, -1, P.LEG_FR], [-L * 0.25, 1, P.LEG_BL], [-L * 0.25, -1, P.LEG_BR]];
+  const hx = -L * (o.hindX ?? 0.25); // (hindX: the hind legs that much further back, under a hunched rump: a mouse-deer's)
+  const spots = [[L * 0.26, 1, P.LEG_FL], [L * 0.26, -1, P.LEG_FR], [hx, 1, P.LEG_BL], [hx, -1, P.LEG_BR]];
   for (const [x, side, part] of spots) {
     // set in far enough that even thick upper legs stay inside the body's outline
     const z = side * Math.min(H * 0.24, H * 0.42 - o.legR0) * W, hip = [x, by - H * 0.05, z];
