@@ -77,9 +77,10 @@ export const ANIMALS = {
     species: 'cougar', farm: 'start', label: 'Cougar', face: [69.5, -5.0],
     marks: [
       [0, 67.95, -5.6, 'crouch', 'lies low in the sword ferns, 13 m from the buck, still'],
-      [9.8, 67.95, -5.6, 'creep', 'starts to creep'],
-      [12.8, 68.14, -5.53, 'creep', 'freezes (buck flicks an ear)'],
-      [13.6, 68.14, -5.53, 'creep', 'creeps on'],
+      [9.8, 67.95, -5.6, 'creep', 'starts to creep, steadily'],
+      // (s8, Cole: "at 12 s the cougar stutter steps during the side view": its freeze at the buck's ear
+      // flick, 12.8–13.6 s, was cut down by the trims and the easing to about 0.25 s inside the 1.5 s
+      // stalk shot, a stop-start of the legs rather than a freeze; it now creeps on without stopping)
       [15.9, 68.37, -5.44, 'creep', 'freezes as the buck looks up, 9 m away'],
       [17.0, 68.37, -5.44, 'rush', 'rushes'],
       [17.57, 68.75, -4.95, 'rush', ''],
@@ -103,7 +104,8 @@ export const ANIMALS = {
 
 // The shots, in film seconds. camera.pos and camera.look are [x, y, up]; `to` and `lookTo` are where
 // they end (moved smoothly over the shot); `follow` makes the look track animals (weights). fov is the
-// vertical field of view in degrees: the eye's own is 50; long lens about 7–10.
+// vertical field of view in degrees: the eye's own is 50; long lens about 7–10. frameHead: a close
+// shot of the key animal's head, which must stay whole in the frame (intro-film-motion check 7).
 export const SHOTS = [
   {
     n: 0, from: 0, to: 1.5, title: 'Black', farm: 'start',
@@ -122,22 +124,28 @@ export const SHOTS = [
   {
     n: 2, layer: 'ears', from: 5.5, to: 8.5, title: 'His ears', farm: 'start', subjects: ['buck'],
     see: 'Close on the buck\'s head and ears as he chews: one ear turns back, then the other. He doesn\'t look up.',
-    camera: { move: 'still', lens: 'long', fov: 5.5, pos: [72.55, -1.86, .3], look: ['buck', 'head'] },
-    where: 'Low, 34 m off to the south-east, between the alders',
+    camera: { move: 'still', lens: 'long', fov: 10, pos: [70.8, -0.95, .3], look: ['buck', 'head'], lookUp: .2, frameHead: true },
+    // (s8, Cole: "the deer's head must be in frame": at 5.5° the buck's ears and rack ran off the top of the
+    // frame (his head a whole frame tall, measured by intro-film-motion check 7); 10° and aimed 0.2 above his
+    // eyes (the middle of head and rack) holds the whole head, ears and antlers, with room round them. From
+    // F3's spot, 72.55, -1.86, the salmonberry he browses stood between the lens and his face, which the
+    // tracking lens showed faintly through the leaves as a green-washed face; 2 m further round to the south,
+    // between two alders, his face is clear. Shot 5 keeps F3's spot: his head is up above the bush there.)
+    where: 'Low, 33 m off to the south-south-east, between two alders',
     animals: 'Buck chews, ears flick.',
     sound: 'close: his chewing, a twig; the creek behind',
   },
   {
     n: 3, layer: 'eyes', from: 8.5, to: 12, title: 'The cougar', farm: 'start', subjects: ['cougar'],
     see: 'Long lens, low among the ferns: two eyes and the shoulders of a cougar, flat to the ground, fixed on the buck. At 9.8 s it starts to creep.',
-    camera: { move: 'still', lens: 'long', fov: 5.5, pos: [71.35, -3.04, .25], look: ['cougar', 'head'] },
+    camera: { move: 'still', lens: 'long', fov: 5.5, pos: [71.35, -3.04, .25], look: ['cougar', 'head'], frameHead: true },
     where: 'Low at the forest edge, 30 m south-east of the cougar, so it looks almost toward us',
     animals: 'Cougar still, then begins to creep (under 1 m/s).',
     sound: 'the forest goes quiet; wind only',
   },
   {
     n: 4, layer: 'stalk', from: 12, to: 15.5, title: 'The stalk', farm: 'start', subjects: ['cougar', 'buck'],
-    see: 'Both in one frame from the side: the cougar at left creeps a paw at a time toward the buck at right, freezes when his ear flicks, creeps on. He keeps browsing.',
+    see: 'Both in one frame from the side: the cougar at left creeps a paw at a time toward the buck at right, slow and steady. He keeps browsing.',
     camera: { move: 'still', lens: 'medium-long', fov: 22, pos: [68.75, -1.25, .32], look: [68.95, -5.15, .24], clearShrubs: .3 },
     // (Cole, rough cut: "remove the bush from in front of the cougar": shrubs on the line are cleared to 0.3 tiles short of it, ferns kept)
     // (F3: 0.4 tiles further up the opening than F2's 68.75, -0.85: there a trunk hid the crouched cougar's body half the shot, as drawn)
@@ -148,7 +156,7 @@ export const SHOTS = [
   {
     n: 5, layer: 'headup', from: 15.5, to: 17.35, title: 'Head up', farm: 'start', subjects: ['buck'],
     see: 'Back to the close on the buck: his head snaps up, ears forward, frozen.',
-    camera: { move: 'still', lens: 'long', fov: 11, pos: [72.55, -1.86, .3], look: [69.66, -4.94, .5] },
+    camera: { move: 'still', lens: 'long', fov: 11, pos: [72.55, -1.86, .3], look: [69.66, -4.94, .5], frameHead: true },
     // (F3: 9.5°, not 8°: as drawn, the doe's whirl at 16.7 s crossed the 8° frame at 0.78 widths a second, limit 0.7;
     // 11° for the buck, drawn about 12% bigger: he crossed the 9.5° frame at 0.76)
     where: 'As shot 2',
@@ -177,7 +185,7 @@ export const SHOTS = [
   {
     n: 8, layer: 'watch', from: 24, to: 26.8, title: 'It watches', farm: 'start', subjects: ['cougar'],
     see: 'Long lens on the cougar at the edge of the trees: it stands, tail tip flicking, head turning slowly to follow the buck. It does not step out into the open.',
-    camera: { move: 'still', lens: 'long', fov: 9, pos: [70.66, 4.0, .4], look: ['cougar', 'head', 'stand'] },
+    camera: { move: 'still', lens: 'long', fov: 9, pos: [70.66, 4.0, .4], look: ['cougar', 'head', 'stand'], frameHead: true },
     where: 'On the creek\'s east bank above the falls, 39 m south',
     animals: 'Cougar stands, tail flicks, watches.',
     sound: 'waterfall; a crow calls',

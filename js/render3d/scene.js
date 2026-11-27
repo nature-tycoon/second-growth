@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { focus, withFocusFade } from './focus.js';
 import { drawLookThrough } from './look-through.js';
 import { treeTrunk, trunkRadius } from '../sim/ground-obstacles.js';
+import { canopyTile } from './canopy-support.js';
 import { treeHeight } from './tree-stature.js';
 import { TREE_SHAPES } from './geometry/tree-shapes.js';
 import { snow, withSnowTops } from './snow.js';
@@ -138,8 +139,12 @@ const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)'
 // The trunks standing close in front of the tracked animal (within 3 tiles, nearest first: x, z,
 // radius, the top of the bare trunk), for
 // look-through.js: the animal drawn through cover passes behind them. Not the one it clings to.
+// Beyond the farm's edge the border forest's trunks count too, read from the sites flora drew
+// (flora.treeSites, keyed by canopyTile): without them an animal followed in the old forest beyond
+// the fence showed faintly through every trunk in front of it, as if the trees were glass (Cole,
+// intro film 2026-11-26: "trees aren't translucent in the game for animals").
 const lookFound = [];
-function lookTrunks(w, pose, V) {
+function lookTrunks(w, pose, V, flora, border) {
   const out = focus.uLookTrunks.value;
   lookFound.length = 0;
   if (!w?.tree) { for (const v of out) v.set(0, 0, 0, 0); return; }
@@ -147,14 +152,25 @@ function lookTrunks(w, pose, V) {
   const cx = pose.center.x, cz = pose.center.z, x0 = Math.floor(cx), z0 = Math.floor(cz);
   for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
     const x = x0 + dx, z = z0 + dz;
-    if (x < 0 || z < 0 || x >= w.w || z >= w.h) continue;
-    const t = treeTrunk(w, x, z);
-    if (!t || (pose.trunk && Math.hypot(t[0] - pose.trunk[0], t[1] - pose.trunk[1]) < .01)) continue;
+    let t, p, ground, scale;
+    if (x < 0 || z < 0 || x >= w.w || z >= w.h) {
+      const key = border && flora ? canopyTile(w, border, x, z) : null, site = key == null ? null : flora.treeSites.get(key);
+      p = site?.plant != null && w.catalog.plants[site.plant];
+      const base = p ? trunkRadius(p) : 0;
+      if (!(base > 0)) continue;
+      const [tx, ty, tz, sx, sy] = site.transform;
+      t = [tx, tz, base * sx]; ground = ty; scale = sy;
+    } else {
+      t = treeTrunk(w, x, z);
+      if (!t) continue;
+      p = w.catalog.plants[w.tree[w.idx(x, z)]]; ground = w.heightAt(t[0], t[1]) * LEVEL; scale = t[2] / trunkRadius(p);
+    }
+    if (pose.trunk && Math.hypot(t[0] - pose.trunk[0], t[1] - pose.trunk[1]) < .01) continue;
     const ox = t[0] - cx, oz = t[1] - cz;
     if (ox * V.x + oz * V.z <= 0) continue; // (behind it)
     // up to where its crown begins (the bare bole; above it, its leaves are cover like any other)
-    const p = w.catalog.plants[w.tree[w.idx(x, z)]], shape = TREE_SHAPES[p.look.type] || {};
-    const top = w.heightAt(t[0], t[1]) * LEVEL + treeHeight(p) * (t[2] / trunkRadius(p)) * (shape.trunkH ?? shape.base ?? .45);
+    const shape = TREE_SHAPES[p.look.type] || {};
+    const top = ground + treeHeight(p) * scale * (shape.trunkH ?? shape.base ?? .45);
     found.push([ox * ox + oz * oz, t[0], t[1], t[2] * .9, top]); // (a little inside the base: trunks taper)
   }
   found.sort((a, b) => a[0] - b[0]);
@@ -544,7 +560,7 @@ export class Renderer {
       const eyeY = this.eyeOn ? this.eye.pos.y : this.camera.position.y;
       focus.uLookWater.value = Number.isFinite(water) && eyeY > water ? water : -1e9;
       if (pose.trunk) focus.uFocusTrunk.value.set(pose.trunk[0], pose.trunk[1], pose.trunk[2]); else focus.uFocusTrunk.value.z = -1;
-      lookTrunks(this.world, pose, V);
+      lookTrunks(this.world, pose, V, this.flora, game.border);
     } else if (ft) { // (a spot on the ground, not an animal: a moment about a plant)
       focus.uFocus.value.set(ft.x, this.world.heightAt(ft.x, ft.y) * LEVEL + 0.35, ft.y);
       focus.uFocusR.value = 1.3;

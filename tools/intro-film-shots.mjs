@@ -24,7 +24,7 @@ SHOTS.forEach((s, i) => {
   const of = c.of != null ? SHOTS.find(x => x.n === c.of) : null;
   // (sweep: the camera's speed is judged against its distance from what it looks at: intro-film-motion.mjs)
   LAYERS.push({ ...base, name: s.layer, from, to: +Math.min(SECONDS, Math.max(s.to, nextIn)).toFixed(3), fade: c.glide ? c.glide.fade : s.fadeIn || 0, fromBlack: s.n === 1,
-    ...(of ? { cameraOf: of.n } : {}), sweep: !!(c.sweep || of?.camera.sweep) });
+    ...(of ? { cameraOf: of.n } : {}), sweep: !!(c.sweep || of?.camera.sweep), frameHead: !!c.frameHead });
 });
 // time of day through each layer (scene.js TOD: 0 dawn, .07 early morning sun, .45 the game's start):
 // today's farm in the morning haze (the "mist", f2.md 4), 30 years on a little later, the last shot

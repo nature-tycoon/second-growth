@@ -131,6 +131,34 @@ export function skyOverLand(r, render) {
   return +Math.max(0, coverage(r, render, land, r.eye.camera.far) - coverage(r, render, land, R)).toFixed(4);
 }
 
+// The tracked animal's whole head on screen (s8, Cole: "the deer's head must be in frame"): the
+// bounds, in the frame's -1..1, of the head as drawn: its model's head vertices (aPart HEAD: skull,
+// ears, antlers), dipped about their neck pivot by the instance's graze as the shader does it
+// (animal-material.js: rotZ by -graze * uHead), then placed by the instance's own matrix. Only the
+// tracked animal (the shot's key animal, which the tracking lens follows) is known by instance
+// (Fauna.tracked). null if it isn't drawn this frame.
+const HEAD_PART = 8, headVerts = new WeakMap();
+function headOf(geo) {
+  let h = headVerts.get(geo); if (h) return h;
+  const P = geo.attributes.position, part = geo.attributes.aPart, piv = geo.attributes.aPivot, out = [];
+  if (part && piv) for (let i = 0; i < P.count; i++) if (Math.abs(part.getX(i) - HEAD_PART) < .5) out.push(P.getX(i), P.getY(i), P.getZ(i), piv.getX(i), piv.getY(i), piv.getZ(i));
+  headVerts.set(geo, h = new Float32Array(out));
+  return h;
+}
+export function headBox(r, cam) {
+  const tr = r.actors?.fauna?.tracked?.[0]; if (!tr) return null;
+  const { pool, k } = tr, verts = headOf(pool.geo); if (!verts.length) return null;
+  const m = new THREE.Matrix4().fromArray(pool.mesh.instanceMatrix.array, k * 16);
+  const dip = -pool.anim.array[k * 4 + 3] * (pool.motion.head ?? .9), c = Math.cos(dip), s = Math.sin(dip);
+  const v = new THREE.Vector3(); let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (let i = 0; i < verts.length; i += 6) {
+    const dx = verts[i] - verts[i + 3], dy = verts[i + 1] - verts[i + 4];
+    v.set(verts[i + 3] + dx * c - dy * s, verts[i + 4] + dx * s + dy * c, verts[i + 2]).applyMatrix4(m).project(cam);
+    x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x); y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y);
+  }
+  return { x0: +x0.toFixed(4), x1: +x1.toFixed(4), y0: +y0.toFixed(4), y1: +y1.toFixed(4) };
+}
+
 export function makeProbe(r, g, cast, box, render = null, { key = null, keep = 1.5 } = {}) {
   const ground = meshGround(r);
   let ob = null;
@@ -182,6 +210,7 @@ export function makeProbe(r, g, cast, box, render = null, { key = null, keep = 1
         headBlock: r.eyeOn ? blocker(o, head, ob, ground) : null, bodyBlock: r.eyeOn ? blocker(o, body, ob, ground) : null,
       };
     }
+    if (key && rec.animals[key] && r.eyeAgent?.id === rec.animals[key].id) rec.animals[key].headBox = headBox(r, cam);
     // plants covering the frame: within NEAR_COVER of the lens, and in front of the key animal (nearer
     // than `keep` short of it: the foreground, which hid the buck in the first shot)
     if (r.eyeOn && render) {
