@@ -1,0 +1,96 @@
+---
+name: animal-model
+description: Reshape or add detail to an animal's 3D model so it looks like the real animal, step by step against real photos with Cole judging each step. Use when Cole says an animal looks off, fake or wrong, asks for a close-up detail pass on a species, or a new species needs a model. Not for colours of whole maps, lighting or animation timing.
+---
+
+# Animal model: fit it to the real animal, one step at a time
+
+Built from the cougar (aesthetics batch s6, 2026-11-26; record `docs/ideas/2026-11-26-aesthetics/s6.md`).
+Two attempts there failed before this process worked: one shaped by eye ("super fake and weird"), one
+fitted to numbers off a head-low photo ("so much worse": drooping neck, tiny face). Read 0018's rules
+first (`docs/decisions/0018-animal-close-up-shading.md`): normals carry baked shading, ears are `pinna`,
+eyes sit on the head surface, no new shader program.
+
+## The loop
+
+1. **Find the photos first.** Two or three true side-on photos of the whole animal and two side-on head
+   photos, plus one head-on face, from Wikimedia Commons (CC BY, CC BY-SA, CC0 or public domain; note
+   author and licence). View them, never download them into the repo.
+   - Pick a **neutral pose**: walking or standing, head carried normally. Not stalking, crouching,
+     looking round at the camera, lying, or with the mouth open. A head-low photo is fine for the body
+     only, and says so in its note.
+   - Camera traps give clean side views; zoo portraits give faces.
+2. **Put them in the overlay page.** `tools/animal-photo-overlay.html?species=map:key` (`PHOTOS` at the
+   top). Whole-animal photos line up by the body (tail base, front of the chest, ground line), so a head
+   carried higher or lower can't throw the scale. Head photos (`head: true`) line up by the nose tip and
+   the near ear's front root on the close-up model. Click the marks on the photo and paste the printed
+   line into `PHOTOS`. Use "Photo with model outline" to see where the outlines part.
+3. **List what's off, biggest first,** against the photo, not against memory. Typical order: leg length
+   and body depth, tail, head size and carriage, then the face (eye place, muzzle, jaw, ears), then
+   markings, then colour.
+4. **Change one thing.** The smallest change that fixes that one item. Then look at it yourself in the
+   overlay and in `tools/animal-closeup-review.html` (side, three-quarter, head on; close-up and usual
+   model). If it doesn't look right to you against the photo, don't show it yet.
+5. **Show Cole and wait.** One short message: what changed, the URL, the question "does X look right?".
+   No commit until he says yes to the whole.
+6. **When Cole says it's worse, revert first,** to the last state he approved, then change only what he
+   named. Don't defend it and don't pile a fix on top of a rejected step.
+7. **When Cole says "less prominent", "thicker" or similar, ask yourself what he's looking at** and
+   change that feature's size or place, not just its colour (cougar: "less prominent" eye streaks meant
+   shorter and higher, not thinner and paler).
+
+Numbers help but never decide. A model can match ten measured ratios and still look wrong (the drooped
+neck). Measure to find the biggest mismatch, then judge by eye against the photo, then Cole decides.
+
+## Cole's taste (from the cougar; holds for every animal)
+
+- **Stylized, not realistic.** Bought or sculpted photoreal models are "too realistic". Stay on the
+  procedural builders and the shared animal material: shape plus soft vertex-colour markings.
+- **Nothing stuck on.** Parts that read as separate objects look fake: ball noses, puffy ellipsoid pads,
+  big white chin lobes, sausage brows, rods floating off the face. Every added part is sized small and
+  sunk into the surface so only a gentle bulge shows. If a mark can be painted, paint it.
+- **Smooth, muscular limbs.** Legs taper from a full thigh or shoulder to a slim ankle over a broad paw
+  or hoof; no angular bends (more rings, `legSub`), no tube "trousers" with a rim on the flank. Hind
+  thighs run back into the rump (`thighBack`, `stifle`). Not chunky, not thin.
+- **Parts grow out of the body.** A tail leaves the rump below the topline, thick at the root, with no
+  mound over it. A neck leaves the top of the chest; no long, drooping neck.
+- **Head carried as the animal carries it,** small moves only. A big move of the head made the neck
+  look absurd.
+- **Eyes are the face.** Set them forward where the photos put them, sunk, under a brow ridge (as the
+  lion's are), with the animal's eye shape (a cat's has a pointed inner corner), and painted: iris,
+  pupil, rim on the eyeball (`eyeColor` may be a painter, see `cougarEye`). Never black beads.
+- **Mouth and chin:** a strong but slim chin, a lip line where it meets the muzzle, the upper lip
+  parted under the nose. Not a fat lower lip.
+- **Markings soft and placed exactly:** fur, not paint. Short marks where the animal has them (eye
+  streaks from the inner corner), pale and dark patches with soft edges (`plainFace` in quadrupeds.js).
+
+## Toolbox
+
+- Shape options in `quadruped()` (`js/render3d/animals/model-core.js`), each defaulting to the old
+  look so one species can use it without changing the rest: `legRoot`, `thighBack`, `stifle`, `paw`,
+  `legSub`, `eyeFwd`, `eyeOut`, `eyeColor`, `noseColor`, `muzzleDepth`, `jawDepth`, `brow`, `earTurn`,
+  `earUp`, `earSide`, `neckPath`/`neckRadii`, plus the older `hip`, `shoulder`, `chest`, `haunch`,
+  `tuck`, `sag`, `wide`. Add a new option there rather than a per-species branch, defaulted off.
+- A species-specific look goes behind a trait or a sprite field (the cougar: the plain coat), never a
+  species name (`node tools/species-name-count.mjs`).
+- Markings: vertex colours through `headPaint`/`muzzle` painters `(u, p)` using model positions; set
+  `detail: true` so the head has enough vertices for soft edges. Never a new `pixelCoat` kind for one
+  animal (a coat adds its kind to the program key: a new shader program).
+- Face points for review tools: `motion.faceMarks` (nose, eye, ear root and tip, brow).
+- Before/after pictures and shading cost: `nice -n 15 node tools/animal-shots.mjs <map:key> <dir> <tag>
+  [compare species]`. Take "before" pictures before the first change (or from a detached worktree of
+  the base commit with `CLOSEUP_ROOT`).
+
+## Checks before the commit
+
+`node tools/animal-eyes-check.mjs`, `node tools/motion-sweep-check.mjs <map>` (foot slide and sinking
+after leg or paw changes), `node tools/animal-culling-check.mjs`, `node tools/perf-guard-check.mjs`,
+`node tools/first-frame-profile.mjs` (no new shader programs), `node tools/species-name-count.mjs`,
+then the headless suite through the `checker` subagent. Read `.claude/skills/testing/SKILL.md` first;
+close extra tabs, leave one preview for Cole.
+
+## Done when
+
+Cole says the animal looks right. Then: pictures (before/after, the eight views) in the batch's folder,
+a short record of what changed and why (and what Cole rejected, so it isn't tried again), one commit
+with your hunks only, and any new `quadruped()` option noted in 0018's rules.
