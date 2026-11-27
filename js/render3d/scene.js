@@ -34,6 +34,7 @@ import { skyRim } from './animals/animal-material.js';
 import { FrameCpuStats, CPU_STAGES, DRAW_PARTS, DRAW_REPORTED, slowFrameMs, CHECK_SHADERS, GpuTimer, weakGpu } from '../performance.js';
 import { RELEASE } from '../release.js';
 import { updateHydrology, updateEnvironment } from '../sim/environment.js';
+import { GpuPacing } from './gpu-pacing.js';
 import { animalDensity } from '../sim/animal-density.js';
 
 const EL = THREE.MathUtils.degToRad(34);
@@ -196,11 +197,11 @@ export class Renderer {
     document.addEventListener('visibilitychange', () => { if (this.perf) this.perf.last = performance.now(); this.cpuSkipNext = true; });
     canvas.addEventListener('webglcontextlost', event => {
       event.preventDefault(); // allow the browser and Three.js to restore the context
-      this.contextLost = true;
+      this.contextLost = true; this.pacing = null; // (fences go with the old context)
       this.onContextLost?.();
     });
     canvas.addEventListener('webglcontextrestored', () => {
-      this.contextLost = false;
+      this.contextLost = false; this.pacing = null;
       this.perf = null;
       this.cpuPerf.reset(); this.cpuSkipNext = true;
       this.gpuTimer = new GpuTimer(this.gl.getContext()); // (the old timer's queries went with the old context)
@@ -1061,6 +1062,10 @@ export class Renderer {
 
   // Each frame's processor time by stage, for perfSample. The frame after a hidden spell is skipped.
   recordCpuFrame(sample) {
+    // (a frame whose draw waited on the graphics chip, gpuBehind, isn't a frame's work: it would pull
+    // cpu_render_ms, work_p75_ms and autoQuality's step-up test down; counted in draws_waited_pct instead)
+    this.drawFrames = (this.drawFrames || 0) + 1;
+    if (sample.waited) { this.drawWaits = (this.drawWaits || 0) + 1; return; }
     if (document.hidden) { this.cpuSkipNext = true; return; }
     if (this.cpuSkipNext) { this.cpuSkipNext = false; return; }
     this.cpuPerf.record({ timings: { ...sample.timings, submit: this.submitMs ?? 0 } });
@@ -1080,6 +1085,8 @@ export class Renderer {
       ...this.gpuTimer?.sample(reset),
       ...this.drawParts(reset),
       fps: P.time ? +(P.frames * 1000 / P.time).toFixed(1) : null,
+      // (share of the loop's frames whose draw waited for the graphics chip to catch up: gpuBehind, 0059)
+      draws_waited_pct: this.drawFrames ? Math.round((this.drawWaits || 0) / this.drawFrames * 100) : 0,
       // (seconds of drawing this sample covers, so shadow_redraws reads as a rate; the slower frames'
       // processor work, the 16 ms test autoQuality makes for a frame rate held to 30)
       sample_s: +(P.time / 1000).toFixed(1), work_p75_ms: this.workP75(),
@@ -1103,7 +1110,7 @@ export class Renderer {
       plant_shadow_batches: this.flora.plantShadows.stats.batches,
       shadow_redraws: this.shadowRedraws || 0,
     };
-    if (reset) { P.frames = 0; P.time = 0; P.slow = 0; this.shadowRedraws = 0; this.workBins = null; }
+    if (reset) { P.frames = 0; P.time = 0; P.slow = 0; this.shadowRedraws = 0; this.workBins = null; this.drawFrames = this.drawWaits = 0; }
     return out;
   }
   // (draw_frames is cpu_frames less the frames whose draw didn't run to the end, so it isn't sent)
@@ -1201,6 +1208,9 @@ export class Renderer {
   }
 
   // ------------------------------------------------------------------ frame
+  // At most two 3D frames queued on the graphics chip, one right after a press (INP: js/render3d/gpu-pacing.js, 0059)
+  gpuBehind(inFlight) { return this.contextLost ? false : (this.pacing ||= new GpuPacing(this.gl.getContext())).behind(inFlight); }
+  fenceFrame() { if (!this.contextLost) (this.pacing ||= new GpuPacing(this.gl.getContext())).fence(); }
   draw(game, ui, dt) {
     if (this.contextLost) return;
     // The drawn world's clock: it stops while the game is paused, so the sky and light, weather,

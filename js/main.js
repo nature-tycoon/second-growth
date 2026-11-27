@@ -104,6 +104,11 @@ async function boot() {
     ui.intro = intro;
     const input = new Input(game, renderer, ui);
     renderer.resetView();
+    // Half of sessions pace the 3D draw on the graphics chip (the render step below, 0059), an A/B on players' own chips (`draw_pacing` rides on every event,
+    // PostHog's $web_vitals INP included): software drawing here gave 16 ms in some runs and no gain in
+    // others, and no weak laptop is at hand. ?pacing=1 or 0 picks it. Remove the coin once the numbers say.
+    const pacingWanted = new URLSearchParams(location.search).get('pacing');
+    renderer.drawPacing = pacingWanted ? pacingWanted === '1' : Math.random() < 0.5;
     // (no intro film: open late in the afternoon, so the first minute runs into golden hour. The film
     // ends on the renderer's own starting hour, todClock, and must keep it: intro-film-check)
     if (!intro) renderer.setTimeOfDay(LATE_START);
@@ -171,14 +176,28 @@ async function boot() {
     const frameErrors = new Set();
     const diagnostics = new URLSearchParams(location.search).get('perf') === '1'
       ? new PerformanceOverlay(game, renderer) : null;
+    // Paint first (INP, decision 0059): after a press or a key that works the interface, the 3D view
+    // isn't drawn again until the graphics chip has finished what it has queued (renderer.gpuBehind),
+    // so the browser paints the press's change straight away instead of behind a queue of 3D frames.
+    let pressed = false, drawDebt = 0, drawWaited = false;
+    const UI_KEYS = new Set([' ', 'escape', 'enter', 'tab', '0', '1', '2', '3', 'g', 'm', 'p', 'c']);
+    for (const type of ['pointerdown', 'click']) addEventListener(type, () => { pressed = true; }, { capture: true, passive: true });
+    addEventListener('keydown', e => { if (!e.repeat && UI_KEYS.has(String(e.key).toLowerCase())) pressed = true; }, { capture: true, passive: true });
     frame = createFrameLoop({
       targetFps,
       onFrameStart: diagnostics ? () => diagnostics.begin() : null,
-      onFrame: sample => { renderer.recordCpuFrame(sample); diagnostics?.record(sample); },
+      onFrame: sample => { sample.waited = drawWaited; renderer.recordCpuFrame(sample); diagnostics?.record(sample); },
       steps: [
         ['simulation', dt => { if (!renderer.contextLost) game.update(dt); }],
         ['input', dt => input.update(dt)],
-        ['render', dt => { if (!ui.intro?.covering) renderer.draw(game, ui.state, dt); }], // (not under the intro film)
+        // (not under the intro film; not while the graphics chip is still on the last draw: its time carries)
+        ['render', dt => {
+          drawWaited = false;
+          if (ui.intro?.covering) return;
+          if (renderer.drawPacing && renderer.gpuBehind(pressed ? 1 : 2)) { drawDebt += dt; drawWaited = true; return; }
+          pressed = false;
+          renderer.draw(game, ui.state, Math.min(0.1, dt + drawDebt)); drawDebt = 0; if (renderer.drawPacing) renderer.fenceFrame();
+        }],
         ['interface', dt => { ui.frame(dt); notices.frame(performance.now()); }],
       ],
       onError(error, phase) {

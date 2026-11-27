@@ -40,7 +40,7 @@ import { Watch } from './watch.js';
 import { Opening } from './opening.js';
 import { IntroFilm } from './intro.js';
 import { Timelapse } from './timelapse.js';
-import { animalThumb, plantThumb, iconThumb } from './thumbnails.js';
+import { animalThumb, plantThumb, iconThumb, thumbSrc, fillThumbs } from './thumbnails.js';
 import { wildlifeDiagnostics } from '../sim/wildlife-diagnostics.js';
 import { saves } from '../saves.js';
 import { CHALLENGE_TOOL_ADVICE, pressureTileNotes } from '../sim/ecological-pressure.js';
@@ -235,6 +235,9 @@ export class UI {
     const idle = window.requestIdleCallback ? f => window.requestIdleCallback(f, { timeout: 3000 }) : f => setTimeout(f, 250);
     const step = () => {
       if (!queue.length || this.game.catalog !== catalog) return;
+      // (one is a long task on a weak chip, so never just after a click or key: one that lands on a
+      // press holds its paint back, INP 0059; the guide draws any not ready after its own paint)
+      if (performance.now() - (this.lastInput ?? 0) < 3000) { setTimeout(() => idle(step), 1000); return; }
       animalThumb(queue.shift(), catalog);
       idle(step);
     };
@@ -1136,7 +1139,7 @@ export class UI {
       if (def.season) needs.push(['info', `Migratory: here from ${seasonText(def.season)}.`]);
       if (def.sources.length) needs.push(['info', `Arrives from ${[...new Set(def.sources.map(s => this.game.catalog.definition.text.edges[s]))].join(', ')}.`]);
       if (def.intro) needs.push(['info', `Can be reintroduced (${money(def.intro)}) from the Wildlife tools.`]);
-      detail.innerHTML = `<div class="hero-wrap"><img class="hero" src="${animalThumb(def.key, this.game.catalog)}"${known ? '' : ' style="filter:brightness(0) opacity(.35);background:none"'}></div>
+      detail.innerHTML = `<div class="hero-wrap"><img class="hero" ${thumbSrc('a', def.key, this.game.catalog)}${known ? '' : ' style="filter:brightness(0) opacity(.35);background:none"'}></div>
         <h3>${known ? def.name : 'Not yet seen'}</h3><div class="small"><i>${known ? def.sci : def.group}</i></div>
         <p class="info-desc">${known ? def.desc : 'Something that might live here someday. The clue below says what it needs.'}</p>
         <div class="section-title">Habitat needs</div><p class="info-desc">${def.hint}</p>
@@ -1153,7 +1156,7 @@ export class UI {
       this.refreshWildlifeGuide = null;
       m.querySelectorAll('.gcard').forEach(c => c.classList.toggle('on', c.dataset.key === def.key));
       const now = overhead(def).length;
-      detail.innerHTML = `<div class="hero-wrap"><img class="hero" src="${animalThumb(def.key, this.game.catalog)}"></div>
+      detail.innerHTML = `<div class="hero-wrap"><img class="hero" ${thumbSrc('a', def.key, this.game.catalog)}></div>
         <h3>${def.name}</h3><div class="small"><i>${def.sci}</i></div>
         <p class="info-desc">${def.desc}</p>
         <div class="kv"><span class="k">Passes over</span><span>${seasons.map(s => this.game.catalog.definition.climate.seasons[s]).join(', ')}</span>
@@ -1176,7 +1179,7 @@ export class UI {
       this.refreshWildlifeGuide = null;
       const sea = !!this.game.catalog.definition.look.underwater;
       m.querySelectorAll('.gcard').forEach(c => c.classList.toggle('on', c.dataset.key === p.key));
-      detail.innerHTML = `<img class="hero" src="${plantThumb(p.key, this.game.catalog)}"><h3>${p.name}</h3><div class="small"><i>${p.sci}</i> · ${p.kindName || this.game.catalog.definition.layerNames?.[p.layer] || LAYER_NAMES[p.layer]}</div>
+      detail.innerHTML = `<img class="hero" ${thumbSrc('p', p.key, this.game.catalog)}><h3>${p.name}</h3><div class="small"><i>${p.sci}</i> · ${p.kindName || this.game.catalog.definition.layerNames?.[p.layer] || LAYER_NAMES[p.layer]}</div>
         <p class="info-desc">${p.desc}</p>
         <div class="kv">${sea ? '' : `<span class="k">Water</span><span>${moistWord(p.moist[0], p.moist[1])}</span>`}
         <span class="k">Light</span><span>${lightWord(p.light[0], p.light[1])}</span>
@@ -1199,7 +1202,7 @@ export class UI {
           for (const def of this.game.catalog.animals.filter(a => a.group === grp)) {
             const st = wl.state[def.index];
             const known = st.discovered || def.intro;
-            const c = el('div', 'gcard' + (known ? '' : ' unknown'), `<img src="${animalThumb(def.key, this.game.catalog)}"><div class="nm">${known ? def.name : '???'}</div><div class="pop ${st.pop ? 'here' : ''}">${st.pop ? st.pop + (def.domestic ? ' kept (livestock)' : ' here') : known ? 'not here' : 'undiscovered'}</div>`);
+            const c = el('div', 'gcard' + (known ? '' : ' unknown'), `<img ${thumbSrc('a', def.key, this.game.catalog)}><div class="nm">${known ? def.name : '???'}</div><div class="pop ${st.pop ? 'here' : ''}">${st.pop ? st.pop + (def.domestic ? ' kept (livestock)' : ' here') : known ? 'not here' : 'undiscovered'}</div>`);
             c.dataset.key = def.key;
             if (st.pop) {
               const pin = el('button', 'locate', ICONS.pin);
@@ -1219,7 +1222,7 @@ export class UI {
           const grid = el('div', 'guide-grid');
           for (const p of passing) {
             const n = overhead(p.def).length;
-            const c = el('div', 'gcard', `<img src="${animalThumb(p.def.key, this.game.catalog)}"><div class="nm">${p.def.name}</div><div class="pop ${n ? 'here' : ''}">${n ? 'overhead now' : 'passing through'}</div>`);
+            const c = el('div', 'gcard', `<img ${thumbSrc('a', p.def.key, this.game.catalog)}><div class="nm">${p.def.name}</div><div class="pop ${n ? 'here' : ''}">${n ? 'overhead now' : 'passing through'}</div>`);
             c.dataset.key = p.def.key;
             c.addEventListener('click', () => showPassing(p));
             grid.appendChild(c);
@@ -1235,7 +1238,7 @@ export class UI {
           list.appendChild(el('div', 'guide-group', (this.game.catalog.definition.plantTabs ? [this.game.catalog.definition.plantTabs.ground, this.game.catalog.definition.plantTabs.shrub, this.game.catalog.definition.plantTabs.tree] : ['Groundcover', 'Shrubs', 'Trees'])[layer]));
           const grid = el('div', 'guide-grid');
           for (const p of this.game.catalog.plants.filter(q => q && q.layer === layer)) {
-            const c = el('div', 'gcard', `${p.invasive ? `<span class="inv-badge">${sea ? 'Nuisance' : 'Invasive'}</span>` : ''}<img src="${plantThumb(p.key, this.game.catalog)}"><div class="nm">${p.name}</div><div class="pop ${counts[p.id] ? 'here' : ''}">${counts[p.id] ? counts[p.id] + ' tiles' : 'none yet'}</div>`);
+            const c = el('div', 'gcard', `${p.invasive ? `<span class="inv-badge">${sea ? 'Nuisance' : 'Invasive'}</span>` : ''}<img ${thumbSrc('p', p.key, this.game.catalog)}><div class="nm">${p.name}</div><div class="pop ${counts[p.id] ? 'here' : ''}">${counts[p.id] ? counts[p.id] + ' tiles' : 'none yet'}</div>`);
             c.dataset.key = p.key;
             c.addEventListener('click', () => showPlant(p));
             grid.appendChild(c);
@@ -1245,8 +1248,11 @@ export class UI {
         showPlant(key ? this.game.catalog.plant[key] : this.game.catalog.plants[1]);
       }
     };
-    m.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { key = null; renderList(b.dataset.tab); }));
-    renderList(tab);
+    // (thumbnails not drawn yet come after the paint: thumbnails.js fillThumbs; the detail's first)
+    const fill = () => { fillThumbs(detail, this.game.catalog); fillThumbs(list, this.game.catalog); };
+    m.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { key = null; renderList(b.dataset.tab); fill(); }));
+    list.addEventListener('click', () => fillThumbs(detail, this.game.catalog));
+    renderList(tab); fill();
   }
 
   openGoals() {

@@ -23,6 +23,18 @@ From the release after 2026-11-26 (performance review 2026-11-26, items 1–3):
 
 Also look at `auto_quality` (its `reason`: `graphics_chip` or `slow` for a step down to Fast, `room` for a step back up, `undo` when a step up proved too much; from 2026-11-22 also `work_ms` and `gpu_ms`, the slower frames' processor and GPU time that decided it, and on a step up `capped`, true when the frame rate was held to 30 and the step was judged by that work, plus `base_dpr`; see `Renderer.autoQuality` and [fps-plan](ideas/2026-11-22-creeks-fps/fps-plan.md)), `setting_changed` and `tool_used` (tool, tiles). Device details come from `$os`, `$browser` and `$screen_width`.
 
+## Interaction to Next Paint (INP)
+
+`$web_vitals` (PostHog's own, on since before 2026-11) carries `$web_vitals_INP_value` once per page, when the page is hidden: the slowest click or key of the visit (one in 50 ignored), from the input to the next paint. It says nothing about which interaction it was. Take a percentile (p75, as Google does), never a mean. On 2026-11-27, 30 days: desktop p75 606 ms (p50 256) on secondgrowth.earth, 644 on itch; phones 560; by map Sumatra 1632, reef 706, PNW 494. Google calls under 200 good and over 500 poor.
+
+From the release after 2026-11-27 (idea batch flight-cats, session 4; `js/interaction-latency.js`, [0059](decisions/0059-interaction-to-next-paint.md)):
+- `slow_interaction` (up to 6 a session, at 300 ms or more): `interaction` (what was touched, a markup name: `btn-goals`, `stat-species`, `toolbar:cat=plant`, `modal-root:a=lapse`, `map:plant` for the map with the Plant tools open, `key:space`; never text, a typed key is `key:text`), `ms`, `input_delay_ms` (waiting for the frame in progress), `processing_ms` (the game's handlers), `presentation_ms` (handlers to the paint: the next frame), `event_type`, `speed`, `open_panel`, `fps`, `slow_frames_pct`.
+- `perf_sample` adds `draws_waited_pct` (share of frames whose 3D draw waited for the graphics chip to catch up; those frames are left out of `cpu_*` and `work_p75_ms`), `inp_ms` (INP so far this session, null while every interaction was under 40 ms), `interactions`, and the slowest since the last sample: `slowest_interaction`, `slowest_interaction_ms` and its three parts.
+
+`draw_pacing` (every event, `$web_vitals` included, from the same release): true for the half of sessions whose 3D draw waits for the graphics chip so a click paints sooner (0059). Compare p75 `$web_vitals_INP_value` and `perf_sample.fps` between the halves, desktop and phones apart.
+
+Which interaction hurts most: `slow_interaction` grouped by `interaction`, p75 of `ms`. A large `input_delay_ms` or `presentation_ms` is the frame (`cpu_*` in the same session's `perf_sample`), a large `processing_ms` is that control's own handler.
+
 ## Why players stop
 
 `game_left` (and `went_idle`) carry the session's story: tools used, refusals for money and

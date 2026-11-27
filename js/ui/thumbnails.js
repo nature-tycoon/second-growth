@@ -100,3 +100,35 @@ export function iconThumb(icon, catalog = activeCatalog) {
   thumbCache.set(k, url);
   return url;
 }
+
+// A panel full of thumbnails shouldn't wait on drawing them (Interaction to Next Paint, s4.md): each
+// not yet drawn is a canvas or a 3D render read back from the graphics chip, and a field guide opened
+// before the portraits were warmed drew 30-60 of them before it could paint. thumbSrc gives a drawn
+// one's src, or a blank with data-thumb; fillThumbs then draws those one at a time after the paint.
+const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+const thumbKey = (kind, key, catalog) => catalog.definition.id + (kind === 'a' ? ':a' : ':p') + key;
+export function thumbSrc(kind, key, catalog = activeCatalog) {
+  const url = thumbCache.get(thumbKey(kind, key, catalog));
+  return url ? `src="${url}"` : `src="${BLANK}" data-thumb="${kind}:${key}"`;
+}
+const filling = new WeakSet();
+// (one can be a long task on a weak chip, so none starts within PRESS_GAP_MS of a press: a click on a
+// card waits behind at most the one being drawn)
+const PRESS_GAP_MS = 400;
+let lastPress = -1e9, listening = false;
+export function fillThumbs(root, catalog = activeCatalog) {
+  if (filling.has(root)) return;
+  filling.add(root);
+  if (!listening) { listening = true; for (const t of ['pointerdown', 'keydown']) addEventListener(t, () => { lastPress = performance.now(); }, { capture: true, passive: true }); }
+  const next = () => {
+    if (performance.now() - lastPress < PRESS_GAP_MS) { setTimeout(next, PRESS_GAP_MS); return; }
+    const img = root.isConnected && root.querySelector('img[data-thumb]');
+    if (!img) { filling.delete(root); return; }
+    const [kind, key] = img.dataset.thumb.split(':');
+    delete img.dataset.thumb;
+    try { img.src = kind === 'a' ? animalThumb(key, catalog) : plantThumb(key, catalog); } catch (e) { /* leave it blank */ }
+    setTimeout(next, 0);
+  };
+  // (after the next paint: a frame, then a task)
+  requestAnimationFrame(() => setTimeout(next, 0));
+}
