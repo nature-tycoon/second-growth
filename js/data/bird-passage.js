@@ -1,14 +1,14 @@
 // Species used only for passage when the map has no resident definition. They
 // stay outside ANIMALS, preserving save indices and the resident food web.
-const bird = (key, name, sci, sprite, desc) => ({ key, name, sci, sprite, desc,
-  move: 'fly', group: 'Passing birds', mature: 1, speed: 8, shy: 0.2 });
+const bird = (key, name, sci, sprite, desc, extra) => ({ key, name, sci, sprite, desc,
+  move: 'fly', group: 'Passing birds', mature: 1, speed: 8, shy: 0.2, ...extra });
 export const PASSAGE_SPECIES = {
   canada_goose: bird('canada_goose', 'Canada goose', 'Branta canadensis',
     { kind: 'duck', goose: true, size: 25, color: '#807668', breast: '#d3cbbb', head: '#242421', bill: '#242421', tail: '#30302a', beat: 0.55 },
     'Geese travel together in a V formation. This flock is passing over the property.'),
   barn_swallow: bird('barn_swallow', 'Barn swallow', 'Hirundo rustica',
     { kind: 'songbird', size: 11, color: '#233f56', head: '#233f56', breast: '#e5b78b', face: '#9e492e', wingShape: 'pointed', forkTail: true, tailLength: 0.7, tailWidth: 0.055, beat: 1.35 },
-    'A fork-tailed aerial insect hunter. Passing flocks make low, sweeping flights.'),
+    'A fork-tailed aerial insect hunter. Passing flocks make low, sweeping flights.', { flightStyle: 'swoop' }),
   great_egret: bird('great_egret', 'Great egret', 'Ardea alba',
     { kind: 'heron', size: 23, color: '#ecece3', breast: '#f5f3ea', head: '#f5f3ea', bill: '#d8ae32', beat: 0.65 },
     'A white wetland bird with broad wings and slow wingbeats. This group is travelling between wetlands.'),

@@ -496,6 +496,9 @@ export function faunaMaterial(motion) {
         float crouch = fly < -1.5 ? -fly - 2.0 : 0.0; if (crouch > 0.0) fly = 0.0;
         // (a negative fly on a bird is a bird afloat, its legs tucked up under it: actors-fly.js dabblePose)
         float tuck = uBird * max(-fly, 0.0); fly = max(fly, -1.0 + uBird);
+        // (above 1 on a bird: wings fully out and its legs reaching forward to land, by fly - 1:
+        // actors-fly.js flightPose; nothing else puts a fly over 1)
+        float reach = uBird * clamp(fly - 1.0, 0.0, 1.0); fly = min(fly, 1.0);
         vec3 zero = vec3(0.0);
         bool wing = aPart > 5.5 && aPart < 7.5;
         bool tail = aPart > 4.5 && aPart < 5.5;
@@ -583,7 +586,7 @@ export function faunaMaterial(motion) {
           ` : `
           // (a negative fly is a leaping cat or fox, stretched out: forelegs reach forward, hind legs trail)
           float fl = max(fly, 0.0), lp = max(-fly, 0.0);
-          float swing = sin(ph + off) * uLeg * gait * (1.0 - fl) - fl * 1.35 + lp * (aPart < 2.5 ? 1.1 : -0.95) - tuck * 1.1;
+          float swing = sin(ph + off) * uLeg * gait * (1.0 - fl) - fl * 1.35 * (1.0 - reach) + reach * 0.6 + lp * (aPart < 2.5 ? 1.1 : -0.95) - tuck * 1.1;
           p = rotZ(p, aPivot, swing); n = rotZ(n, zero, swing);
           `}
           }
@@ -625,7 +628,7 @@ export function faunaMaterial(motion) {
         if (uPrimate > 2.5) objectNormal = rotZ(objectNormal, vec3(0.0), sin(animPhase()) * .12 * aAnim.y * (1.0 - aAnim.z));
       `)
       .replace('#include <begin_vertex>', `
-        float ph = animPhase(), gait = aAnim.y, fly = aAnim.z, graze = aAnim.w;
+        float ph = animPhase(), gait = aAnim.y, fly = min(aAnim.z, 1.0), graze = aAnim.w; // (over 1: a landing bird's legs, animatePart)
         vec3 transformed = faunaPosition;
         if (uPrimate > 2.5) {
           transformed -= (siamangHold(siamangWeights(ph, gait, fly)) - vec3(.14, 1.38, .02)) * uLength;

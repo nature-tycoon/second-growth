@@ -69,7 +69,7 @@ Read the record for an area before changing it. Each record in [docs/decisions/]
 - [0036](docs/decisions/0036-savanna-grass-recovery.md) Savanna grass recovery
 - [0037](docs/decisions/0037-shared-prey-and-recolonisation.md) Shared prey and recolonisation (`sharePrey`)
 - [0038](docs/decisions/0038-smooth-first-minutes.md) Smooth first minutes and per-day cost (`Game.dayWork`)
-- [0039](docs/decisions/0039-steady-flight-level-fish-floating-ducks.md) Steady flight, level reef fish, floating ducks (tucked legs, dabbling, tint under the waterline), eased follow camera (`holdCruise`, `smoothSeabed`, `Actors.floatLevel`, `dabblePose`, `followHeight`)
+- [0039](docs/decisions/0039-steady-flight-level-fish-floating-ducks.md) Steady flight, level reef fish, floating ducks (tucked legs, dabbling, tint under the waterline), eased follow camera (`holdCruise`, `smoothSeabed`, `Actors.floatLevel`, `dabblePose`, `followHeight`); landing flare, banked turns, flight styles by trait `flightStyle` (`flightPose`, `st.wing`; `bird-flight-check`)
 - [0040](docs/decisions/0040-depth-based-lens-hole.md) Tracking lens: the animal drawn faintly through cover, cover opens over its outline (at eye level only near the lens), trunks never cut, never through water, a held meal shows with it (`render3d/look-through.js`, `render3d/focus.js`)
 - [0041](docs/decisions/0041-primate-climbing-pace.md) Primate climbing pace and crown gaps (`drawnClimbPace`, `sim/canopy-links.js`, `crossGap`)
 - [0042](docs/decisions/0042-tree-impostors.md) Tree impostors: far crowns as baked cards (`render3d/tree-impostors.js`)

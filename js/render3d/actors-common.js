@@ -15,7 +15,6 @@ import { isCanopyWalker } from './canopy-walker-profile.js';
 import { animalViewRadius } from './actor-view.js';
 
 export const PX = 1 / 50; // sprite pixels to scene units
-const SOAR_BANK = 0.35; // a circling hawk leans into its turn
 // Every drawn animal and visitor turns through turnToward, and only once a frame (0025): kinds
 // differ in what they turn toward (the simulation's `a.heading`, the bark a woodpecker clings to,
 // a starfish being eaten, the branch a climber is on) and how fast (TURN), never in how. A drawn
@@ -206,6 +205,7 @@ export function beginAnimal(A, fr, a) {
     // (worked out on the way: the turn, gait and pose, then where it's drawn)
     dx: 0, dz: 0, yaw0: 0, gait0: 0, moving: false, munch: -1, heading: null, body: null,
     walker: false, bathing: false, preening: false, fight: null, bugling: false,
+    lift: 0, // (a flier's height over where it would rest: drawnHeight; a landing bird's flare reads it)
     ax: 0, az: 0, hunt: null, poseFly: null, posePitch: 0, poseRoll: 0,
     branchPitch: 0, branchRoll: 0, branchYaw: 0, eating: false, eatPose: 0, phase: 0, grips: null,
   };
@@ -249,7 +249,8 @@ export function turnBody(c) {
 // The animation clock it's drawn with: a climber's own, a swimmer's tail beat, a walker's legs.
 export function bodyPhase(c) {
   const { a, st, mo, sc, dx, dz, walker, eating } = c;
-  const phase = mo.primate === 2 || st.branch && (mo.primate || mo.canopyFeet) ? st.branchPhase || 0 : mo.swims ? st.swimPhase : walker && st.legPhase != null ? st.legPhase : a.phase * Math.PI;
+  // (a bird's wings beat on its own wing clock: faster to land and take off, held still in a glide: actors-fly.js flightPose)
+  const phase = st.wing != null ? st.wing : mo.primate === 2 || st.branch && (mo.primate || mo.canopyFeet) ? st.branchPhase || 0 : mo.swims ? st.swimPhase : walker && st.legPhase != null ? st.legPhase : a.phase * Math.PI;
   if (eating) st.graze = 0;
   // A crawling snake's bends advance by the distance it covers, so they stay put on the ground
   // (one full bend per body length; see uSlither in animals/animal-material.js, which reads it from the fly slot).
@@ -261,7 +262,8 @@ export function bodyPhase(c) {
 // and its shadow.
 export function finishAnimal(A, c) {
   const { game, F, k, a, def, st, sc, mo, surf, ground, flying, swimming, ax, az, y, phase, grips, eatPose, poseFly, posePitch, poseRoll, branchPitch, branchRoll, branchYaw, fight, bugling, bathing, shadow } = c;
-  F.add(def, ax, y, az, st.yaw + branchYaw, sc, phase, st.gait, mo.primate ? eatPose : mo.slither ? st.slither : poseFly ?? st.fly, mo.primate === 2 ? 0 : mo.bend ? st.bend : mo.slither ? gulpBulge(game, a, def) : st.graze, branchPitch + posePitch + (st.pitch || 0) + (fight?.pitch || 0) + (st.bugle = (st.bugle || 0) + ((bugling ? 0.14 : 0) - (st.bugle || 0)) * k), branchRoll + poseRoll + (fight?.roll || (bathing ? Math.sin(a.phase * 2.1) * 0.12 : (st.bank = (st.bank || 0) + ((a.bird?.kind === 'soar' ? a.bird.dir * SOAR_BANK : 0) - (st.bank || 0)) * k))), grips, a === A.followAgent || a === game.selectedAgent);
+  F.add(def, ax, y, az, st.yaw + branchYaw, sc, phase, st.gait, mo.primate ? eatPose : mo.slither ? st.slither : poseFly ?? st.fly, mo.primate === 2 ? 0 : mo.bend ? st.bend : mo.slither ? gulpBulge(game, a, def) : st.graze, branchPitch + posePitch + (st.pitch || 0) + (fight?.pitch || 0) + (st.bugle = (st.bugle || 0) + ((bugling ? 0.14 : 0) - (st.bugle || 0)) * k), branchRoll + poseRoll + (fight?.roll || (bathing ? Math.sin(a.phase * 2.1) * 0.12 : (st.bank || 0))), grips, a === A.followAgent || a === game.selectedAgent);
+  st.drawFly = poseFly ?? st.fly; st.drawPhase = phase; // (as drawn: the checks read them)
   st.sc = sc; st.eye = mo.eye; st.eyePivot = mo.eyePivot; st.bob = Math.abs(Math.sin(phase)) * (mo.bob || 0) * st.gait * (1 - st.fly);
   // (the marker lies on the ground under a flyer, at the surface under a swimmer, else at its feet)
   st.base = flying && !def.reef ? Math.max(ground, surf ?? ground) : def.move === 'swim' && surf != null ? surf : y;
@@ -284,7 +286,7 @@ export function finishAnimal(A, c) {
   if (!st.branch && def.move !== 'swim' && !swimming && c.fl == null && !(surf != null && trait(def, 'floats'))) {
     // (a shaped shadow fades and softens a little the higher the animal is above the ground)
     const shape = (def.reef || def.move === 'fly') && A.silhouettes.shape(F, def, def.reef ? 0.5 : 0);
-    if (shape) A.silhouettes.add(shape, a.x, ground, a.y, st.yaw, sc * (1 + Math.min(1, Math.max(0, y - ground) * 0.06)), st.fly, Math.sin(phase * (mo.flap || 1)), clamp(1.1 - (y - ground) * 0.22, 0.4, 1));
+    if (shape) A.silhouettes.add(shape, a.x, ground, a.y, st.yaw, sc * (1 + Math.min(1, Math.max(0, y - ground) * 0.06)), clamp(poseFly ?? st.fly, 0, 1), Math.sin(phase * (mo.flap || 1)), clamp(1.1 - (y - ground) * 0.22, 0.4, 1));
     else shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * sc * (0.4 / 0.62) * (flying || def.reef ? 0.7 : 1));
   }
 }

@@ -58,7 +58,7 @@ function trace(g, actors, frames, keep, each) {
       seen.add(a.id);
       let r = runs.get(a.id);
       if (!r) runs.set(a.id, r = { ys: [], key: def.key });
-      r.ys.push(st.y);
+      r.ys.push(st.y - (st.undul || 0)); // (a bounding bird's dip is its flight style, on top of the steady line: bird-flight-check)
     }
     for (const [id, r] of runs) if (!seen.has(id)) { done.push(r); runs.delete(id); }
   }
