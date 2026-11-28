@@ -110,7 +110,7 @@ export default function buildPnwAnimals(def) {
       speed: 1.6, hr: 180, max: 3, sources: ['E', 'N'], mig: 0.25, breed: [2], litter: [1, 3], life: 10,
       prey: ['rabbit', 'vole', 'squirrel'], preyPer: 7,
       suit: (W, i) => w[W.habitat[i]],
-      sprite: { kind: 'feline', len: 26, h: 12, leg: 12, color: '#a0825c', belly: '#d8c7a8', dark: '#4d3a28', bobtail: true },
+      sprite: { kind: 'feline', len: 26, h: 12, leg: 12, legs: 0.85, ears: 'point', earW: 0.55, ear: 0.2, tufts: true, tailLen: 0.25, tailDrop: 0.2, tailR: 0.11, tailTip: 0.35, color: '#a0825c', belly: '#d8c7a8', dark: '#4d3a28', bobtail: true },
       desc: 'A secretive, spotted wild cat that ambushes rabbits from brushy cover.',
       hint: 'Brushy young forest with lots of rabbits.' });
   }

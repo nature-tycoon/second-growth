@@ -788,7 +788,7 @@ function quadruped(m, s, o) {
     const base = [hp[0] + hr[0] * (o.earFwd ?? -0.2), hp[1] + hr[1] * (o.earUp ?? 0.75), side * hr[2] * (o.earSide ?? 0.55)]; // (earFwd, earUp, earSide: where the root sits on the skull; a cat's lower and wider, a deer's further back)
     if (o.ears === 'none') continue;
     // (earShape, earInner, earTip, earTipAt, earRim and earCup fine-tune the shared pinna)
-    const look = { ...hd, inner: o.earInner, tip: o.earTip, tipAt: o.earTipAt, rim: o.earRim, cup: o.earCup };
+    const look = { ...hd, inner: o.earInner, tip: o.earTip, tipAt: o.earTipAt, rim: o.earRim, cup: o.earCup, spot: o.earSpot }; // (earSpot: a pale spot on the back of the ear, as most spotted cats have)
     if (o.ears === 'round') {
       const tip = [base[0] - o.ear * 0.12, base[1] + o.ear * 0.85, base[2] + side * o.ear * 0.3];
       if (side > 0) m.earMarks = { base: [base[0] + o.ear * (o.earWidth ?? 0.95) * 0.45, base[1]], tip: [tip[0], tip[1]] }; // (for review tools: the ear's front root and tip, side on)

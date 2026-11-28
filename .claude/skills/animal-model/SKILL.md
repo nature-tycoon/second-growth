@@ -77,7 +77,7 @@ neck). Measure to find the biggest mismatch, then judge by eye against the photo
   look absurd.
 - **Eyes are the face.** Set them forward where the photos put them, sunk, under a brow ridge (as the
   lion's are), with the animal's eye shape (a cat's has a pointed inner corner), and painted: iris,
-  pupil, rim on the eyeball (`eyeColor` may be a painter, see `cougarEye`). Never black beads.
+  pupil, rim on the eyeball (`eyeColor` may be a painter, see `catEye`). Never black beads.
 - **Mouth and chin:** a strong but slim chin, a lip line where it meets the muzzle, the upper lip
   parted under the nose. Not a fat lower lip.
 - **Check the head head-on, not only side on.** A cat's skull is broad across the top, widest about
@@ -89,7 +89,7 @@ neck). Measure to find the biggest mismatch, then judge by eye against the photo
 - **Streaks and marks belong to their features:** a cat's tear streak starts at the brow's inner end
   and runs down past the eye's inner corner.
 - **Markings soft and placed exactly:** fur, not paint. Short marks where the animal has them (eye
-  streaks from the inner corner), pale and dark patches with soft edges (`plainFace` in quadrupeds.js).
+  streaks from the inner corner), pale and dark patches with soft edges (`catFace` in quadrupeds.js).
 - **No thin painted lines or outlines.** A dark outline round the muzzle and creases on the brow read
   as "dirty and smeared"; keep markings to broad soft patches and short shaped marks.
 - **Brows: thick and as long as the eye, shallow out of the face.** Cole thinks of the face as a plane:
@@ -158,6 +158,13 @@ neck). Measure to find the biggest mismatch, then judge by eye against the photo
   `tailLen`, `tailW`, `tailFringe`, `tailTop`, `depth` (shallower body, belly kept: the thigh top and tail
   follow it down, or they poke out of the rump as knobs), `headSize`, `snoutLen`, `muzzleDepth`, `legs`,
   `rump` (painted patch), `neck` (dark head and neck, its cape fading onto the shoulders), `face` strengths.
+- **Cats start from the fitted cougar** (flight-cats s7): every `feline` but the lion takes the cougar's
+  build (face strips and pads, painted eye `catEye`, face fur `catFace`, legs, paws, tail form); a species
+  changes it through sprite fields that default to the cougar's values (`legs`, `legR0`, `legR1`, `chest`,
+  `haunch`, `tuck`, `neckR`, `headSize`, `snout`, `eyeSize`, `iris`, `irisIn`, `noseTone`, `ear`, `ears`,
+  `earW`, `earWidth`, `earInner`, `earSpot`, `tufts`, `cheeks`, `facePale`, `lip`, `browTone`, `tearTone`,
+  `tailLen`, `tailR`, `tailDrop`, `tailTip`) and its own soft face marks (`catMarks`, chosen by coat).
+  Hash the cougar's geometry before and after: it must stay byte-identical.
 - **Read photo marks off the photo's own pixels.** A thumbnail shown in a viewer may be scaled (a
   900-pixel thumbnail displayed 960 wide put every mark 7% off): divide by the size you actually measured on.
 - **Head size is a photo question, not a memory one**: the elk's ears looked right "small" from field-guide

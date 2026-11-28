@@ -75,7 +75,7 @@ export default function buildSumatraAnimals(def) {
       prey: ['langur', 'macaque', 'mousedeer', 'civet'], preyPer: 6,
       suit: (W, i) => w[W.habitat[i]] * canopy(W, i),
       req: g => Math.min(1, g.forestTiles / 900),
-      sprite: { scale: 0.78, kind: 'feline', len: 32, h: 11, leg: 8, color: '#a89068', belly: '#e0d4bc', dark: '#2a2218', clouds: true },
+      sprite: { scale: 0.78, kind: 'feline', len: 32, h: 11, leg: 8, legs: 0.85, tailLen: 1.65, tailR: 0.16, tailDrop: 0.8, color: '#a89068', belly: '#e0d4bc', dark: '#2a2218', clouds: true },
       desc: 'A secretive cat with cloud-shaped markings, the longest canine teeth for its size of any cat, and ankles that let it climb down trees head first.',
       hint: 'Tall forest with monkeys and mouse-deer.' });
   }
@@ -85,7 +85,7 @@ export default function buildSumatraAnimals(def) {
       speed: 1.3, hr: 14, max: 10, sources: ['W', 'N', 'E'], mig: 0.35, breed: [2, 8], litter: [2, 3], life: 10, mature: 1,
       prey: ['woodrat'], preyPer: 5,
       suit: (W, i) => w[W.habitat[i]] * near(W.distCover[i], 2, 0.3),
-      sprite: { kind: 'feline', len: 18, h: 7, leg: 6, color: '#c8a064', belly: '#f2e8d4', dark: '#2a2018', spotted: true },
+      sprite: { kind: 'feline', len: 18, h: 7, leg: 6, legs: 0.85, tailLen: 0.9, color: '#c8a064', belly: '#f2e8d4', dark: '#2a2018', spotted: true },
       desc: 'A spotted wild cat the size of a house cat. It hunts rats through the palms at night, and is one of the few wild cats that does well on plantation edges.',
       hint: 'Cover near the palms, where the rats are.' });
   }
