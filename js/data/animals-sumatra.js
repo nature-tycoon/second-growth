@@ -64,7 +64,7 @@ export default function buildSumatraAnimals(def) {
       prey: ['sambar', 'boar', 'mousedeer', 'tapir', 'macaque'], preyPer: 8,
       suit: (W, i) => w[W.habitat[i]] * near(W.distForest[i], 3, 0.2),
       req: g => Math.min(1, g.forestTiles / 2400) * Math.min(1, g.matureTiles / 120), // a big, grown forest, joined to Leuser
-      sprite: { kind: 'feline', len: 46, h: 17, leg: 13, color: '#d8742a', belly: '#f2ebdc', dark: '#1a1410', stripes: true, show: 0.9 },
+      sprite: { kind: 'feline', len: 46, h: 17, leg: 13, calm: 1, legs: 0.95, headSize: 1.25, eyeSize: 1.15, cheeks: 0.5, cheekPale: 0.9, cheekSize: 1.8, earSpot: '#f0ebe0', tailLen: 0.8, tailDrop: 1.0, tailR: 0.1, color: '#d8742a', belly: '#f2ebdc', dark: '#1a1410', stripes: true, show: 0.9 },
       desc: 'The smallest, darkest and most densely striped tiger, and the last of the island tigers. Perhaps 600 are left. It needs a huge forest with plenty of deer and wild pigs, and forest corridors to move between.',
       hint: 'A large, connected forest with sambar deer and wild boar to hunt.' });
   }

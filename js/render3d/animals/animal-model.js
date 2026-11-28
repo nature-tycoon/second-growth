@@ -5,7 +5,7 @@ import { bear, rabbit, squirrel, vole } from './small-mammals.js';
 import { armadillo, capybara, hippo, tapir } from './large-mammals.js';
 import { monkey, orangutan, pangolin, siamang, sloth } from './canopy-mammals.js';
 import { butterflyfish, caiman, dolphin, dugong, fish, frog, idol, monitor, newt, ray, seaCucumber, seaTurtle, seaUrchin, shark, snake, turtle } from './aquatic-reptiles.js';
-import { MAMMALS, sumatranElephant, sumatranRhino, tiger } from './quadrupeds.js';
+import { MAMMALS, sumatranElephant, sumatranRhino } from './quadrupeds.js';
 import { BIRDS, bird } from './birds.js';
 import { bat, bee, beetle, butterfly } from './winged-animals.js';
 import { person } from './people.js';
@@ -14,8 +14,9 @@ import { howlerRig } from '../howler-motion.js';
 import { canopyWalkerBends, isCanopyWalker } from '../canopy-walker-profile.js';
 import { trait, climbStyle } from '../../data/animal-kinds.js';
 
-// Bodies with a builder of their own in place of the shared quadruped: Sumatra's tiger, elephant and rhino.
-const OWN_QUADRUPED = { feline: s => s.stripes && tiger, elephant: s => s.asian && sumatranElephant, rhino: s => s.hairy && sumatranRhino };
+// Bodies with a builder of their own in place of the shared quadruped: Sumatra's elephant and rhino (the
+// tiger is on the shared cat build since flight-cats s8).
+const OWN_QUADRUPED = { elephant: s => s.asian && sumatranElephant, rhino: s => s.hairy && sumatranRhino };
 // Which hand-to-mouth feeding pose and canopy rig a climber has (mo.primate), by how it climbs.
 const PRIMATE = { walk: 1, clamber: 2, swing: 3 };
 

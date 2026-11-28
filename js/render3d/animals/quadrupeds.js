@@ -1,6 +1,6 @@
 // Quadruped proportions and specialist big-mammal model builders.
 import * as THREE from 'three';
-import { P, SPH, SPH_HI, SPH_XL, cloudCoat, col, ellHi, felineSpots, flat, grad, hash3, jaguarCoat, locks, onProfile, pinna, pinnaAt, pixelCoat, place, sculpt, shade, smooth, solid, surfacePatch, surfaceStrip, tmp, tube } from './model-core.js';
+import { P, SPH, SPH_XL, cloudCoat, col, ellHi, felineSpots, flat, grad, hash3, jaguarCoat, locks, onProfile, pinna, pinnaAt, pixelCoat, place, sculpt, shade, smooth, solid, surfacePatch, surfaceStrip, tmp, tube } from './model-core.js';
 
 // Common palm civet: long, low and slim on short dark legs, grizzled grey-brown with faint rows of
 // dark spots and stripes down the back and flanks, a dark mask with white patches above and below
@@ -97,106 +97,6 @@ function beardedPig(s, L, H, leg, by) {
     },
     tail: (m, b) => { const base = [-L * 0.45, b.by + H * 0.2, 0]; m.limb(base, [-L * 0.52, b.by - H * 0.3, 0], H * 0.035, H * 0.025, s.color, { part: P.TAIL, pivot: base }); m.ell([-L * 0.525, b.by - H * 0.4, 0], [H * 0.05, H * 0.12, H * 0.05], dk, { part: P.TAIL, pivot: base, lo: true }); },
   };
-}
-
-// Sumatran tiger: a long, low, heavy cat. A deep chest and shoulder blades that roll as it prowls,
-// thick forelegs on big paws, a broad head framed by a ruff of white cheek fur, white brow spots and
-// muzzle, small round ears black behind with a white spot, and a long thick tail carried in a low
-// curve, ringed black to a black tip. Narrow, wavy black stripes (many doubled into loops) on deep
-// rust-orange, fading to white under the belly and inside the legs.
-function tiger(m, s) {
-  const k = s.len / 46, X = (x, y, z = 0) => [x * k, y * k, z * k];
-  const orange = col(s.color), rust = col(shade(s.color, -0.22)), white = col(s.belly), black = col(s.dark);
-  const pale = tmp.copy(orange).lerp(white, 0.42).clone(), cream = tmp.copy(orange).lerp(white, 0.7).clone();
-  // body, neck, shoulder blades and thighs share one stripe field laid out in model space, drawn
-  // per pixel (coatTiger) over the countershading: rust along the back to white under the belly
-  const ground = (u, p) => {
-    const a = Math.atan2(Math.abs(p.z / k) * 1.12, p.y / k - 20); // 0 along the spine, pi under the belly
-    return tmp.copy(rust).lerp(orange, smooth(0.05, 0.85, a)).lerp(pale, smooth(1.5, 1.95, a)).lerp(white, smooth(1.95, 2.3, a));
-  };
-  const coat = pixelCoat('tiger', ground, [k, 20, 2.1], black);
-  // legs: orange outside with dark bars (coatTigerLegs), white on the inside, paler toward the paws
-  const legC = zl => pixelCoat('tigerLegs', (u, p) => {
-    const y = p.y / k, inner = smooth(-0.6, -1.8, Math.abs(p.z / k) - zl) * smooth(3, 9, y);
-    return tmp.copy(orange).lerp(pale, smooth(7, 2, y) * 0.6).lerp(white, inner * 0.85);
-  }, [k, zl], black);
-  const pawC = cream;
-
-  // the body: haunch, a tucked-up loin, the deep chest, the shoulders
-  const B = [[-20.5, 21.6, 4.7, 4.3], [-16, 21.3, 6.7, 5.5], [-8, 21.3, 5.8, 5.0], [2, 20.4, 7.4, 5.8], [10.5, 19.9, 8.0, 5.9], [16, 19.9, 6.8, 5.2], [19.5, 20.3, 4.8, 4.2]];
-  tube(m, B.map(b => X(b[0], b[1])), B.map(b => [b[2] * k, b[3] * k]), coat, { seg: 24, sub: 8, capRings: 4 }); // (the stripes are drawn per pixel, so the body needs only a smooth outline)
-
-  for (const side of [1, -1]) {
-    // forelegs: the shoulder blade (it rolls with the stride), a thick upper arm back to the elbow,
-    // a heavy straight forearm, a big round paw
-    const zf = 3.5, fo = { part: side > 0 ? P.LEG_FL : P.LEG_FR, pivot: X(12.6, 19.5, side * zf) };
-    m.ell(X(11.6, 24.0, side * 3.3), [2.6 * k, 4.4 * k, 1.9 * k], coat, { ...fo, rot: [0, 0, 0.35] });
-    const F = [[12.4, 23, 3.3], [14.3, 17, 3.55], [11.6, 11.3, 2.95], [12.6, 5, 2.2], [13.4, 2.0, 2.0]];
-    tube(m, F.map(q => X(q[0], q[1], side * zf)), F.map(q => q[2] * k), legC(zf), { ...fo, seg: 12, sub: 6, capRings: 3 });
-    m.ell(X(14.8, 1.3, side * zf), [2.75 * k, 1.3 * k, 2.2 * k], pawC, { ...fo, lo: true });
-    for (const t of [-1.15, 0, 1.15]) m.ell(X(16.65 - Math.abs(t) * 0.4, 1.0, side * zf + t), [0.85 * k, 0.78 * k, 0.72 * k], pawC, { ...fo, lo: true });
-    // hind legs: the big muscled thigh, the stifle forward, a long shin back to the hock, then the paw
-    const zh = 3.7, ho = { part: side > 0 ? P.LEG_BL : P.LEG_BR, pivot: X(-15.2, 21, side * zh) };
-    ellHi(m, X(-14.0, 19.4, side * 3.3), [4.2 * k, 5.2 * k, 2.1 * k], coat, { ...ho, rot: [0, 0, -0.3] });
-    const Hh = [[-15.4, 24, 3.6], [-11.8, 14.2, 3.2], [-16.4, 6.8, 1.9], [-17.1, 4.4, 1.75], [-15.9, 2.0, 1.8]];
-    tube(m, Hh.map(q => X(q[0], q[1], side * zh)), Hh.map(q => q[2] * k), legC(zh), { ...ho, seg: 12, sub: 6, capRings: 3 });
-    m.ell(X(-14.6, 1.25, side * zh), [2.4 * k, 1.2 * k, 1.95 * k], pawC, { ...ho, lo: true });
-    for (const t of [-1.0, 0, 1.0]) m.ell(X(-13.0 - Math.abs(t) * 0.35, 0.95, side * zh + t), [0.75 * k, 0.72 * k, 0.65 * k], pawC, { ...ho, lo: true });
-  }
-
-  // head and neck, carried low and forward (they dip together to drink). The head is big and
-  // broad: G scales it about the back of the skull.
-  const neck = X(15, 22), hd = { part: P.HEAD, pivot: neck }, G = 1.16;
-  const HX = (x, y, z = 0) => X(22 + (x - 22) * G, 21.4 + (y - 21.4) * G, z * G), R = (a, b, c) => [a * k * G, b * k * G, c * k * G];
-  tube(m, [X(14, 21.6), X(19, 21.7), X(23, 21.3)], [[6.3 * k, 5.0 * k], [5.7 * k, 4.9 * k], [4.9 * k, 4.7 * k]], coat, { ...hd, seg: 24, sub: 6, capRings: 2 });
-  const hx = 25.2, hy = 21.4;
-  // the face's ground colours; its stripes are drawn per pixel (coatTigerHead)
-  const face = (u, p) => {
-    const qx = (p.x / k - 22) / G + 22 - hx, qy = (p.y / k - 21.4) / G, az = Math.abs(p.z / k) / G;
-    if (qy < -2.3 && qx > -2.2) return white;                                         // chin and throat
-    if (az > 2.4 && qy < 0.3 && qx > -2.6) return qy > -0.2 && qx > 1 ? orange : white; // cheeks, boldly striped
-    return tmp.copy(orange).lerp(rust, smooth(1, 4, qy) * 0.4);
-  };
-  const stripedFace = paint => pixelCoat('tigerHead', paint, [k, G, hx], black), headC = stripedFace(face);
-  ellHi(m, HX(hx, hy + 0.2), R(4.6, 3.9, 4.3), headC, { ...hd, rot: [Math.PI / 2, 0, 0] });        // the broad skull
-  // the muzzle: broad and deep, orange over the bridge and white below and in front
-  const muz = stripedFace((u, p) => { const qy = (p.y / k - 21.4) / G, qx = (p.x / k - 22) / G + 22; return (qy < -1.0 && qx > 28.4) || (qy < -0.5 && qx > 30.2) ? white : face(u, p); });
-  ellHi(m, HX(29.0, 19.9), R(2.8, 2.1, 2.3), muz, { ...hd, rot: [0, 0, -0.1] });
-  m.ell(HX(28.6, 21.0), R(2.9, 1.45, 2.0), headC, { ...hd, rot: [0, 0, -0.22] });       // bridge of the nose
-  const ruff = (u, p) => (hash3(Math.round(p.x / k * 1.6), Math.round(p.y / k * 1.6), 3) > 0.72 ? black : white);
-  const ruffSheet = SPH_HI.clone(), rp = ruffSheet.attributes.position;
-  for (let i = 0; i < rp.count; i++) {
-    const x = rp.getX(i), y = rp.getY(i), z = rp.getZ(i), rear = smooth(0.2, -0.95, x);
-    const tuft = 1 + rear * 0.28 * Math.abs(Math.sin(Math.atan2(y, -x) * 3.5)); // (five soft points round the back edge)
-    rp.setXYZ(i, x * (x < 0 ? tuft * 1.25 : 1), y * (1 - rear * 0.15), z * (1 - rear * 0.55));
-  }
-  ruffSheet.computeVertexNormals();
-  for (const side of [1, -1]) {
-    // the ruff: white cheek fur standing out wide and back past the jaw, framing the face
-    ellHi(m, HX(26.0, 19.8, side * 2.7), R(3.1, 2.2, 1.95), headC, { ...hd, rot: [0, side * 0.35, 0] });
-    m.ell(HX(23.7, 19.3, side * 3.8), R(2.3, 2.5, 0.95), headC, { ...hd, rot: [0, side * 0.9, -0.3] });
-    // its fringe: one flattened sheet of fur lying back along the cheek, its rear edge combed into
-    // soft points, kept above the line of the jaw (a row of tapered cones here read as fangs)
-    m.add(ruffSheet, place(HX(23.3, 19.5, side * 3.95), [0, side * 0.75, 0.3], R(1.8, 1.45, 0.45)), ruff, hd);
-    m.ell(HX(30.55, 19.0, side * 1.15), R(1.25, 1.1, 1.3), (u, p) => (u.z * side > 0.25 && u.y > -0.3 && hash3(Math.round(p.x / k * 3), Math.round(p.y / k * 3), 1) > 0.7 ? black : white), hd); // whisker pads
-    m.ell(HX(27.9, 22.85, side * 2.15), R(0.95, 0.42, 0.8), white, { ...hd, lo: true });     // white spot over the eye
-    m.ell(HX(28.35, 21.95, side * 2.25), R(0.72, 0.46, 0.42), black, { ...hd, lo: true, rot: [0, side * -0.5, 0.15] }); // dark rim of the eye
-    m.ell(HX(28.55, 21.95, side * 2.35), R(0.5, 0.33, 0.3), '#e0a632', { ...hd, lo: true, gloss: 2, rot: [0, side * -0.5, 0.15] }); // amber eye
-    m.ell(HX(28.8, 21.95, side * 2.36), R(0.18, 0.22, 0.16), '#120c08', { ...hd, lo: true, gloss: 2 });   // pupil
-    // small round ears set wide: black behind with a white spot, pale fur inside
-    pinnaAt(m, HX(23.2, 24.5, side * 3.4), R(0.45, 1.2, 1.2), [side * -0.25, side * 0.25, 0], black, { ...hd, shape: 'round', cup: 0.4, inner: cream, spot: white });
-  }
-  m.ell(HX(31.6, 20.0), R(0.6, 0.65, 0.98), '#c27a6a', { ...hd, lo: true });              // pink nose
-  for (const side of [1, -1]) m.ell(HX(31.95, 19.8, side * 0.45), R(0.22, 0.2, 0.28), '#2a1612', { ...hd, lo: true });
-  m.ell(HX(29.3, 17.75), R(1.45, 0.8, 1.2), white, hd);                                   // chin
-  for (const side of [1, -1]) m.limb(HX(31.2, 18.0), HX(29.4, 17.9, side * 1.5), 0.16 * k, 0.12 * k, black, { ...hd, caps: false, seg: 4 }); // the line of the mouth
-  m.eyeAt = HX(28.7, 21.95, 2.4); m.eyePivot = neck; ruffSheet.dispose();
-
-  // the long, thick tail: down from the rump in a low curve, the end lifting; ringed, black-tipped
-  const T = [[-20.5, 24.4], [-25, 19.6], [-28.2, 13.4], [-31.2, 8.4], [-35.2, 5.8], [-39.4, 6.6], [-42.2, 9.4]];
-  const tailC = pixelCoat('rings', u => tmp.copy(orange).lerp(white, smooth(-0.3, -0.8, u.y) * 0.6), [10.5, 0.15, 0.1, 0.18, 2, 0.9, -0.35, 0.48], black); // (coatRings)
-  tube(m, T.map(q => X(q[0], q[1])), [1.85, 1.7, 1.6, 1.5, 1.45, 1.4, 1.3].map(r => r * k), tailC, { part: P.TAIL, pivot: X(-20.5, 23.5), seg: 10, sub: 6, capRings: 3 });
-  return { leg: 0.42, bob: 0.35 * k, tail: 0.16, head: 0.5, sink: 24 * k };
 }
 
 // Sumatran elephant (an Asian elephant): the head is the highest point, two domes with a dent
@@ -472,6 +372,20 @@ function riverMammalFoot(m, foot, r, o, color, webbed = false) {
   }
 }
 
+// A Sumatran tiger's ground colours under its per-pixel stripes (from the old tiger builder, fitted to
+// photos): rust along the spine through deep orange on the flanks to white under the belly; legs orange
+// outside, paler toward the paws and white on the inside; the tail ringed black to a black tip, paler
+// beneath. sk: the old builder's unit (a 46-long tiger's), which the stripe shaders count in.
+function tigerGround(s, H, by, sk) {
+  const orange = col(s.color), rust = col(shade(s.color, -0.22)), white = col(s.belly), pale = orange.clone().lerp(white, 0.42), dk = col(s.dark);
+  const o = col('#000').clone(), lo = col('#000').clone(), zl = Math.min(H * 0.24, H * 0.42 - H * (s.legR0 ?? 0.2)) / sk;
+  return {
+    body: (u, p) => { const a = Math.atan2(Math.abs(p.z) * 1.12, p.y - by); return o.copy(rust).lerp(orange, smooth(0.05, 0.85, a)).lerp(pale, smooth(1.5, 1.95, a)).lerp(white, smooth(1.95, 2.3, a)); },
+    leg: (u, p) => { const y = p.y / sk, inner = smooth(-0.6, -1.8, Math.abs(p.z / sk) - zl) * smooth(3, 9, y); return lo.copy(orange).lerp(pale, smooth(7, 2, y) * 0.3).lerp(white, inner * 0.85); },
+    tail: pixelCoat('rings', u => o.copy(orange).lerp(white, smooth(-0.3, -0.8, u.y) * 0.6), [s.tailRings ?? 9, 0.15, 0.1, 0.18, 2, 0.9, -0.35, 0.48], dk), // (coatRings)
+  };
+}
+
 // A cat's eye, painted on the eyeball (fitted on the cougar from photos): a large iris filling most of
 // what shows (s.iris, s.irisIn: its colour and the darker ring round the pupil; the cougar's a pale
 // yellow-amber), a small round pupil, a thick black rim all round, and the upper lid drawn straighter
@@ -508,7 +422,8 @@ function catFace(s, H, hp, hr, sl) {
     o.lerp(bridge, 0.65 * smooth(hr[2] * 0.22, hr[2] * 0.06, az) * smooth(eye[0] - r * 2, eye[0], p.x) * smooth(sn[1], sn[1] + hr[1] * 0.25, p.y));
     o.lerp(pale, 0.7 * (1 - calm) * blob(p, [eye[0] - r * 0.4, eye[1] + r * 1.3, eye[2] * 0.9], [r * 1.1, r * 0.8, r * 1.5])); // (calm: none, so it can't read as a painted eyebrow)
     if (calm) o.lerp(pale, 0.55 * calm * blob(p, [eye[0] - r * 0.1, eye[1] - r * 0.15, eye[2] * 1.05], [r * 1.5, r * 1.25, r * 1.6])); // (a cat's pale fur round the eye instead)
-    o.lerp(pale, 0.4 * blob(p, [eye[0] - r * 0.8, eye[1] - r * 1.8, eye[2] * 1.15], [r * 1.8, r * 1.0, r * 1.4]));
+    const ck = s.cheekSize ?? 1; // (cheekPale, cheekSize: a tiger's broad white cheeks, back to the ruff)
+    o.lerp(pale, (s.cheekPale ?? 0.4) * blob(p, [eye[0] - r * (0.8 + 1.4 * (ck - 1)), eye[1] - r * (1.8 + 0.3 * (ck - 1)), eye[2] * 1.15], [r * 1.8 * ck, r * 1.0 * ck, r * 1.4 * ck]));
     o.lerp(patch, 0.75 * blob(p, [sn[0] + snout * 0.55, sn[1] - hr[1] * 0.12, hr[2] * 0.5], [snout * 0.45, hr[1] * 0.13, hr[2] * 0.3]));
     return o;
   };
@@ -531,6 +446,11 @@ function catFace(s, H, hp, hr, sl) {
 // lines, dark cheek bars.
 function catMarks(s) {
   const dark = shade(s.dark, -0.3), white = s.lip ?? '#f1eadf';
+  if (s.stripes) return [ // (Sumatran tiger: black stripes sweeping down and back across the white cheeks, a white mark over each eye, dark marks up the forehead)
+    [dark, 0.95, 's', [-1.6, 0.4], [-5.6, -0.8], 0.42], [dark, 0.95, 's', [-1.4, -1.4], [-5.4, -2.8], 0.45], [dark, 0.9, 's', [-2.0, -3.2], [-5.0, -4.4], 0.4],
+    [white, 0.8, 't', [0.7, 0.85], [-0.9, 0.9], 0.9],
+    [dark, 0.9, 't', [-0.8, 0.18], [-3.8, 0.12], 0.36], [dark, 0.9, 't', [-1.4, 0.55], [-4.2, 0.7], 0.38], [dark, 0.85, 't', [-2.0, 1.05], [-4.4, 1.3], 0.36],
+  ];
   if (s.bobtail) return [
     [dark, 0.85, 's', [-1.4, -1.2], [-5.0, -2.0], 0.5], [dark, 0.8, 's', [-1.0, -2.6], [-4.6, -3.6], 0.5],
     [dark, 0.7, 't', [-0.8, 0.45], [-3.6, 0.4], 0.32], [dark, 0.7, 't', [-0.9, 0.95], [-3.8, 0.9], 0.32],
@@ -733,19 +653,22 @@ const MAMMALS = {
     // (tools/animal-photo-overlay.html): long legs under a shallow body, the face, eyes, paws and tail
     // shaped with Cole. A species changes it through sprite fields that default to the cougar's values
     // (legs, legR0, legR1, chest, haunch, neckR, headSize, snout, eyeSize, iris, ear, earShape, tailLen,
-    // tailR, tailDrop...), so the cougar stays as fitted. (The lion's head is built round its mane; the
-    // tiger has a builder of its own.)
+    // tailR, tailDrop...), so the cougar stays as fitted. (The lion's head is built round its mane.)
     const fit = !lion;
     const plain = fit && !(k || s.clouds || s.spotted || s.cheetah || s.rosettes || s.bobtail || s.stripes); // (the cougar's plain coat)
     const L = s.len, H = s.h * (1 + k * 0.02), leg = s.leg * (lion ? 0.95 : k ? 0.92 : s.legs ?? 1), by = leg + H * 0.5;
     const hs = lion ? (s.mane ? 1.1 : 1) : (1 + k * 0.08) * (s.headSize ?? 1), sl = H * 0.15 * hs * (s.snout ?? 1);
-    // (The Sumatran tiger, stripes, has a builder of its own: see tiger.)
+    // Sumatran tiger (stripes): narrow wavy black stripes, many doubled into loops, on deep rust-orange
+    // fading to white under the belly (coatTiger, laid out in the old tiger builder's units, sk), barred legs
+    // white inside, a white ruff and cheeks crossed by black stripes, a ringed tail with a black tip.
     // Sunda clouded leopard (clouds): long and low, dark-rimmed cloud blotches, a huge thick ringed tail.
     // Leopard cat (spotted): small, tawny with solid black spots and dark lines over the head.
     const dk = col(s.dark), base = grad(s.color, s.belly || s.color, -0.3, 0.5);
-    const coat = s.clouds ? b => cloudCoat(b, s.dark, H * 0.42) : k ? () => jaguarCoat(s, H, by) : null;
+    const sk = L / 46, stripes = !!s.stripes && fit, tg = stripes ? tigerGround(s, H, by, sk) : null;
+    const coat = s.clouds ? b => cloudCoat(b, s.dark, H * 0.42) : k ? () => jaguarCoat(s, H, by) : stripes ? () => pixelCoat('tiger', tg.body, [sk, by / sk, 2.1 * (s.stripe ?? 1)], s.dark) : null;
     // (markings drawn per pixel: coatSpots, coatRings)
-    const legColor = s.clouds ? felineSpots(s, H, solid(shade(s.color, -0.05)), H * 0.16)
+    const legColor = stripes ? pixelCoat('tigerLegs', tg.leg, [sk, Math.min(H * 0.24, H * 0.42 - H * (s.legR0 ?? 0.2)) / sk], s.dark)
+      : s.clouds ? felineSpots(s, H, solid(shade(s.color, -0.05)), H * 0.16)
       : s.spotted ? felineSpots(s, H, solid(shade(s.color, 0.05)), H * 0.1)
       : s.chains ? felineSpots(s, H, solid(s.color), H * 0.12) // (an ocelot's legs: solid spots)
       : s.legSpot && s.rosettes ? felineSpots(s, H, solid(s.color), H * s.legSpot) // (a leopard's legs: small solid spots)
@@ -776,7 +699,7 @@ const MAMMALS = {
       ears: lion ? 'none' : s.ears ?? 'round', ear: H * (lion ? 0.24 : k ? 0.18 : s.ear ?? 0.185), earTurn: fit ? 0.6 : undefined, earUp: fit ? 0.55 : undefined, earSide: fit ? 0.82 : undefined, crown: fit ? 0.3 : undefined, cheeks: fit ? s.cheeks ?? 0.32 : undefined, pads: fit ? 0.15 : undefined, cleft: fit ? 0.4 : undefined, muzzleTaper: fit ? 0.85 : undefined, muzzleBlend: fit ? 0.6 : undefined, bridge: fit ? 0.75 : undefined, earWidth: fit ? s.earWidth ?? 1.08 : undefined, earInner: fit ? s.earInner ?? '#b58a6c' : undefined, earSpot: s.earSpot, earOut: 0.2, earBack: 0.1, earW: s.earW ?? 0.45, tufts: s.tufts, muzzle: fit ? face.muzzle : grad(s.color, s.belly, 0.1, 0.4),
       // (ear backs dark, the eyes painted, the nose sculpted in face)
       earColor: fit ? shade(s.dark, -0.15) : null, eyeColor: fit ? catEye(s) : undefined, eyeFwd: fit ? 0.84 : undefined, eyeOut: fit ? 0.4 : undefined, muzzleDepth: fit ? 0.4 : undefined, brow: fit ? 0.14 : undefined, noseColor: fit ? '#7d5246' : undefined,
-      headPaint: plain ? face.head : s.clouds ? felineSpots(s, H, face.head, H * 0.1) : k ? felineSpots(s, H, face.head, H * (s.headSpot ?? 0.09))
+      headPaint: plain || stripes ? face.head : s.clouds ? felineSpots(s, H, face.head, H * 0.1) : k ? felineSpots(s, H, face.head, H * (s.headSpot ?? 0.09))
         : spotted && !s.bobtail ? felineSpots(s, H, face.head, H * (s.headSpot ?? 0.07)) : s.bobtail ? face.head : null, // (small solid spots on the head; a bobcat's face is streaked instead: catMarks)
       face: (m, hp, hr, hd, sn) => {
         if (fit) {
@@ -896,7 +819,7 @@ const MAMMALS = {
           const tl = s.tailLen, X = tl ? xs.map(x => 0.38 + (x - 0.38) * tl) : xs, D = s.tailDrop != null ? H * s.tailDrop : H, r = H * (s.tailR ?? 0.09);
           const tt = s.tailTip, t0 = tt ? X[6] - (X[6] - X[0]) * tt * 1.1 : 0.78, t1 = tt ? X[6] - (X[6] - X[0]) * tt * 0.25 : 0.84; // (tailTip: the dark tip's share of the tail)
           const tip = (u, p) => tmp.copy(col(s.color)).lerp(dk, smooth(-L * t0, -L * t1, p.x));
-          const paint = plain || s.tailTip ? tip : s.clouds ? ring(4.5, 0.85) : s.chains ? ring(6, 0.85) : s.spotted ? ring(3, 0.65) : s.cheetah ? ring(4, 0.65) : s.tailSpot ? felineSpots(s, H, solid(s.color), H * s.tailSpot) : s.color; // (tailSpot: a leopard's spotted tail)
+          const paint = plain || s.tailTip ? tip : stripes ? tg.tail : s.clouds ? ring(4.5, 0.85) : s.chains ? ring(6, 0.85) : s.spotted ? ring(3, 0.65) : s.cheetah ? ring(4, 0.65) : s.tailSpot ? felineSpots(s, H, solid(s.color), H * s.tailSpot) : s.color; // (tailSpot: a leopard's spotted tail)
           tube(m, X.map((x, i) => [-L * x, b.by - D * ys[i], 0]), [r * 1.5, r * 1.3, r * 1.08, r, r, r, r * 0.92], paint, { ...o, sub: 5, seg: 14 });
           return;
         }
@@ -1389,4 +1312,4 @@ const MAMMALS = {
   },
 };
 
-export { MAMMALS, sumatranElephant, sumatranRhino, tiger };
+export { MAMMALS, sumatranElephant, sumatranRhino };
