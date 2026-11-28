@@ -641,7 +641,7 @@ function headLoft(m, hp, hr, snout, sn, paint, muzzlePaint, o, hd) {
     const head = fn, mz = typeof muzzlePaint === 'function' ? muzzlePaint : solid(muzzlePaint), a = new THREE.Color(), x0m = hx + rx * 0.55, x1m = hx + rx * 0.9;
     const blend = (uu, p) => { const k = smooth(x0m, x1m, p.x); if (k <= 0) return head(uu, p); a.copy(head(uu, p)); return k >= 1 ? mz(uu, p) : a.lerp(mz(uu, p), k); };
     const pc = head.coat;
-    if (pc) { const hf = head.coatFade; fn = pixelCoat(pc.kind, blend, pc.params, pc.dark, pc.mid); fn.coatFade = hf ? (uu, p) => hf(uu, p) * (1 - smooth(x0m, x1m, p.x)) : (uu, p) => 1 - smooth(x0m, x1m, p.x); } // (no spots on the muzzle; a head paint's own coatFade keeps them off more of the face)
+    if (pc) { fn = pixelCoat(pc.kind, blend, pc.params, pc.dark, pc.mid); fn.coatFade = (uu, p) => 1 - smooth(x0m, x1m, p.x); } // (no spots on the muzzle)
     else fn = blend;
   }
   m.add(g, new THREE.Matrix4(), fn, { ...hd, paintGeo: unitG });
