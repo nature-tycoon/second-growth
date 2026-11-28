@@ -66,3 +66,9 @@ slimmer (0.27 H).
 Then "a hunch back": the round head hung below the shoulders. It's carried higher (by + 0.26 H, was 0.14;
 the week-old one was 0.38), level with the back; flattening the back's arch made no visible difference.
 Then the haunches showing and an arched back (Cole): `haunchBulk` 0.2 to 0.3, `arch` 0.06 to 0.13.
+
+The neck with the round head (Cole): rooted low, its top no longer poked through the back when stalking, but
+it read as a hunch and "doesn't go all the way around". Making the body reach forward to form the chest
+was wrong ("it still needs to have a neck"; reverted, with the low root). Now: one even, round tube
+(`neckPath`, `neckRadii` about 0.26 H) from deep in the chest near where the head turns to inside the
+skull, so it leaves the body evenly all round and its top stays in the back when stalking.
