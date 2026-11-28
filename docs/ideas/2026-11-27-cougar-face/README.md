@@ -35,3 +35,8 @@ Tried and dropped (don't retry)
 
 Triangles: close-up 48.7k to 45.8k, usual model 20.1k to 18.9k. Not yet judged by Cole as a whole.
 The intro film still shows the old cougar; re-film it once Cole approves the look.
+
+Fourth round (pictures `-eyes`): the pads flatter (lift 0.75 to 0.38 of the eye size), the eyes a little
+bigger (`eyeR` 0.0525 H, was 0.045) and set a little further out (`eyeOut` 0.37 to 0.40) so the pupils
+clear the face; 0.43 cleared them too but bulged from the side. Brows, tear marks and the highlight
+follow the eye's radius.
