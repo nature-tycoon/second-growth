@@ -52,3 +52,31 @@ fore ones forward and hind back. Motion sweep, all maps: within limits.
 
 Brows: a flatter version (inner ends raised, less slant toward the nose) was shown and Cole kept the
 current slant ("Keep current"). Don't flatten them unasked.
+
+Round head (pictures `round-head-*`): later the same day Cole set the fitted face aside and asked for the
+week-old head back (the shared cat head before 370f080: bigger and rounder, a smooth forehead into the
+muzzle, eyes on the sides, a friendly look), with the broad pink nose, and then plain black eyes and no
+marks under the eyes. Built behind `fit = false` in `feline` (quadrupeds.js): true brings the fitted face
+(brows, painted eyes, pads, mouth line, face fur) back. The body, ears, thicker old neck and pink nose
+(broader, `nb`) stay. Intro film re-filmed.
+
+Stalking with the round head: the thicker neck's root showed through the back as the head dipped (Cole).
+Its root now sits lower and further forward in the chest (`neckLow` 0.5) and the neck is a little
+slimmer (0.27 H).
+Then "a hunch back": the round head hung below the shoulders. It's carried higher (by + 0.26 H, was 0.14;
+the week-old one was 0.38), level with the back; flattening the back's arch made no visible difference.
+Then the haunches showing and an arched back (Cole): `haunchBulk` 0.2 to 0.3, `arch` 0.06 to 0.13.
+
+The neck with the round head (Cole): rooted low, its top no longer poked through the back when stalking, but
+it read as a hunch and "doesn't go all the way around". Making the body reach forward to form the chest
+was wrong ("it still needs to have a neck"; reverted, with the low root). Now: one even, round tube
+(`neckPath`, `neckRadii` about 0.26 H) from deep in the chest near where the head turns to inside the
+skull, so it leaves the body evenly all round and its top stays in the back when stalking.
+Then "shouldn't just be a cylinder": the neck's sections now go deep and flattened at the shoulders
+([0.36, 0.27] H up/across), slimmer up the throat ([0.27, 0.22]) and widen into the back of the skull
+([0.3, 0.27]), which it enters further. Intro film not re-filmed (Cole: film only when asked).
+
+Then Cole: it "looked best before you fixed the neck root". Back to the original neck and head carriage
+(by + 0.14 H), haunches and arch kept. The stalk fix moved to the animation: the head's nod fades out behind
+its pivot (`nod` in animal-material.js), so the neck's root stays in the shoulders when the head dips.
+Shared by every animal that lowers its head; motion sweep, all maps, within limits.

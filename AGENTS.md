@@ -114,7 +114,7 @@ How to spend tokens (model routing, subagents, short outputs, measure before scr
 
 - Before designing or editing an area, `node tools/impact.mjs <files>` names the decision records whose Rules apply and the checks that cover it; `--run` runs those checks.
 - Subagents in `.claude/agents/`: `scout` (find code, Sonnet), `checker` (run checks, Sonnet), `visual-qa` (measure first, screenshot to confirm, Sonnet), `regression-reviewer` (plan and diff against the records, Opus), `architect` (cross-subsystem design, Fable, sparingly).
-- Start a branch with `node tools/branch-doctor.mjs start <topic>` (cut from origin/main, never local main); `node tools/branch-doctor.mjs` before a push or PR. A Claude Code hook runs it on `git push` and `gh pr create`.
+- Start a branch with `node tools/branch-doctor.mjs start <topic>` (cut from origin/main, never local main); `node tools/branch-doctor.mjs` before a push or PR. A Claude Code hook runs it on `git push` and `gh pr create`, in the checkout the command runs in (a worktree's own, not the main one's).
 - `node tools/agent-usage.mjs` reports token use by session.
 
 ## Working alongside other agents
