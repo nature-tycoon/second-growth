@@ -165,6 +165,17 @@ neck). Measure to find the biggest mismatch, then judge by eye against the photo
   `earW`, `earWidth`, `earInner`, `earSpot`, `tufts`, `cheeks`, `facePale`, `lip`, `browTone`, `tearTone`,
   `tailLen`, `tailR`, `tailDrop`, `tailTip`) and its own soft face marks (`catMarks`, chosen by coat).
   Hash the cougar's geometry before and after: it must stay byte-identical.
+- **Unfitted cats stood too tall for their length** (flight-cats s8: jaguar and leopard a quarter to a third
+  too tall against side-on photos, so they read as stubby). Fix it with `h` and `leg` (drawing only), never
+  `len`: the simulation reads `len` (carcass meals, path look-ahead, grazing). Lowering `h` shrinks the
+  head and the eyes with it: raise `headSize`, then check the eyes apart, since `eyeSize` does not follow
+  `headSize` (the jaguar's went from buried to staring and back: 1.35 too big, 1.1 too small, 1.2).
+  More s8 fields: `headX`, `headY` (head place: a jaguar's lower and closer in), `headTall` (a long low
+  skull), `rosette` (rosette size, jaguar and leopard), `legSpot`, `headSpot`, `tailSpot` (spot sizes; a
+  leopard's legs and tail spotted), `cheekPale`, `cheekSize` (a tiger's white cheeks), `stripes` (the tiger
+  on the cat build: `tigerGround`, the old stripe shaders).
+- **The overlay's ground is the model's lowest point, tail included.** A tail hanging below the paws sets
+  the ground line and shifts the whole photo (the tiger's `tailDrop` 1.3 did): keep the tip above the paws.
 - **Read photo marks off the photo's own pixels.** A thumbnail shown in a viewer may be scaled (a
   900-pixel thumbnail displayed 960 wide put every mark 7% off): divide by the size you actually measured on.
 - **Head size is a photo question, not a memory one**: the elk's ears looked right "small" from field-guide
