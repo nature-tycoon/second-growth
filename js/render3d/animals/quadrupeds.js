@@ -731,12 +731,14 @@ const MAMMALS = {
           for (let i = first; i < m.parts.length; i++) m.parts[i].userData = { ...m.parts[i].userData, eye: true };
           // two whisker pads under the nose, either side of a small cleft: soft swellings of the muzzle itself
           const mzIn = [sn[0] + H * 0.15 * hs * 0.3, sn[1], 0];
-          for (const side of [1, -1]) surfacePatch(m, [m.headGeo], mzIn, [noseX - r * 0.55, nc[1] - r * 1.05, side * r * 0.72], { ...hd, r: [r * 0.85, r * 0.68], lift: r * 0.26, color: s.belly, strength: 0.3 });
+          const padsFrom = m.parts.length;
+          for (const side of [1, -1]) surfacePatch(m, [m.headGeo], mzIn, [noseX - r * 0.8, nc[1] - r * 1.35, side * r * 1.0], { ...hd, r: [r * 1.4, r * 1.15], lift: r * 0.75, rings: 6, segs: 16, color: s.belly, strength: 0.3 }); // (big enough that the two together make the front of the muzzle, as a real cougar's do)
           // the mouth: a short soft line on the muzzle, down from the nose between the pads (the cleft),
           // then back under each pad to the corner of the mouth
           const mf = [sn[0] + H * 0.15 * hs * 0.3, sn[1], 0], ny = nc[1] - r * 0.45, cy = nc[1] - r * 1.15;
-          surfaceStrip(m, [m.headGeo], mf, [[noseX - r * 0.15, ny, 0], [noseX - r * 0.2, (ny + cy) / 2, 0], [noseX - r * 0.25, cy, 0]], { ...hd, width: r * 0.1, strength: [0.35, 0.4, 0.45], color: '#3a2a20' });
-          for (const side of [1, -1]) surfaceStrip(m, [m.headGeo], mf, [[noseX - r * 0.25, cy, 0], [noseX - r * 0.7, cy - r * 0.3, side * r * 0.8], [noseX - r * 1.45, cy - r * 0.5, side * r * 1.35], [noseX - r * 2.1, cy - r * 0.45, side * r * 1.65]],
+          const muzzleTop = [m.headGeo, ...m.parts.slice(padsFrom, padsFrom + 2)]; // (the mouth line lies over the pads)
+          surfaceStrip(m, muzzleTop, mf, [[noseX - r * 0.15, ny, 0], [noseX - r * 0.2, (ny + cy) / 2, 0], [noseX - r * 0.25, cy, 0]], { ...hd, width: r * 0.1, strength: [0.35, 0.4, 0.45], color: '#3a2a20' });
+          for (const side of [1, -1]) surfaceStrip(m, muzzleTop, mf, [[noseX - r * 0.25, cy, 0], [noseX - r * 0.7, cy - r * 0.3, side * r * 0.8], [noseX - r * 1.45, cy - r * 0.5, side * r * 1.35], [noseX - r * 2.1, cy - r * 0.45, side * r * 1.65]],
             { ...hd, width: [r * 0.1, r * 0.09, r * 0.08, r * 0.06], strength: [0.4, 0.35, 0.22, 0], color: '#3a2a20' });
         }
         if (k) m.ell([hp[0] + hr[0] * 0.78 + H * 0.15 * hs * 1.18, hp[1] - hr[1] * 0.17, 0], [H * 0.045, H * 0.035, H * 0.075], '#34251d', hd);

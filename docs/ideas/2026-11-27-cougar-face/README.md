@@ -20,7 +20,7 @@ Body
 - Paws: compact, narrower and rounder (`pawW`, `pawH`), four toes (`toes: 4`); no cuff at the ankle.
 
 Muzzle, third round (pictures `-muzzle`)
-- Two subtle, distinct whisker pads grown out of the muzzle (`surfacePatch`: a round swelling cast onto
+- Two whisker pads grown out of the muzzle, large enough that together they make its front (Cole: "too small, they should form the muzzle like a real cougar") (`surfacePatch`: a round swelling cast onto
   the head, rim in the surface's own colour and facing), either side of a small cleft (`cleft` dips the
   midline between the loft's `pads`); the mouth line thinner and fainter.
 - The muzzle narrows toward the nose (`muzzleTaper` 0.85) and runs more softly back into the cheeks
