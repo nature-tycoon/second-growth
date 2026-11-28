@@ -85,7 +85,7 @@ export default function buildSumatraAnimals(def) {
       speed: 1.3, hr: 14, max: 10, sources: ['W', 'N', 'E'], mig: 0.35, breed: [2, 8], litter: [2, 3], life: 10, mature: 1,
       prey: ['woodrat'], preyPer: 5,
       suit: (W, i) => w[W.habitat[i]] * near(W.distCover[i], 2, 0.3),
-      sprite: { kind: 'feline', len: 18, h: 7, leg: 6, calm: 1, eyeSize: 1.15, legs: 0.85, tailLen: 0.9, color: '#c8a064', belly: '#f2e8d4', dark: '#2a2018', spotted: true },
+      sprite: { kind: 'feline', len: 18, h: 7, leg: 6, calm: 1, eyeSize: 1.15, legs: 0.95, legR0: 0.17, legR1: 0.075, ear: 0.23, earSpot: '#ece4d6', tailLen: 0.9, tailDrop: 0.75, color: '#c8a064', belly: '#f2e8d4', dark: '#2a2018', spotted: true },
       desc: 'A spotted wild cat the size of a house cat. It hunts rats through the palms at night, and is one of the few wild cats that does well on plantation edges.',
       hint: 'Cover near the palms, where the rats are.' });
   }
