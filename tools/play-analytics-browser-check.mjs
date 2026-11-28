@@ -1,6 +1,8 @@
 // Verify the "why do players stop" events (docs/posthog-player-perf.md) in the real game, without
 // transmitting anything: game_loaded, panel_closed, objective_done, quest_help, warning_shown,
-// species_lost, species_discovered's species, and the session details on game_left.
+// species_lost, species_discovered's species, and the session details on game_left; the drop-off
+// events (docs/posthog-events.md): play_milestone, opening_prompt, a closed fence prompt as
+// opening_step skipped, page_crashed from a breadcrumb a dead page left, and game_left's where-fields.
 import assert from 'node:assert/strict';
 import { openBrowser } from './browser-session.mjs';
 const b = await openBrowser({ label: 'play-analytics', width: 960, height: 600 });
@@ -12,6 +14,8 @@ try {
     localStorage.setItem('second-growth-settings',JSON.stringify({analytics:true,autosave:false,music:false,nature:false,quality:'fast',qualityChosen:true,dayCycle:false,v:2}));
     sessionStorage.setItem('second-growth-pending',JSON.stringify({map:'pnw',mode:'campaign',difficulty:'standard'}));
     window.events=[];
+    // (a page that died: its breadcrumb, left for the next start, when the check asks for one)
+    if(sessionStorage.getItem('test-crash')){sessionStorage.removeItem('test-crash');localStorage.setItem('second-growth-crumb',JSON.stringify({stage:'Catching the light',map:'reef',at:Date.now()-60e3,t0:Date.now()-90e3}));}
     window.registered={};window.posthog={__SV:1,init(){},register(p){Object.assign(window.registered,p);},capture(event,props){window.events.push({event,props});}};
     // a tab hidden while the game is still loading
     new MutationObserver(()=>{if(!window.hid&&document.getElementById('loading-status')?.textContent==='Growing the landscape'){window.hid=true;Object.defineProperty(document,'hidden',{value:true,configurable:true});document.dispatchEvent(new Event('visibilitychange'));Object.defineProperty(document,'hidden',{value:false,configurable:true});}}).observe(document,{subtree:true,childList:true,characterData:true});
@@ -63,10 +67,19 @@ try {
     const lost=find('species_lost')[0];
     g.emit('discover', g.catalog.animals[k]);
     const found=find('species_discovered').at(-1);
+    // the opening's prompts: shown once each, × on the fence prompt is opening_step skipped
+    const op=ui.opening, keepFlags=g.flags.opening; op.t0=performance.now();
+    op.shown('fence'); op.shown('fence'); op.shown('meadow');
+    g.flags.opening={stage:'fence'}; op.skipped('fence'); op.skipped('culvert'); g.flags.opening=keepFlags;
+    const prompts=find('opening_prompt').map(e=>e.props.step), skips=find('opening_step').filter(e=>e.props.how==='skipped').map(e=>e.props.step);
+    // play_milestone at one active minute
+    const S=ui.analytics.session; S.active=59; S.lastInput=performance.now();
+    await new Promise(r=>setTimeout(r,1300));
+    const mile=find('play_milestone')[0];
     // leaving
     ui.analytics.session.leftAt=-Infinity; window.dispatchEvent(new Event('pagehide'));
     const left=find('game_left').at(-1);
-    return {loaded, closed, objective, help, warns:warns.length, warnText:warns[0]?.props.text, lost, found, lostKey:g.catalog.animals[k].key, left:left?.props};
+    return {prompts, skips, mile:mile?.props, loaded, closed, objective, help, warns:warns.length, warnText:warns[0]?.props.text, lost, found, lostKey:g.catalog.animals[k].key, left:left?.props};
   })()`);
   assert.ok(r.loaded && r.loaded.props.load_ms > 0 && r.loaded.props.steps.Ready === r.loaded.props.load_ms, 'game_loaded carries load_ms and its steps');
   assert.ok(r.closed && r.closed.props.seconds >= 1, 'panel_closed carries how long the panel was open');
@@ -80,14 +93,30 @@ try {
     assert.ok(Number.isFinite(L?.[f]), `game_left.${f} is numeric`);
   assert.ok(L.rewards_session >= 1 && Number.isFinite(L.seconds_since_reward), 'game_left counts rewards and the time since the last');
   assert.ok(typeof L.next_objective === 'string', 'game_left names the next campaign objective');
+  assert.equal(typeof r.loaded.props.first_visit, 'boolean', 'game_loaded says whether it is a first visit');
+  assert.deepEqual(r.prompts, ['fence', 'meadow'], 'opening_prompt once per step');
+  assert.deepEqual(r.skips, ['fence'], 'a closed fence prompt is opening_step skipped, only while that is the stage');
+  const M = r.mile;
+  assert.ok(M && M.minutes === 1 && M.map === 'pnw' && Number.isFinite(M.tools_session), 'play_milestone at one active minute, with map and tools');
+  for (const f of ['first_visit', 'opening_stage', 'last_tool', 'last_panel', 'fps_band', 'quality']) {
+    assert.ok(f in M, `play_milestone.${f}`); assert.ok(f in L, `game_left.${f}`);
+  }
+  assert.equal(L.last_panel, 'Test panel', 'game_left names the last panel opened, even once closed');
+  assert.ok(L.fps_band == null || /^(under_15|15_25|25_40|40_up)$/.test(L.fps_band), 'fps_band is a band');
   b.assertHealthy();
-  // persists across a reload, cleared by ?tester=off
+  // persists across a reload, cleared by ?tester=off; a page that died is page_crashed on the next start
+  await b.evaluate(`sessionStorage.setItem('test-crash','1')`);
   await b.navigate('/?ph');
   await b.waitFor('!!window.secondGrowth', 'Game boot (reload)');
   assert.equal(await b.evaluate('window.registered.tester'), 'tester', 'tester role persists across a reload');
+  const crash = await b.evaluate(`window.events.filter(x=>x.event==='page_crashed').map(x=>x.props)`);
+  assert.equal(crash.length, 1, 'page_crashed once from a dead page\'s breadcrumb');
+  assert.equal(crash[0].stage, 'Catching the light'); assert.equal(crash[0].map, 'reef'); assert.equal(crash[0].seconds, 30);
   await b.navigate('/?ph&tester=off');
   await b.waitFor('!!window.secondGrowth', 'Game boot (tester off)');
+  assert.equal(await b.evaluate(`window.events.filter(x=>x.event==='page_crashed').length`), 0, 'a page that closed normally leaves no page_crashed');
   assert.deepEqual(await b.evaluate('[window.registered.tester ?? null, localStorage.getItem("second-growth-tester")]'), [null, null], '?tester=off clears the tag');
   console.log('PASS tester tag (stored, registered, persists, off), loading_left on a mid-load hide, first_animal_seen;');
-  console.log('PASS game_loaded, panel_closed, objective_done, quest_help, warning_shown (deduplicated), species_lost, species_discovered and game_left session details');
+  console.log('PASS game_loaded, panel_closed, objective_done, quest_help, warning_shown (deduplicated), species_lost, species_discovered and game_left session details;');
+  console.log('PASS play_milestone, opening_prompt, fence prompt skipped, page_crashed (and none after a normal close), game_left where-fields');
 } finally { await b.close(); }

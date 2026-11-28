@@ -38,7 +38,7 @@ export function buildSpecies(def, { close = false } = {}) {
     case 'orangutan': orangutan(m, s); mo.leg = 0.3; mo.bob = 0; mo.tail = 0; mo.head = 0.45; mo.sink = s.len * 0.4; break;
     case 'pangolin': pangolin(m, s); mo.leg = 0.5; mo.bob = 0.25; mo.tail = 0.12; mo.sink = s.len * 0.22; break;
     case 'sloth': sloth(m, s); mo.leg = 0.12; mo.tail = 0; mo.canopyHanging = true; break;
-    case 'caiman': caiman(m, s); mo.leg = 0.4; mo.tail = 0.35; mo.wave = s.len * 0.025; mo.waveK = 6 / s.len; mo.waveHead = s.len * 0.1; mo.waveLen = s.len * 0.7; mo.sink = s.len * 0.09; break;
+    case 'caiman': caiman(m, s); mo.leg = 0.4; mo.tail = 0.35; mo.wave = s.len * 0.025; mo.waveK = 6 / s.len; mo.waveHead = s.len * 0.1; mo.waveLen = s.len * 0.7; mo.sink = s.len * 0.09; mo.sprawl = true; break;
     case 'ray': ray(m, s); mo.flap = 0.9; mo.wingSpan = s.size * 0.66; mo.wingRoot = s.size * 0.14; mo.tail = 0.3; mo.leg = 0; break;
     case 'dolphin': dolphin(m, s); mo.swims = 1; mo.verticalWave = 1; mo.tail = 0.12; mo.wave = s.size * 0.03; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.2; mo.waveLen = s.size * 0.8; mo.sink = s.size * 0.1; break;
     case 'bat': bat(m, s); mo.flap = 2.6; break;
@@ -47,7 +47,7 @@ export function buildSpecies(def, { close = false } = {}) {
     case 'seacucumber': seaCucumber(m, s); mo.leg = 0; mo.tail = 0; break;
     case 'urchin': seaUrchin(m, s); mo.leg = 0; mo.tail = 0; break;
     case 'beetle': beetle(m, s); mo.leg = 0.7; mo.tail = 0; break;
-    case 'monitor': monitor(m, s); mo.leg = 0.55; mo.wave = s.size * 0.04; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.3; mo.waveLen = s.size * 1.2; mo.sink = s.size * 0.1; break;
+    case 'monitor': monitor(m, s); mo.leg = 0.55; mo.wave = s.size * 0.04; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.3; mo.waveLen = s.size * 1.2; mo.sink = s.size * 0.1; mo.sprawl = true; break;
     case 'hippo': hippo(m, s); mo.leg = 0.28; mo.bob = 0.3; mo.tail = 0.5; mo.sink = s.leg + s.h * 0.55; break;
     case 'frog': frog(m, s); mo.leg = 0.3; mo.bob = s.size * 0.5; mo.sink = s.size * 0.3; break;
     case 'newt': newt(m, s); mo.leg = 0.5; mo.wave = s.size * 0.05; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.4; mo.waveLen = s.size * 1.2; mo.sink = s.size * 0.12; break;

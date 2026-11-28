@@ -97,6 +97,16 @@ export function huntPose(c) {
   c.y = y; c.ax = ax; c.az = az; c.hunt = hunt; c.posePitch = posePitch; c.poseFly = poseFly;
 }
 
+// A sprawler (mo.sprawl: caiman, monitor) swimming lays its legs back along its flanks and drives
+// with its tail, as crocodilians and monitors do, rather than striding through the water. The fly
+// slot carries how far (0..1, eased), read by the shader's sprawl branch (animal-material.js).
+export function sprawlSwim(c) {
+  const { mo, st, k, swimming } = c;
+  if (!mo.sprawl) return;
+  st.swimTuck = (st.swimTuck || 0) + ((swimming ? 1 : 0) - (st.swimTuck || 0)) * Math.min(1, k * 2);
+  if (st.swimTuck > 0.01 && c.poseFly == null) c.poseFly = st.swimTuck;
+}
+
 export function stumblePose(c) {
   const { a, hunt } = c;
   if (hunt?.stumble > 0) { const f = hunt.stumble / 0.3; c.posePitch -= 0.25 * f; c.poseRoll = 0.14 * f * (a.id % 2 ? 1 : -1); }

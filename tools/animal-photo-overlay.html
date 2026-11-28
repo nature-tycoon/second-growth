@@ -59,6 +59,26 @@ const PHOTOS={
   {head:true,file:'File:Deer in field (side view) 2.jpg',nose:[1617,1723],ear:[1301,1360],note:'doe, head in profile'},
   {head:true,file:'File:Female black-tailed deer (31649868106).jpg',nose:[5000,2844],ear:[2750,2000],note:'doe, head in profile, mouth open (chewing)'},
  ],
+ 'atlanta:deer':[
+  {file:'File:White-tailed deer Cave Creek Canyon 4.13.22 DSC 1683.jpg',nose:[4252,1090],chest:[3567,2001],base:[1334,1287],ground:3319,pose:'walk',note:'doe walking (Coues white-tail, a small southern race), head carried normally'},
+  {file:'File:White-tailed deer (Odocoileus virginianus) grazing - 20050809.jpg',nose:[938,292],chest:[898,662],base:[231,600],ground:1132,note:'doe browsing high: compare the body, not the head'},
+  {head:true,file:'File:Odocoileus virginianus (female) 2010-11-17 0962.jpg',nose:[1723,839],ear:[805,576],note:'doe, head in profile (grooming, head turned back), face markings'},
+ ],
+ 'pnw:elk':[
+  {file:'File:Roosevelt Elk in Oregon.jpg',nose:[706,382],chest:[789,539],base:[1305,438],ground:781,flip:true,note:'bull standing, head carried normally'},
+  {file:'File:Roosevelt Elk 1.jpg',nose:[541,645],chest:[733,785],base:[1472,680],ground:1249,flip:true,note:'bull standing, looking at the camera: compare the body, not the head'},
+  {head:true,file:'File:A cow elk looks off into the distance (95e72f5c-155d-4519-3e1e-da5c83b2bbfd).jpg',nose:[242,1183],ear:[1488,738],flip:true,note:'cow, head in profile'},
+ ],
+ 'sumatra:sambar':[
+  {file:'File:Sambar (Cervus unicolor unicolor) female.jpg',nose:[2462,804],chest:[2404,1400],base:[1091,1077],ground:2268,note:'hind standing, looking at the camera: compare the body, not the head'},
+  {file:'File:Sambar (Rusa unicolor cambojensis) female at Headquarters (7843724850).jpg',nose:[769,938],chest:[938,769],base:[1502,615],ground:1022,flip:true,note:'hind grazing, head down: compare the body, not the head'},
+  {head:true,file:'File:Rusa unicolor equina 263009732.jpg',nose:[284,886],ear:[1528,729],flip:true,note:'Sumatran sambar (equina), head in profile'},
+ ],
+ 'sumatra:mousedeer':[
+  {file:'File:Tragulus kanchil 85946254.jpg',nose:[1583,608],chest:[1169,779],base:[273,726],ground:1109,pose:'walk',note:'walking, head carried normally'},
+  {file:'File:Adult Lesser mouse-deer (Tragulus kanchil), Singapore - 20141001.jpg',nose:[518,359],chest:[448,385],base:[203,369],ground:479,pose:'walk',note:'walking at night (eye shine)'},
+  {head:true,file:'File:Tragulus kanchil 85946254.jpg',nose:[1583,608],ear:[1327,427],note:'head in profile'},
+ ],
 };
 const query=new URLSearchParams(location.search),$=id=>document.getElementById(id);
 const W=960,H=540,DPR=Math.min(2,devicePixelRatio||1);

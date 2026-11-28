@@ -352,13 +352,26 @@ export function waterLook(mat, time, noise, rain, sky) {
         // the sky catches on ripples tilted away from the viewer, more toward a glancing angle
         float flatZ = (viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).z;               // how calm water faces the camera
         float tiltAway = flatZ - normal.z;
+        #ifdef FLOOD
+        // (broad on a flood: at the pond's scale the pale sky patches dappled the brown water in blots)
+        float reflection = texture2D(uNoiseW, vWXZ * 0.02 + vec2(uTime * 0.001, -uTime * 0.0007)).r;
+        #else
         float reflection = texture2D(uNoiseW, vWXZ * 0.075 + vec2(uTime * 0.003, -uTime * 0.002)).r;
+        #endif
         float facing = 1.0 - abs(dot(normal, isOrthographic ? vec3(0.0, 0.0, 1.0) : normalize(vViewPosition))); // (the game's camera is orthographic: one view direction everywhere)
         diffuseColor.rgb = mix(diffuseColor.rgb, uSky, (0.035 + facing * facing * 0.12)
           * smoothstep(0.28, 0.72, reflection) + smoothstep(0.02, 0.18, tiltAway) * 0.08);
       }`)
       .replace('#include <color_fragment>', `#include <color_fragment>
       {
+        #ifdef FLOOD
+        // Floodwater (terrain.js buildFlood): one even sheet of muddy water, its vertex colour with only
+        // a broad, slow drift of silt; no depth tint or plume, which broke it into tan and olive blobs a
+        // tile or two across (Cole, 2026-11-27: "flooding looks blotchy"). It thins to nothing at its
+        // waterline, so its edge is soft and follows the land, not tile lines.
+        diffuseColor.rgb *= 0.95 + 0.1 * texture2D(uNoiseW, vWXZ * 0.025 - vFlow * uTime * 0.004).r;
+        diffuseColor.a *= smoothstep(0.0, 0.07, vDepth);
+        #else
         float deep = smoothstep(0.015, 0.42, vDepth);
         // water quality (the simulation's waterQ): bare, sunbaked banks leave it murky with silt;
         // shaded, planted banks run it clear, so a creek visibly clears as its banks are restored
@@ -380,6 +393,7 @@ export function waterLook(mat, time, noise, rain, sky) {
           diffuseColor.rgb *= mix(vec3(1.0), vec3(0.96, 1.03, 1.06), clear);
           diffuseColor.a *= 1.0 - clear * 0.2 * (1.0 - deep);
         }
+        #endif
         // downstream streaks on moving water
         float fl = length(vFlow);
         if (fl > 0.01) {
@@ -412,7 +426,11 @@ export function waterLook(mat, time, noise, rain, sky) {
         float foam = edge * (0.35 + 0.65 * smoothstep(0.32, 0.7, fn + 0.08 * sin(uTime * 0.5 + vWXZ.x * 3.0 + vWXZ.y * 2.0)));
         // ...and soft lines of it lapping in toward the bank
         float lap = smoothstep(0.0, 0.025, shoreD) * (1.0 - smoothstep(0.04, 0.16, shoreD)) * smoothstep(0.62, 0.9, fract(shoreD * 9.0 - uTime * 0.22 + fn * 0.6)) * smoothstep(0.3, 0.6, fn);
+        #ifdef FLOOD
+        foam *= 0.35; // (a flood creeps over the grass: only a faint scum line, no surf or lapping lines, which striped its shallow edge)
+        #else
         foam = max(foam, lap * 0.8);
+        #endif
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.65, 0.79, 0.76), foam * 0.5);
         diffuseColor.a = max(diffuseColor.a, foam * 0.45 * step(0.001, diffuseColor.a));
         // falling water (a waterfall, a steep cascade): white streaks racing down over the lip and

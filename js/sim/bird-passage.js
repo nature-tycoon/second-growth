@@ -4,6 +4,9 @@ import { LEVEL, clamp } from '../config.js';
 import { facePoint } from './animal-positioning.js';
 import { treeStature } from '../render3d/tree-stature.js';
 import { simRandom } from './sim-random.js';
+import { trait } from '../data/animal-kinds.js';
+
+const WEAVE = 2.6; // (a weave's rate, radians a day)
 
 const rand = (lo, hi) => lo + simRandom() * (hi - lo);
 export function passageChoices(game) {
@@ -28,7 +31,7 @@ export function passageGuide(game) {
 
 export function spawnPassage(wl, def, opts = {}) {
   if (!def || def.move !== 'fly' || wl.flyovers.length >= 28) return [];
-  const w = wl.game.world, goose = !!def.sprite.goose, swoop = def.key === 'barn_swallow';
+  const w = wl.game.world, goose = !!def.sprite.goose, swoop = trait(def, 'flightStyle') === 'swoop';
   const ang = opts.angle ?? (goose && [0, 2].includes(wl.game.season) ? (wl.game.season === 2 ? Math.PI / 2 : -Math.PI / 2) + rand(-0.35, 0.35) : rand(0, Math.PI * 2));
   const ux = Math.cos(ang), uy = Math.sin(ang), cx = opts.x ?? rand(w.w * 0.25, w.w * 0.75), cy = opts.y ?? rand(w.h * 0.25, w.h * 0.75);
   const radius = Math.min(Math.abs(ux) > 0.001 ? (ux > 0 ? cx : w.w - cx) / Math.abs(ux) : Infinity,
@@ -79,7 +82,8 @@ export function updatePassage(wl, dt) {
       const neutral = Math.round(a.phase * 0.9) / 0.9;
       a.phase += (neutral - a.phase) * Math.min(1, dt * 5);
     } else a.phase += dt * 6 * (a.passageDef.sprite.beat ?? 1);
-    const bend = p.swoop ? (Math.sin(p.t * 1.8 + p.phase) - Math.sin((p.t - dt) * 1.8 + p.phase)) * 0.55 : 0;
+    // (swallows weave from side to side, about ±20° off their line: decision 0012, flightStyle 'swoop')
+    const bend = p.swoop ? (Math.sin(p.t * WEAVE + p.phase) - Math.sin((p.t - dt) * WEAVE + p.phase)) * 0.5 : 0;
     const nx = a.x + p.ux * step - p.uy * bend, ny = a.y + p.uy * step + p.ux * bend;
     facePoint(a, nx, ny); a.x = nx; a.y = ny;
     if (p.left <= 0) {

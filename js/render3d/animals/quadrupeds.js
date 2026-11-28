@@ -404,23 +404,34 @@ function sumatranRhino(m, s) {
 // higher than its shoulders, on legs as thin as pencils; a small pointed head with big dark eyes and
 // rounded ears, orange-brown above and white below, and the white-and-brown stripes running down
 // its throat from the chin.
+// Fitted to side-on photos of Tragulus kanchil (tools/animal-photo-overlay.html): short pencil legs, the
+// belly a fifth of the body's length off the ground, a gentle arch with the rump highest and rounded,
+// the head carried forward on a short thick neck about level with the back, big eyes, rounded ears.
 function mouseDeer(s) {
-  const L = s.len, H = L * 0.42, leg = L * 0.34, by = leg + H * 0.5, white = col(s.belly), brown = col(shade(s.color, -0.2));
-  const back = grad(shade(s.color, -0.12), s.belly, -0.35, 0.4);
+  const L = s.len, H = L * 0.42, leg = L * 0.21, by = leg + H * 0.5, white = col(s.belly), brown = col(shade(s.color, -0.2));
+  // (grizzled olive-brown along the back, warmer orange-brown down the flanks, white below: the photos)
+  const olive = col(s.back || shade(s.color, -0.12)), warm = col(s.color), bo = col('#000').clone();
+  const side = u => bo.copy(warm).lerp(olive, smooth(-0.1, 0.55, u.y)), back = u => u.y < -0.35 ? bo.copy(warm).lerp(white, smooth(-0.35, -0.55, u.y)) : side(u);
   // (the throat stripes, laid out in world space so they run on from the chin down the neck)
-  const nx = L * 0.3, ny = by + H * 0.05, hx = L * 0.5, hy = by + H * 0.45;
-  const throat = base => (u, p) => {
+  const nx = L * 0.3, ny = by, hx = L * 0.54, hy = by + H * 0.3;
+  // (round the neck from its underside: a white line down the middle, brown, then a white stripe up
+  // each side running from the chin back to the chest, then the coat: the kanchil's throat)
+  const tc = col('#000').clone(), throat = base => (u, p) => {
     if (p.x < nx - H * 0.1) return base(u);
-    const t = Math.min(1, Math.max(0, (p.x - nx) / (hx - nx))), under = p.y < ny + (hy - ny) * t - H * 0.12;
-    if (!under) return base(u);
-    const az = Math.abs(p.z);
-    return az < H * 0.05 ? white : az < H * 0.1 ? brown : az < H * 0.17 ? white : base(u);
+    const t = Math.min(1, Math.max(0, (p.x - nx) / (hx - nx))), cy = ny + (hy - ny) * t, below = cy - p.y;
+    if (below < H * 0.02) return base(u);
+    const a = Math.atan2(Math.abs(p.z), below), k = smooth(L * 0.37, L * 0.43, p.x); // (k: the stripes fade in up the neck, never a hard patch at its root)
+    if (a >= 1.1 || k <= 0) return base(u);
+    return tc.copy(base(u)).lerp(a < 0.35 ? white : a < 0.7 ? brown : white, k);
   };
   return {
-    H, leg, wide: 0.86, hip: 0.26, shoulder: -0.05, haunch: 1.12, chest: 0.82, sag: -0.08, legR0: H * 0.12, legR1: H * 0.035, legColor: shade(s.color, -0.15), hoof: '#1e1612', neckR: H * 0.2,
-    coat: () => throat(back), headPaint: throat(u => (u.y < -0.35 ? white : back(u))),
-    head: [L * 0.49, by + H * 0.42], headR: [H * 0.3, H * 0.21, H * 0.19], snout: H * 0.26, muzzle: shade(s.color, -0.25), eyeR: H * 0.06,
-    ears: 'point', ear: H * 0.2, earW: 0.55, earOut: 0.45, earBack: 0.3, earColor: shade(s.color, -0.25),
+    H, leg, hindX: 0.33, wide: 0.86, hip: 0.1, shoulder: -0.06, haunch: 1.02, chest: 0.8, sag: -0.04, legR0: H * 0.065, legR1: H * 0.028, legColor: shade(s.color, 0.02), hoof: '#1e1612',
+    // (a short thick neck leaving the whole front of the chest, tapering forward to the head, not a pipe off the shoulders)
+    neckPath: [[L * 0.32, by + H * 0.06, 0], [L * 0.41, by + H * 0.18, 0], [L * 0.47, by + H * 0.29, 0]], // (short: the head close in front of the shoulders, Cole)
+    neckRadii: [[H * 0.27, H * 0.26], [H * 0.24, H * 0.22], [H * 0.2, H * 0.18]], neckSub: 4, neckSeg: 14, // (enough round the neck for its stripes)
+    coat: () => back, headPaint: throat(side), // (stripes on the neck and head only: on the body's coarse rings they broke into jagged patches) // (the head and neck brown down to the throat's stripes)
+    head: [L * 0.56, by + H * 0.35], headR: [H * 0.3, H * 0.22, H * 0.2], snout: H * 0.3, muzzle: shade(s.color, -0.25), eyeR: H * 0.08, eyeFwd: 0.55, eyeOut: 0.52, eyeColor: deerEye(), eyeFar: '#1a110c', noseColor: '#3a2a26', noseSize: 0.6, // (big dark eyes set into the head, painted on the close-up; a small dark nose)
+    ears: 'point', earShape: 'round', ear: H * 0.21, earW: 0.55, earOut: 0.45, earBack: 0.08, earFwd: 0.1, earColor: shade(s.color, -0.25), earInner: '#b89584',
     tail: (m, b) => m.ell([-L * 0.47, b.by + H * 0.12, 0], [H * 0.09, H * 0.16, H * 0.07], u => (u.x > 0.1 ? white : col(s.color)), { part: P.TAIL, pivot: [-L * 0.45, b.by + H * 0.2, 0], rot: [0, 0, -0.5] }),
   };
 }
@@ -525,32 +536,37 @@ function deerEye() {
 // at each side of it, and a white patch on the upper throat. Soft-edged, fur not paint. Positions
 // follow the slender deer's head (hp, hr, the muzzle and eye as quadruped places them).
 function deerFace(s, H, hp, hr, snout, eyeFwd) {
+  // (s.face: per-species strengths, each defaulting to the black-tailed deer's: brow, the darker
+  // forehead; bridge, the darker nose bridge; ring, the pale eye ring; tear, the dark tear-gland mark;
+  // band, the white band behind the nose; chin, the white chin; spot, the dark spots beside the chin;
+  // throat, the white throat patch; grey, how far the face greys from the coat)
+  const f = { brow: 0.35, bridge: 0.35, ring: 0.4, tear: 0.55, tearSize: 1, band: 0.6, chin: 0.6, spot: 0.8, throat: 0.6, grey: 0.35, ...s.face }, tk = f.tearSize;
   const sn = [hp[0] + hr[0] * 0.78, hp[1] - hr[1] * 0.28], nose = [sn[0] + snout * 1.22, sn[1] + hr[1] * 0.1];
   const eye = [hp[0] + hr[0] * eyeFwd, hp[1] + hr[1] * 0.28, hr[2] * 0.78], r = Math.max(0.55, H * 0.05);
-  const face = col(s.color).clone().lerp(col('#8a847b'), 0.35), dark = col(s.dark), black = col('#16120f'), white = col('#f1ece3');
+  const face = col(s.neck || s.color).clone().lerp(col('#8a847b'), f.grey), dark = col(s.dark), black = col('#16120f'), white = col('#f1ece3');
   const blob = (p, c, k) => Math.exp(-(((p.x - c[0]) / k[0]) ** 2 + ((p.y - c[1]) / k[1]) ** 2 + ((Math.abs(p.z) - c[2]) / k[2]) ** 2));
-  const out = col('#000').clone(), base = grad(s.color, s.belly, -0.4, 0.5), coat = col('#000').clone();
+  const out = col('#000').clone(), base = grad(s.neck || s.color, s.neck ? s.neck : s.belly, -0.4, 0.5), coat = col('#000').clone(); // (s.neck: a dark head and neck, an elk's)
   return (u, p) => {
     const az = Math.abs(p.z), onHead = smooth(hp[0] - hr[0] * 0.9, hp[0] - hr[0] * 0.3, p.x), top = u.y / (Math.hypot(u.y, u.z) || 1); // (top: 1 on the top of the head, 0 at the side)
     out.copy(coat.copy(base(u))).lerp(face, 0.6 * onHead);
     // the forehead and crown, darker between the eyes and up to the ears
-    out.lerp(dark, 0.35 * onHead * smooth(0.55, 0.85, top) * smooth(eye[0] + r * 2, eye[0] - r, p.x));
+    out.lerp(dark, f.brow * onHead * smooth(0.55, 0.85, top) * smooth(eye[0] + r * 2, eye[0] - r, p.x));
     // the bridge of the nose, darker toward the nose
-    out.lerp(dark, 0.35 * smooth(eye[0], nose[0] - snout * 0.4, p.x) * smooth(0.6, 0.9, top));
+    out.lerp(dark, f.bridge * smooth(eye[0], nose[0] - snout * 0.4, p.x) * smooth(0.6, 0.9, top));
     // the pale eye ring, and the dark tear-gland mark in front of the eye
     const d = Math.hypot((p.x - eye[0]) / 1.15, p.y - eye[1]);
-    out.lerp(white, 0.4 * smooth(r * 0.85, r * 1.2, d) * smooth(r * 2.0, r * 1.45, d) * smooth(0.75, 0.45, top));
-    out.lerp(black, 0.55 * blob(p, [eye[0] + r * 1.9, eye[1] - r * 0.9, eye[2] * 1.02], [r * 0.9, r * 0.45, r * 0.8]));
+    out.lerp(white, f.ring * smooth(r * 0.85, r * 1.2, d) * smooth(r * 2.0, r * 1.45, d) * smooth(0.75, 0.45, top));
+    out.lerp(black, f.tear * blob(p, [eye[0] + r * (1.9 + 0.6 * (tk - 1)), eye[1] - r * (0.9 + 0.2 * (tk - 1)), eye[2] * (1.02 - 0.45 * (tk - 1))], [r * 0.9 * tk, r * 0.45 * tk, r * 0.8 * tk])); // (tearSize: a sambar's big gland)
     // the white muzzle band behind the nose, round the upper lip and down to the chin
     const lip = smooth(nose[0] - snout * 0.75, nose[0] - snout * 0.45, p.x) * smooth(sn[1] + hr[1] * 0.25, sn[1] - hr[1] * 0.05, p.y);
-    out.lerp(white, 0.6 * lip);
+    out.lerp(white, f.band * lip);
     // the chin and lower lip white, with a dark spot at each side of the chin
-    out.lerp(white, 0.6 * smooth(nose[0] - snout * 1.4, nose[0] - snout * 0.9, p.x) * smooth(sn[1] - hr[1] * 0.35, sn[1] - hr[1] * 0.6, p.y));
-    out.lerp(black, 0.8 * blob(p, [nose[0] - snout * 0.55, sn[1] - hr[1] * 0.5, hr[2] * 0.42], [snout * 0.2, hr[1] * 0.16, hr[2] * 0.3]));
+    out.lerp(white, f.chin * smooth(nose[0] - snout * 1.4, nose[0] - snout * 0.9, p.x) * smooth(sn[1] - hr[1] * 0.35, sn[1] - hr[1] * 0.6, p.y));
+    out.lerp(black, f.spot * blob(p, [nose[0] - snout * 0.55, sn[1] - hr[1] * 0.5, hr[2] * 0.42], [snout * 0.2, hr[1] * 0.16, hr[2] * 0.3]));
     // the black wet nose: the muzzle's tip
     out.lerp(black, smooth(nose[0] - snout * 0.32, nose[0] - snout * 0.16, p.x) * smooth(sn[1] - hr[1] * 0.2, sn[1], p.y));
     // the white throat patch, high on the throat behind the jaw
-    out.lerp(white, 0.6 * blob(p, [hp[0] - hr[0] * 0.55, hp[1] - hr[1] * 1.15, 0], [hr[0] * 0.55, hr[1] * 0.45, hr[2] * 1.4]) * smooth(-0.2, 0.3, -u.y));
+    out.lerp(white, f.throat * blob(p, [hp[0] - hr[0] * 0.55, hp[1] - hr[1] * 1.15, 0], [hr[0] * 0.55, hr[1] * 0.45, hr[2] * 1.4]) * smooth(-0.2, 0.3, -u.y));
     return out;
   };
 }
@@ -562,32 +578,43 @@ const MAMMALS = {
     // body with a level back, a thick neck leaving the front of the chest at a slant, the head carried
     // lower and further forward. Off, the older shared deer shape (elk, sambar, white-tailed deer).
     const fit = !!s.slender, nw = s.neckWidth ?? 0.17;
+    // (per species, on the fitted build: earSize scales the ears, tailLen and tailW the tail; 1 = the black-tailed deer's)
+    const es = s.earSize ?? 1, tl = s.tailLen ?? 1, tw = s.tailW ?? 1, fr = s.tailFringe ?? 0; // (tailFringe: white edges round the tail's dark top, a white-tail's)
+    // (depth: the body that much shallower, the belly kept where it was, for a longer-bodied deer; snoutLen: a longer face)
+    const dp = s.depth ?? 1, sl = s.snoutLen ?? 1, hs = s.headSize ?? 1, snout = H * (fit ? 0.24 * sl * hs : 0.28);
+    const hrF = [H * 0.26 * hs, H * 0.21 * hs, H * 0.19 * hs]; // (headSize: the fitted head that much bigger, an elk's)
     const head = fit ? [L * 0.545, by + H * 0.62] : [L * 0.5, by + H * 0.95];
     return {
       H, leg, legR0: H * 0.12, legR1: H * 0.055, hoof: '#2a211a', neckR: H * nw, neckColor: s.neck,
       ...(fit ? {
-        shoulder: -0.02, hip: 0.05, chest: 0.84, haunch: 0.84, keel: 0.16, tuck: 0.5, sag: 0.005, flatBack: 0.5,
+        shoulder: -0.02 - 0.54 * (1 - dp), hip: 0.05 - 0.54 * (1 - dp), chest: 0.84 * dp, haunch: 0.84 * dp, keel: 0.16, tuck: 0.5, sag: 0.005, flatBack: 0.5,
         // slim legs over small split hooves; the hind thigh reaching back into the rump, the knee (stifle) high
-        legR0: H * 0.12, legR1: H * 0.045, thighBack: H * 0.22, thighZ: 0.7, thighUp: 0.2, thighTaper: 0.75, stifle: 0.74,
+        legR0: H * 0.12, legR1: H * 0.045, thighBack: H * 0.22, thighZ: 0.7, thighUp: 0.2 - (1 - dp), thighTaper: 0.75, stifle: 0.74,
         foot: (m, foot, r, o) => m.ell([foot[0] + r * 0.35, r * 0.72, foot[2]], [r * 1.35, r * 0.78, r * 0.85], '#1d1814', { part: o.part, pivot: o.pivot, lo: true, gloss: 1 }), // (a small pointed hoof, not a ball)
-        legColor: shade(s.color, -0.05),
+        legColor: s.legs || shade(s.color, -0.05), // (legs: a darker leg colour, an elk's)
+        // (rump: a pale rump patch painted on the body's back end, soft-edged, not a ball stuck on)
+        // (and a dark neck's cape running on over the front of the shoulders and chest with a soft edge, so there's no line where the neck meets the body)
+        coat: s.rump ? b => { const pale = col(s.rump), cape = col(s.neck || s.dark), o = col('#000').clone(); return (u, p) => o.copy(b(u, p)).lerp(pale, smooth(-0.62, -0.8, u.x) * smooth(-0.55, -0.15, u.y) * smooth(0.95, 0.75, Math.abs(u.z) * (1 + u.x) * 4))
+          .lerp(cape, s.neck ? smooth(0.6, 0.82, u.x + 0.08 * u.y) : 0); } : undefined,
         neckPath: [[L * 0.32, by + H * 0.04, 0], [L * 0.44, by + H * 0.36, 0], [L * 0.53, by + H * 0.58, 0]],
         neckRadii: [[H * 0.3, H * 0.23], [H * 0.2 * nw / 0.17, H * 0.17 * nw / 0.17], [H * 0.16 * nw / 0.17, H * 0.15 * nw / 0.17]], neckSub: 4, neckSeg: 10,
       } : {}),
-      head, headR: fit ? [H * 0.26, H * 0.21, H * 0.19] : [H * 0.3, H * 0.24, H * 0.21], snout: H * (fit ? 0.24 : 0.28),
+      head, headR: fit ? hrF : [H * 0.3, H * 0.24, H * 0.21], snout,
       ears: 'point', ear: H * 0.34, earOut: 0.8, earBack: 0.1, earW: 0.3, headColor: s.neck ? s.neck : null,
       // (a short skull behind big ears set at its back, the eye halfway along, a slim jaw: the photos)
-      ...(fit ? { eyeFwd: 0.68, jawDepth: 0.8, earFwd: -0.55, ear: H * 0.29, earShape: 'deer', earTurn: 0.55, earBack: 0.2, earOut: 0.95, earW: 0.45,
-        eyeR: Math.max(0.55, H * 0.05), eyeOut: 0.52, eyeColor: deerEye(), eyeFar: '#20150e', headSeg: [20, 16], headPaint: deerFace(s, H, head, [H * 0.26, H * 0.21, H * 0.19], H * 0.24, 0.68), noseColor: '#16120f', noseSize: 0.6,
+      ...(fit ? { eyeFwd: 0.68, jawDepth: 0.8, ...(s.muzzleDepth ? { muzzleDepth: s.muzzleDepth } : {}), ...(s.muzzleWidth ? { muzzleWidth: s.muzzleWidth } : {}), // (muzzleDepth: a deeper, blunter muzzle, an elk's)
+         earFwd: -0.55, ear: H * 0.29 * es, earShape: s.earShape || 'deer', // (earShape: a sambar's round ears)
+        earTurn: 0.55, earBack: 0.2, earOut: 0.95, earW: 0.45 * (s.earWide ?? 1),
+        eyeR: Math.max(0.55, H * 0.05), eyeOut: 0.52, eyeColor: deerEye(), eyeFar: '#20150e', headSeg: [20, 16], headPaint: deerFace(s, H, head, hrF, snout, 0.68), noseColor: '#16120f', noseSize: 0.6,
         earColor: shade(s.color, -0.12), earInner: '#ece5d8', earCup: 0.3, earRim: shade(s.dark, -0.2) } : {}),
-      extra: s.rump ? (m, b) => m.ell([-L * 0.33, b.by + H * 0.08, 0], [L * 0.12, H * 0.34, H * 0.36], s.rump) : null,
+      extra: s.rump && !fit ? (m, b) => m.ell([-L * 0.33, b.by + H * 0.08, 0], [L * 0.12, H * 0.34, H * 0.36], s.rump) : null,
       // (tailTop: a black-tailed deer's tail is dark on the outer side, pale only underneath)
       tail: fit ? (m, b) => {
         // a flat tail hanging from just under the rump's top down over the white rump: dark on the
         // outer side (all black on a black-tailed deer), white underneath against the rump
-        const base = [-L * 0.44, b.by + H * 0.3, 0], pale = col('#f2ede4'), dark = col(s.tailTop || s.color);
-        tube(m, [base, [-L * 0.47, b.by + H * 0.12, 0], [-L * 0.478, b.by - H * 0.08, 0]], [[H * 0.06, H * 0.085], [H * 0.055, H * 0.075], [H * 0.035, H * 0.04]],
-          u => tmp.copy(pale).lerp(dark, smooth(-0.45, 0.05, u.y)), { part: P.TAIL, pivot: base, sub: 3, seg: 8, capRings: 2, up: [-1, 0, 0] });
+        const ty = 0.3 - (1 - dp), base = [-L * 0.44, b.by + H * ty, 0], pale = col('#f2ede4'), dark = col(s.tailTop || s.color); // (ty: under the rump's top, lower on a shallower body)
+        tube(m, [base, [-L * 0.47, b.by + H * (ty - 0.18 * tl), 0], [-L * (0.47 + 0.008 * tl), b.by + H * (ty - 0.38 * tl), 0]], [[H * 0.06 * tw, H * 0.085 * tw], [H * 0.055 * tw, H * 0.075 * tw], [H * 0.035 * tw, H * 0.04 * tw]],
+          u => tmp.copy(pale).lerp(dark, smooth(-0.45, 0.05, u.y) * (1 - fr * smooth(0.5, 0.85, Math.abs(u.z)))), { part: P.TAIL, pivot: base, sub: 3, seg: 8, capRings: 2, up: [-1, 0, 0] });
       } : (m, b) => {
         const pale = col(s.rump || shade(s.belly, 0.4)), dark = s.tailTop && col(s.tailTop);
         const top = dark ? u => tmp.copy(dark).lerp(pale, smooth(0, 0.3, u.x)) : pale;
@@ -615,12 +642,12 @@ const MAMMALS = {
           if (s.antlers === 'whitetail' || s.antlers === 'sambar') {
             // White-tailed racks curl forward; sambar stags have a simple three-point rack.
             const white = s.antlers === 'whitetail';
-            const beam = white ? [point(-0.15, 0.3, 0.25), point(-0.12, 0.56, 0.48), point(0.22, 0.65, 0.55), point(0.52, 0.56, 0.42)]
+            const beam = white ? [point(-0.18, 0.24, 0.28), point(-0.1, 0.44, 0.5), point(0.24, 0.52, 0.54), point(0.52, 0.44, 0.32)] // (out and back, then curving forward and in over the face: a white-tail's main beam, the tines standing up off it)
               : [point(-0.14, 0.35, 0.18), point(-0.33, 0.72, 0.3), point(-0.48, 1.02, 0.34)];
             let prev = base;
             beam.forEach((pt, n) => { m.limb(prev, pt, r * (1 - n * 0.18), r * (0.8 - n * 0.18), bone, hd); prev = pt; });
             branch(beam[0], point(0.23, 0.55, 0.18));
-            if (white) for (const n of [1, 2]) branch(beam[n], [beam[n][0], beam[n][1] + H * 0.4, beam[n][2] + side * H * 0.05]);
+            if (white) for (const n of [1, 2]) branch(beam[n], [beam[n][0] + H * 0.06, beam[n][1] + H * 0.3, beam[n][2] + side * H * 0.03]); // (tines a third of the beam's length, leaning a little forward)
             else branch(beam[1], point(-0.08, 1.0, 0.42));
             continue;
           }
@@ -630,7 +657,8 @@ const MAMMALS = {
           beam.forEach((pt, n) => { m.limb(prev, pt, r * (1 - n * 0.12), r * (0.9 - n * 0.14), n === 3 ? tip : bone, hd); prev = pt; });
           // brow tine forward, then upswept tines along the beam
           m.limb(beam[0], [beam[0][0] + H * 0.32, beam[0][1] + H * 0.1, beam[0][2] + side * H * 0.05], r * 0.7, r * 0.2, tip, { ...hd, caps: false });
-          for (const n of [1, 2, ...(s.antlers === 'elk' ? [3] : [])]) m.limb(beam[n], [beam[n][0] + H * 0.08, beam[n][1] + H * 0.36, beam[n][2] + side * H * 0.04], r * 0.65, r * 0.18, tip, { ...hd, caps: false });
+          const lean = s.antlers === 'elk' ? 0.2 : 0.08; // (an elk's tines reach forward off the swept-back beam)
+          for (const n of [1, 2, ...(s.antlers === 'elk' ? [3] : [])]) m.limb(beam[n], [beam[n][0] + H * lean, beam[n][1] + H * 0.34, beam[n][2] + side * H * 0.04], r * 0.65, r * 0.18, tip, { ...hd, caps: false });
         }
       } : null,
     };

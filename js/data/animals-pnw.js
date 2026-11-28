@@ -55,7 +55,9 @@ export default function buildPnwAnimals(def) {
       breed: [2, 3], litter: [1, 1], life: 14, mature: 2,
       suit: (W, i) => w[W.habitat[i]],
       req: g => Math.min(1, g.forestTiles / 120),
-      sprite: { scale: 0.85, kind: 'deer', len: 48, h: 22, leg: 22, color: '#8f6b45', belly: '#b89770', dark: '#4a3322', neck: '#4f3a28', rump: '#d9c6a0',
+      sprite: { scale: 0.85, kind: 'deer', slender: true, len: 48, h: 22, leg: 22, color: '#a3865f', belly: '#4f3a2a', dark: '#4a3322', neck: '#4f3a28', rump: '#d9c6a0',
+        depth: 0.9, neckWidth: 0.2, headSize: 1.15, snoutLen: 1.3, muzzleDepth: 0.56, muzzleWidth: 0.46, earSize: 1.2, legs: '#3e2c1f', tailLen: 0.5, tailW: 0.7, tailTop: '#d9c6a0', // (elk: a pale tan body over a dark belly, a long body, a long straight face, smaller ears, dark legs, a short pale tail on the pale rump)
+        face: { brow: 0.15, bridge: 0.2, ring: 0.1, tear: 0.4, band: 0, chin: 0.25, spot: 0, throat: 0, grey: 0.1 },
         male: { len: 52, h: 24, leg: 23, antlers: 'elk', neckWidth: 0.26 }, maleName: 'adult bull' },
       desc: 'The largest elk in North America. Herds graze meadows and shelter in old forest.',
       hint: 'Large native meadows beside forest.' });

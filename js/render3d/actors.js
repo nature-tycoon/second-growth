@@ -19,9 +19,9 @@ import { SlothBridges } from './sloth-bridge.js';
 import { ActorView, animalViewRadius, pixelsPerUnit, perspectiveScale } from './actor-view.js';
 import { carcassDecay, fitCarcass, Remains } from './carcass-decay.js';
 import { PX, TURN, turnToward, beginAnimal, crownTile, turnBody, bodyPhase, finishAnimal } from './actors-common.js';
-import { wadeOrSwim, gait, headPose, huntPose, stumblePose, slopePose } from './actors-ground.js';
+import { wadeOrSwim, gait, headPose, huntPose, sprawlSwim, stumblePose, slopePose } from './actors-ground.js';
 import { crownHeight, canopyHeight, branchPose, climbSupport, grips } from './actors-climb.js';
-import { snagBank, trunkCling, seaFlightHeight, crownPerch, snagPerch, birdHeight, plungePose, anchorPose, dabblePose, perchLimb } from './actors-fly.js';
+import { snagBank, trunkCling, seaFlightHeight, crownPerch, snagPerch, birdHeight, plungePose, anchorPose, dabblePose, flightPose, perchLimb } from './actors-fly.js';
 import { riverFishHeight, tailBend, snapPose, tailBeat } from './actors-swim.js';
 
 const NONE = [];
@@ -38,7 +38,7 @@ function drawnHeight(A, c) {
   if (def.reef && seaY != null) reefHeight(A, c);
   else if (flying && seaY != null) seaFlightHeight(c);
   else if (seaY != null && def.move === 'fly' && ground < seaY - 0.05) { c.y = (c.fl = seaY) - mo.sink * sc + Math.sin(time * 1.3 + a.id) * 0.008; c.afloat = true; } // (and settle on the water to rest, bobbing on the surface)
-  else if (flying) c.y += (trait(def, 'flitsLow') ? 0.12 + a.alt * 0.3 : 0.7 + a.alt * 1.2) * (1 - (a.stoop || 0) * 0.85); // pollinators flit low over the flowers; a stooping hawk drops onto its prey
+  else if (flying) c.y += (c.lift = (trait(def, 'flitsLow') ? 0.12 + a.alt * 0.3 : 0.7 + a.alt * 1.2) * (1 - (a.stoop || 0) * 0.85)); // pollinators flit low over the flowers; a stooping hawk drops onto its prey
   else if (def.move === 'swim') riverFishHeight(c);
   else if (surf != null && mo.wadeDepth) c.y = Math.max(ground, surf - mo.wadeDepth * sc);
   // (floating at the drawn surface: the creek's own level where it is, which on a creek
@@ -181,12 +181,14 @@ export class Actors {
       gait(c);
       headPose(this, c);
       huntPose(c);
+      sprawlSwim(c);
       snapPose(c);
       stumblePose(c);
       slopePose(c);
       plungePose(c);
       anchorPose(c);
       dabblePose(c);
+      flightPose(c);
       munchPose(c);
       perchLimb(this, c);
       branchPose(this, c);

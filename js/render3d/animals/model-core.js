@@ -588,7 +588,8 @@ function headLoft(m, hp, hr, snout, sn, paint, muzzlePaint, o, hd) {
   const [hx, hy] = hp, [rx, ry, rz] = hr;
   // the muzzle: an oval a little narrower toward the nose; the jaw line runs from under the ear to the chin
   // (a long muzzle narrows to the nose; a cat's short one stays blunt)
-  const mx = sn[0] + snout * 0.3, my = sn[1], mry = ry * (o.muzzleDepth ?? 0.55), mrz = rz * 0.58, taper = o.muzzleTaper ?? smooth(0.55, 1.1, snout / ry); // (muzzleTaper: how much a short muzzle still narrows toward the nose)
+  const mx = sn[0] + snout * 0.3, my = sn[1], mry = ry * (o.muzzleDepth ?? 0.55), mrz = rz * (o.muzzleWidth ?? 0.58), // (muzzleWidth: a narrower muzzle side to side)
+    taper = o.muzzleTaper ?? smooth(0.55, 1.1, snout / ry); // (muzzleTaper: how much a short muzzle still narrows toward the nose)
   const x0 = hx - rx, x1 = snout ? Math.max(hx + rx, mx + snout) : hx + rx;
   const oval = (cx, cy, a, b, c, x) => { const q = 1 - ((x - cx) / a) ** 2, s = Math.sign(q) * Math.sqrt(Math.abs(q)); return [cy + b * s, cy - b * s, c * s]; };
   const jaw = [hx - rx * 0.35, hy - ry * (o.jawDepth ?? 0.9)], chin = [mx + snout * 0.25, my - mry * 0.93];
@@ -683,7 +684,8 @@ function quadruped(m, s, o) {
   };
   // (one smooth tube per leg, bending at the joints, rather than straight pieces with a ball at each)
   const smoothLegs = o.smoothLegs ?? true;
-  const spots = [[L * 0.26, 1, P.LEG_FL], [L * 0.26, -1, P.LEG_FR], [-L * 0.25, 1, P.LEG_BL], [-L * 0.25, -1, P.LEG_BR]];
+  const hx = -L * (o.hindX ?? 0.25); // (hindX: the hind legs that much further back, under a hunched rump: a mouse-deer's)
+  const spots = [[L * 0.26, 1, P.LEG_FL], [L * 0.26, -1, P.LEG_FR], [hx, 1, P.LEG_BL], [hx, -1, P.LEG_BR]];
   for (const [x, side, part] of spots) {
     // set in far enough that even thick upper legs stay inside the body's outline
     const z = side * Math.min(H * 0.24, H * 0.42 - o.legR0) * W, hip = [x, by - H * 0.05, z];

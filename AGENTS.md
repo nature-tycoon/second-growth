@@ -69,7 +69,7 @@ Read the record for an area before changing it. Each record in [docs/decisions/]
 - [0036](docs/decisions/0036-savanna-grass-recovery.md) Savanna grass recovery
 - [0037](docs/decisions/0037-shared-prey-and-recolonisation.md) Shared prey and recolonisation (`sharePrey`)
 - [0038](docs/decisions/0038-smooth-first-minutes.md) Smooth first minutes and per-day cost (`Game.dayWork`)
-- [0039](docs/decisions/0039-steady-flight-level-fish-floating-ducks.md) Steady flight, level reef fish, floating ducks (tucked legs, dabbling, tint under the waterline), eased follow camera (`holdCruise`, `smoothSeabed`, `Actors.floatLevel`, `dabblePose`, `followHeight`)
+- [0039](docs/decisions/0039-steady-flight-level-fish-floating-ducks.md) Steady flight, level reef fish, floating ducks (tucked legs, dabbling, tint under the waterline), eased follow camera (`holdCruise`, `smoothSeabed`, `Actors.floatLevel`, `dabblePose`, `followHeight`); landing flare, banked turns, flight styles by trait `flightStyle` (`flightPose`, `st.wing`; `bird-flight-check`)
 - [0040](docs/decisions/0040-depth-based-lens-hole.md) Tracking lens: the animal drawn faintly through cover, cover opens over its outline (at eye level only near the lens), trunks never cut, never through water, a held meal shows with it (`render3d/look-through.js`, `render3d/focus.js`)
 - [0041](docs/decisions/0041-primate-climbing-pace.md) Primate climbing pace and crown gaps (`drawnClimbPace`, `sim/canopy-links.js`, `crossGap`)
 - [0042](docs/decisions/0042-tree-impostors.md) Tree impostors: far crowns as baked cards (`render3d/tree-impostors.js`)
@@ -89,6 +89,7 @@ Read the record for an area before changing it. Each record in [docs/decisions/]
 - [0056](docs/decisions/0056-animal-state-machine.md) Animal state machine: every `a.state` listed in one table with what steps it and its fields (`js/sim/animal-states.js`, `ANIMAL_STATES`); an unknown state goes back to idle, never freezes (`animal-state-check`); other implicit machines found and why they stay as they are
 - [0057](docs/decisions/0057-wire-tree-guards.md) Wire tree guards: beavers and browsers leave a guarded tree, off by age (`GUARD_YEARS`), offered once after beavers cut a planted tree, the time-lapse stops for it (`js/sim/tree-guard.js`, `w.guard`, `guarded`; `tree-guard-check`)
 - [0058](docs/decisions/0058-horizon-backdrop.md) Horizon: far edges melt into a sky behind the canvas that matches them exactly (`landMelt`, `js/render3d/backdrop.js` `screenColor`); sessions without the intro film open late afternoon (`LATE_START`); season, golden hour and night are a tint on the light (`uLightTint`, `WASH_*`), never a 2D wash
+- [0059](docs/decisions/0059-interaction-to-next-paint.md) Interaction to Next Paint: mostly the graphics chip's queue; an A/B (`draw_pacing`) holds half of sessions to two 3D frames in flight, emptied after a press so it paints next (`js/render3d/gpu-pacing.js`), panels draw thumbnails after the paint (`thumbSrc`, `fillThumbs`), portrait warm-up waits for a lull, slow interactions reported by name (`js/interaction-latency.js`, `slow_interaction`); measure with `tools/inp-probe.mjs`
 
 Ask a trait, never a species name: behaviour and drawing ask `trait(def, name)` (`js/data/animal-kinds.js`: defaults by `sprite.kind`, a species overrides with a field of the same name), so a fix reaches every animal with the trait. A name check stays only where a species is truly unique, with a one-line comment saying why. `node tools/species-name-count.mjs` (headless suite) fails if name checks rise; `--update` after they fall.
 
@@ -96,7 +97,7 @@ New decisions take the next unused number, start with `## Rules` (5–15 lines) 
 
 Monthly newsletter notes: `node tools/monthly-notes.mjs [YYYY-MM]` drafts the month's player-facing changes from `git log main` into `docs/newsletter/<YYYY-MM>.md` (Cole writes and sends the email himself in Kit; how-to and tone in [docs/newsletter/README.md](docs/newsletter/README.md)); `tools/monthly-notes-check.mjs` covers the filtering.
 
-Reference: [PostHog player performance lookups](docs/posthog-player-perf.md).
+Reference: [PostHog player performance lookups](docs/posthog-player-perf.md). Every event the game sends, the drop-off funnel and the "Player drop-off" dashboard: [docs/posthog-events.md](docs/posthog-events.md); a new event goes there and into `play-analytics-browser-check`.
 
 Backend (`server/`, a Cloudflare Worker: feedback email via Resend, Kit newsletter signup, average rating): Cole's setup steps and the endpoint contract the game and website follow are in [docs/backend-setup.md](docs/backend-setup.md); `node tools/backend-check.mjs` runs it headless and fails if an error code or allowed origin drifts from that doc. Never log message bodies or addresses; keys are Wrangler secrets, never in the repo.
 

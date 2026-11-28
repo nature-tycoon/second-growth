@@ -212,7 +212,28 @@ check('The lens leaves what is under the creek or pond to the water, while the e
   const mat = [...actors.fauna.species.values()][0].mat, shader = { uniforms: {}, vertexShader: '#include <project_vertex>', fragmentShader: '#include <clipping_planes_fragment>\n#include <dithering_fragment>' };
   mat.onBeforeCompile(shader, {});
   assert.equal(shader.uniforms.uLookWater, focus.uLookWater);
-  assert.ok(shader.fragmentShader.includes('if (uLookShift > 0.0 && vLookW.y < uLookWater) discard;'), 'the look-through pass skips what is under the water');
-  game.selectedAgent = null; focus.uFocusAmt.value = 0; focus.uLookWater.value = -1e9; dispose(f);
+  assert.ok(shader.fragmentShader.includes('if (uLookShift > 0.0 && vLookW.y < uLookWater && uLookUnder < 0.01) discard;'), 'the look-through pass skips what is under the water');
+  // (but an animal wholly under the surface, a followed fish, shows through it, fainter with depth:
+  // Cole, 2026-11-27. One that breaks the surface keeps the rule, and it never flickers at the edge)
+  assert.equal(shader.uniforms.uLookUnder, focus.uLookUnder);
+  assert.ok(shader.fragmentShader.includes('gl_FragColor.a *= uLookUnder'), 'under the water it fades with depth');
+  const st = actors.pose.get(a.id), top = st.center.y + st.h, step = n => { for (let i = 0; i < n; i++) r.updateFocus(game, 0.03); };
+  r.eyeOn = false; r.camera.position.y = 20;
+  r.terrain = { waterAt: () => top + 1 }; r.lookUnderFor = null; step(1);
+  assert.equal(focus.uLookUnder.value, 1, 'a newly followed animal wholly under: seen through the water at once');
+  assert.equal(focus.uLookWater.value, top + 1, 'the surface still known, for the fade with depth');
+  r.terrain = { waterAt: () => top - 0.2 }; step(1);
+  assert.equal(focus.uLookUnder.value, 1, 'one frame breaking the surface does not flip it (no flicker)');
+  step(10);
+  assert.equal(focus.uLookUnder.value, 1, 'nor 0.3 s');
+  step(8); const part = focus.uLookUnder.value;
+  assert.ok(part > 0.1 && part < 0.95, `after the hold it eases out, not pops (${part.toFixed(2)})`);
+  step(60);
+  assert.ok(focus.uLookUnder.value < 0.01, 'breaking the surface for good: what is under it is left to the water');
+  assert.equal(focus.uLookWater.value, top - 0.2);
+  r.terrain = { waterAt: () => top + 1 }; step(20); const back = focus.uLookUnder.value;
+  assert.ok(back > 0.05 && back < 0.95, `going under again it eases in (${back.toFixed(2)})`);
+  step(60); assert.ok(focus.uLookUnder.value > 0.99, 'and stays seen through the water');
+  game.selectedAgent = null; focus.uFocusAmt.value = 0; focus.uLookWater.value = -1e9; focus.uLookUnder.value = 0; dispose(f);
 });
 console.log(`${checks} canopy support checks passed.`);

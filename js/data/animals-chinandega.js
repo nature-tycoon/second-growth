@@ -34,7 +34,8 @@ export default function buildChinandegaAnimals(def) {
     def({ key: 'deer', kg: 35, herd: true, familyHerd: true, familySize: 4, herdR: 1.4, name: 'White-tailed deer', sci: 'Odocoileus virginianus', group: 'Mammals', move: 'ground',
       speed: 1.6, hr: 50, max: 12, minK: 1.5, groupSize: [1, 3], sources: ['N', 'E'], mig: 0.35, breed: [3, 4], litter: [1, 2], life: 10,
       suit: (W, i) => w[W.habitat[i]] * near(W.distCover[i], 4, 0.3),
-      sprite: { kind: 'deer', len: 32, h: 15, leg: 15, color: '#a07850', belly: '#e8dcc4', dark: '#3a2c20',
+      sprite: { kind: 'deer', slender: true, len: 32, h: 15, leg: 15, color: '#a07850', belly: '#e8dcc4', dark: '#3a2c20',
+        earSize: 0.88, tailLen: 1.3, tailW: 1.4, tailFringe: 1, face: { brow: 0.12, bridge: 0.2, ring: 0.6, tear: 0.3, band: 0.65, spot: 0.45, grey: 0.3 }, // (white-tailed: smaller ears than a black-tail's, a long broad tail, white eye ring and nose band, no dark forehead)
         male: { len: 35, h: 17, leg: 16, antlers: 'whitetail', neckWidth: 0.23 }, maleName: 'adult buck' },
       desc: 'Venado cola blanca, hunted nearly to nothing on the Pacific plain. It browses the forest edge and eats guanacaste and guácimo fruit.',
       hint: 'Dry forest next to open ground, with fruiting trees.' });

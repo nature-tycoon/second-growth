@@ -73,6 +73,7 @@ export function birdHeight(c) {
   if (a.birdGround && a.state === 'walk' && trait(def, 'hops')) y += Math.abs(Math.sin(a.phase * Math.PI)) * 0.045;
   // A bird's height eases between flight, the treetops it clears and its perch, rather than
   // jumping a tile's tree height when it takes off, lands, or crosses from open ground to trees.
+  st.restY = y - c.lift; // (where it is heading to rest, under its flight height: a landing's flare reads it)
   if (def.move === 'fly' && !def.reef && !a.passing) {
     // (in level flight it holds its height: a climb when the way ahead needs one, then only a
     // long shallow glide back down, so a forest or a dip in the ground isn't a bob: holdCruise)
@@ -201,4 +202,87 @@ export function perchLimb(A, c) {
     if (A.flora.treeSites.get(perchSite.tile) === perchSite) canopySites.add(perchSite);
   }
   c.ax = ax; c.az = az; c.y = y;
+}
+
+// How a bird flies (drawing only): its wings on a clock of their own, a landing's flare, banked
+// turns, and its kind's flight style (trait flightStyle). Every change eases, so nothing jumps.
+//  - Wing clock (st.wing, which bodyPhase draws with): it follows the simulation's phase (a.phase,
+//    which a soaring hawk's sim already holds still in a glide), beating faster to land and to
+//    climb away, and held level through a glide. Its offset from the sim's phase returns to whole
+//    beats when nothing else holds it, so the sim's own glide still holds the wings level.
+//  - Landing (Cole, 2026-11-27: birds "just dropped"): through the last FLARE_H of the way down to
+//    where it settles, wings held open and beating hard to brake, body pitched nose up, and in the
+//    last REACH_H its legs swing forward to take the ground (the fly slot over 1: animal-material.js).
+//    Only once the simulation has it landing (arrived, settling, at a kill, the last tile of its
+//    flight, a vulture's last turn down), never a stoop, a seabird's plunge or a cruise glide.
+//  - Bank: it leans into its turns by how fast it turns (BANK_GAIN), up to its style's BANK_MAX; a
+//    circling soarer leans SOAR_BANK into its circle as before (decision 0012).
+//  - Style, in cruising flight: 'soar' beats a few times and glides on level wings (GLIDE), 'bound'
+//    beats a few times then folds its wings in a shallow dip (BOUND, st.undul: the dip is drawn on
+//    top of its steady line, decision 0039), 'swoop' and 'steady' only bank, steeply and gently.
+//    The cycles run on the simulation's phase, so they keep time with the wingbeats and pause with it.
+const SOAR_BANK = 0.35; // (a circling hawk leans into its turn)
+const BANK_MAX = { soar: 0.5, bound: 0.4, swoop: 0.85, steady: 0.25 }, BANK_GAIN = { soar: 0.35, bound: 0.35, swoop: 0.7, steady: 0.3 };
+const FLARE_H = 1.4, REACH_H = 0.5, FLARE_PITCH = 0.5, FLARE_BEAT = 1.2, CLIMB_PITCH = 0.15;
+const BOUND = { beats: 5, flap: 0.5, dip: 0.35 }, GLIDE = { beats: 11, flap: 0.36 };
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const wrap = d => d - Math.round(d / (Math.PI * 2)) * Math.PI * 2;
+export function flightPose(c) {
+  const { a, def, st, mo, sc, k, frameDt, flying, returning, yaw0 } = c;
+  if (def.move !== 'fly' || !mo.bird || def.reef) return;
+  const style = trait(def, 'flightStyle') || 'steady', beat = Math.PI * 2 / (mo.flap || 1);
+  const src = a.phase * Math.PI;
+  if (st.wing == null || returning) { st.wing = st.wingSrc = src; st.flare = st.power = st.styleW = 0; st.cycle = (a.id * 0.618) % 1; st.undul = 0; }
+  // (the sim's phase moves on smoothly; a bigger change in one frame isn't passed on as a jump)
+  const dP = clamp(src - st.wingSrc, -1, 1); st.wingSrc = src;
+  const soaring = a.bird?.kind === 'soar';
+  // Landing: how far above where it will settle, once the simulation has it coming in.
+  const goal = a.state === 'fly' && a.tx != null ? Math.hypot(a.tx - a.x, a.ty - a.y) : Infinity;
+  const comingIn = !a.passing && !(a.stoop > 0) && a.fishing?.phase !== 'dive' &&
+    (!a.flying || goal < 1.5 || // (landed in the sim, or its last stretch; not hovering over water to eat on the wing)
+     soaring && a.bird.carcass != null && a.bird.t < 0.6);
+  const gap = st.birdY != null && st.restY != null ? st.birdY - st.restY : 0;
+  const landing = comingIn && (st.flare > 0.05 ? gap > 0.01 : gap > 0.08 && (st.birdVy || 0) < 0); // (not a hop: 0.045)
+  const flareTo = landing ? 1 - smooth(FLARE_H * 0.6, FLARE_H, gap) : 0;
+  st.flare += (flareTo - st.flare) * Math.min(1, k * (flareTo > st.flare ? 3 : comingIn ? 1.5 : 4)); // (off quickly when it takes off again)
+  // Climbing away (taking off, or out over the crowns), it beats harder too.
+  const powerTo = flying && !soaring && !a.passing && !landing ? clamp(((st.birdVy || 0) - 0.2) / 1.3, 0, 1) : 0;
+  st.power += (powerTo - st.power) * Math.min(1, k * 2);
+  const effort = Math.max(st.flare, st.power * 0.6);
+  // Its style, in cruising flight only.
+  const cruising = flying && st.fly > 0.9 && !soaring && !a.passing && !(a.stoop > 0) && !comingIn && a.fishing == null;
+  const styled = style === 'bound' || style === 'soar' && !a.carry ? 1 : 0;
+  st.styleW += ((cruising ? styled * (1 - effort) : 0) - st.styleW) * Math.min(1, k * 1.5);
+  const cyc = style === 'bound' ? BOUND : GLIDE;
+  st.cycle = (st.cycle + Math.abs(dP) / (beat * cyc.beats)) % 1;
+  const u = st.cycle, rest = smooth(cyc.flap, cyc.flap + 0.08, u) * (1 - smooth(0.92, 1, u)) * st.styleW;
+  const fold = style === 'bound' ? rest : 0, glide = style === 'soar' ? rest : 0;
+  // The wing clock: faster with effort, still while folded, eased to level in a glide.
+  st.wing += dP * (1 + FLARE_BEAT * effort) * (1 - fold) * (1 - glide);
+  if (glide > 0.001) { const half = Math.PI / (mo.flap || 1); st.wing += (Math.round(st.wing / half) * half - st.wing) * Math.min(1, k * 2) * glide; }
+  else if (effort < 0.01 && fold < 0.01 && frameDt > 0) {
+    const off = st.wing - src, whole = Math.ceil(off / beat - 1e-6) * beat;
+    st.wing += Math.min(whole - off, frameDt * 2);
+  }
+  // The bounding dip: up through the beats, down with the wings folded (on top of its steady line).
+  const undul = style === 'bound' ? -Math.cos(u * Math.PI * 2) * BOUND.dip * (def.sprite.size || 10) * sc * st.styleW : 0;
+  c.y += undul; st.undul = undul;
+  // Bank: into the turn, by how fast it is turning (a still frame, paused, leaves it as it was).
+  if (frameDt > 0) {
+    // (its rate of turn smoothed first, so a small correction of course isn't a rock of the wings)
+    st.turnRate = (st.turnRate || 0) + (wrap(st.yaw - yaw0) / frameDt - (st.turnRate || 0)) * Math.min(1, k);
+    const bankTo = soaring ? a.bird.dir * SOAR_BANK
+      : clamp(-st.turnRate * BANK_GAIN[style], -BANK_MAX[style], BANK_MAX[style]) * clamp(st.fly, 0, 1) * (1 - 0.6 * st.flare);
+    st.bank = (st.bank || 0) + (bankTo - (st.bank || 0)) * Math.min(1, k * (soaring ? 1 : 0.7));
+  }
+  // The flare: nose up, wings open and beating, legs forward in the last half tile (not while carrying a catch in its feet).
+  c.posePitch += (st.flarePitch = FLARE_PITCH * st.flare + CLIMB_PITCH * st.power);
+  // (a duck coming down onto the water lands feet first, then tucks them: the flare wins over the
+  // afloat tuck, dabblePose, until it is down)
+  if ((c.poseFly == null || c.poseFly === -st.tuck && st.flare > 0.05) && (st.flare > 0.002 || fold > 0.002)) {
+    const reach = a.prey ? 0 : // (its catch in its feet, carried or eaten where it lands)
+       st.flare * (1 - smooth(REACH_H * 0.4, REACH_H, gap));
+    const open = Math.max(st.fly, st.flare) * (1 - 0.85 * fold);
+    c.poseFly = reach > 0.001 ? 1 + reach : open;
+  }
 }

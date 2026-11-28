@@ -53,6 +53,12 @@
 //                 watch and fleeUpdate; drawn crouched by actors-ground.js headPose; decision 0006)
 //   swallowsWhole  it swallows its catch whole, head first, and leaves no carcass: snakes
 //                 (animal-life.js swallow; the bulge drawn by actors-common.js gulpBulge)
+//   flightStyle   how a bird flies between places (drawing only: actors-fly.js flightPose): 'soar'
+//                 broad wings, wide banks, a few beats then a glide on still wings (raptors,
+//                 vultures, owls, hornbills); 'bound' small birds: a burst of beats, then wings
+//                 folded in a shallow dip (songbirds, woodpeckers, toucans); 'swoop' swallows and
+//                 swifts: steep banks as they weave; 'steady' straight, steady beats and only gentle
+//                 banks (ducks, herons, cranes, boobies, parrots, hummingbirds; the default)
 //   wades         a bird that stands and feeds in the shallows, legs in the water, stepping
 //                 about and striking at its feet: herons, cranes, dippers (animal-terrain.js
 //                 shallowsFor, wildlife-water.js wade; drawn legs-deep: animal-model.js wadeDepth)
@@ -97,15 +103,16 @@ export const KIND_TRAITS = {
   ray: { ...firm, alwaysFlying: true }, bat: { alwaysFlying: true },
   butterfly: { flitsLow: true }, bee: { ...firm, flitsLow: true },
   monkey: { climb: 'walk', crownHeight: 0.9, restShare: 0.4 }, orangutan: { climb: 'clamber', crownHeight: 0.9, restShare: 0.25 }, sloth: { climb: 'hang' },
-  songbird: { ...smallBird, groundFeed: true, flocks: true, hops: true },
+  songbird: { ...smallBird, groundFeed: true, flocks: true, hops: true, flightStyle: 'bound' },
   hummer: { ...smallBird, bathes: false },
-  woodpecker: { ...smallBird, nestHole: true, trunkFeed: true },
+  woodpecker: { ...smallBird, nestHole: true, trunkFeed: true, flightStyle: 'bound' },
   duck: { ...nibble, floats: true, dabbles: true, perches: false, sitsInCrowns: false, flocks: true },
   booby: { floats: true, perches: false, flocks: true, fishes: 'dive' },
   heron: { perches: false, sitsInCrowns: false, wades: true }, crane: { perches: false, sitsInCrowns: false, groundFeed: true, wades: true },
-  secretary: { groundFeed: true }, hornbill: { ...nibble, nestHole: true, eatsFruit: 'toss' },
-  macaw: { nestHole: true, flocks: true, eatsFruit: 'chew' }, toucan: { nestHole: true, eatsFruit: 'toss' },
-  owl: { nestHole: true, scaresSmallBirds: true }, raptor: { scaresSmallBirds: true },
+  secretary: { groundFeed: true, flightStyle: 'soar' }, hornbill: { ...nibble, nestHole: true, eatsFruit: 'toss', flightStyle: 'soar' },
+  macaw: { nestHole: true, flocks: true, eatsFruit: 'chew' }, toucan: { nestHole: true, eatsFruit: 'toss', flightStyle: 'bound' },
+  owl: { nestHole: true, scaresSmallBirds: true, flightStyle: 'soar' }, raptor: { scaresSmallBirds: true, flightStyle: 'soar' },
+  vulture: { flightStyle: 'soar' },
 };
 
 // The species' own value, else its kind's default (undefined when neither sets it).

@@ -343,7 +343,7 @@ export function assertSeedMix(m, plant, path = 'mix') {
 
 const ANIMAL_BOOLEANS = `herd familyHerd fixedMax strictMax notPrey patrol soar ambush huntsAshore noDrink quick domestic reef benthic frugivore fenced damBuilder tramples ${TRAIT_BOOLEANS}`;
 const ANIMAL_NUMBERS = 'minK mig intro life mature preyPer speed max hr familySize herdR bachelorSize bachelorR bachelorJoin bachelorSoloAge herdMax needsPer shy browseRate challengePreyPer kg crownHeight seagrassBite fishDepth restShare';
-const ANIMAL_FIELDS = keys(`key name sci desc group move sources suit sprite req hint mapId index nouns behavior groupSize breed litter season prey challengePrey carries needs special crossing surfaceEscape idleEat climb wallow eatsFruit fishes ${ANIMAL_BOOLEANS} ${ANIMAL_NUMBERS}`);
+const ANIMAL_FIELDS = keys(`key name sci desc group move sources suit sprite req hint mapId index nouns behavior groupSize breed litter season prey challengePrey carries needs special crossing surfaceEscape idleEat climb wallow eatsFruit fishes flightStyle ${ANIMAL_BOOLEANS} ${ANIMAL_NUMBERS}`);
 export const ANIMAL_MOVES = Object.freeze(['ground', 'semi', 'tree', 'fly', 'swim']);
 
 /** @param {AnimalSpec} a */
@@ -366,6 +366,7 @@ export function assertAnimalSpec(a, path = 'animal') {
   optional(a, 'idleEat', path, (v, q) => choice(v, q, ['graze', 'nibble']));
   optional(a, 'climb', path, (v, q) => choice(v, q, ['walk', 'clamber', 'hang']));
   optional(a, 'eatsFruit', path, (v, q) => choice(v, q, ['toss', 'chew', 'peck']));
+  optional(a, 'flightStyle', path, (v, q) => choice(v, q, ['soar', 'bound', 'swoop', 'steady']));
   optional(a, 'fishes', path, (v, q) => choice(v, q, FISHING_STYLES));
   if (a.wallow) { object(a.wallow, `${path}.wallow`); number(a.wallow.size, `${path}.wallow.size`, Number.MIN_VALUE); optional(a.wallow, 'rut', `${path}.wallow`, boolean); }
   if (a.surfaceEscape) { object(a.surfaceEscape, `${path}.surfaceEscape`); number(a.surfaceEscape.dash, `${path}.surfaceEscape.dash`, 1, 4); number(a.surfaceEscape.tiles, `${path}.surfaceEscape.tiles`, 1, 30); }

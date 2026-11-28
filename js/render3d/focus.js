@@ -43,6 +43,7 @@ export const focus = {
   uLookNear: { value: 0.5 },                // about its size: how far round it the branch it is on shows through (look-through.js)
   uFocusInvD: { value: 0 },                 // 1 / distance from the animal to the eye at eye level; 0 from above
   uLookWater: { value: -1e9 },              // the water's surface at the animal, when the eye is above it (look-through.js); -1e9: none
+  uLookUnder: { value: 0 },                 // 1: the animal is wholly under that surface, seen faintly through it (a followed fish); eased
 };
 
 const FOCUS_NOISE = `

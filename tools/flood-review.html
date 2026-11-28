@@ -49,7 +49,7 @@ function setup(){
   terrain.setWorld(w,game.border);terrain.setFast($('detail').value==='fast');terrain.updateSurface(game);terrain.time.value=8;terrain.sky.value.set(0xd1dfec);
   terrain.buildFlood();
   const flora=new Flora(scene);flora.setLight($('detail').value==='fast');flora.setZoom(1.2);flora.rebuild(game);
-  view={scene,sun,terrain,game};
+  view={scene,sun,terrain,game,flora};window.view=view;window.THREE=THREE;window.gl=gl;
   $('status').textContent=`Ready · ${game.events.floodTiles} tiles flooded · ${edge.length} along the water`;
   refresh();
 }
@@ -67,6 +67,7 @@ function refresh(){
 }
 $('rotate').onclick=()=>{angle+=Math.PI/2;refresh();};$('zoom').onclick=()=>{extent=extent===10?5:extent===5?20:10;refresh();};
 for(const id of ['map','detail'])$(id).onchange=setup;
+window.setSpots=s=>{spots=s;refresh();}; // (checks and agents look at chosen tiles)
 setup();
 </script>
 </html>

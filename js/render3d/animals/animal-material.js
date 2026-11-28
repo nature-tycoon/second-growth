@@ -508,6 +508,9 @@ export function faunaMaterial(motion) {
         float crouch = fly < -1.5 ? -fly - 2.0 : 0.0; if (crouch > 0.0) fly = 0.0;
         // (a negative fly on a bird is a bird afloat, its legs tucked up under it: actors-fly.js dabblePose)
         float tuck = uBird * max(-fly, 0.0); fly = max(fly, -1.0 + uBird);
+        // (above 1 on a bird: wings fully out and its legs reaching forward to land, by fly - 1:
+        // actors-fly.js flightPose; nothing else puts a fly over 1)
+        float reach = uBird * clamp(fly - 1.0, 0.0, 1.0); fly = min(fly, 1.0);
         vec3 zero = vec3(0.0);
         bool wing = aPart > 5.5 && aPart < 7.5;
         bool tail = aPart > 4.5 && aPart < 5.5;
@@ -581,10 +584,23 @@ export function faunaMaterial(motion) {
           } else` : ''} {
           if (crouch > 0.0) foldLeg(p, n, crouch);
           float off = (aPart < 1.5 || aPart > 3.5) ? 0.0 : 3.14159;
+          ${motion.sprawl ? `
+          // A sprawler (caiman, monitor): the upper leg runs out sideways, so the stride turns it fore
+          // and aft about the hip's upright, the foot lifted only on the forward stroke; swung about the
+          // side axis like a mammal's, the forefoot rose toward the sky (Cole, 2026-11-27). Swimming
+          // (a positive fly: actors-ground.js sprawlSwim) the legs lie back along the flanks.
+          float side = aPivot.z < 0.0 ? -1.0 : 1.0, swimT = clamp(fly, 0.0, 1.0);
+          float stroke = ph + off, walkG = gait * (1.0 - swimT);
+          float yaw = side * (sin(stroke) * uLeg * walkG - swimT * 1.2);
+          float lift = max(0.0, cos(stroke)) * 0.18 * walkG + swimT * 0.35;
+          p = rotX(p, aPivot, -side * lift); n = rotX(n, zero, -side * lift);
+          p = rotY(p, aPivot, yaw); n = rotY(n, zero, yaw);
+          ` : `
           // (a negative fly is a leaping cat or fox, stretched out: forelegs reach forward, hind legs trail)
           float fl = max(fly, 0.0), lp = max(-fly, 0.0);
-          float swing = sin(ph + off) * uLeg * gait * (1.0 - fl) - fl * 1.35 + lp * (aPart < 2.5 ? 1.1 : -0.95) - tuck * 1.1;
+          float swing = sin(ph + off) * uLeg * gait * (1.0 - fl) - fl * 1.35 * (1.0 - reach) + reach * 0.6 + lp * (aPart < 2.5 ? 1.1 : -0.95) - tuck * 1.1;
           p = rotZ(p, aPivot, swing); n = rotZ(n, zero, swing);
+          `}
           }
           }
         } else if (tail) {
@@ -627,7 +643,7 @@ export function faunaMaterial(motion) {
         if (uPrimate > 2.5) objectNormal = rotZ(objectNormal, vec3(0.0), sin(animPhase()) * .12 * aAnim.y * (1.0 - aAnim.z));
       `)
       .replace('#include <begin_vertex>', `
-        float ph = animPhase(), gait = aAnim.y, fly = aAnim.z, graze = aAnim.w;
+        float ph = animPhase(), gait = aAnim.y, fly = min(aAnim.z, 1.0), graze = aAnim.w; // (over 1: a landing bird's legs, animatePart)
         vec3 transformed = faunaPosition;
         if (uPrimate > 2.5) {
           transformed -= (siamangHold(siamangWeights(ph, gait, fly)) - vec3(.14, 1.38, .02)) * uLength;
@@ -670,6 +686,6 @@ export function faunaMaterial(motion) {
       // (under the water: dimmed into the creek's green-grey, more the deeper it goes)
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.2, 0.27, 0.24), smoothstep(0.0, 0.008, vUnder) * (0.62 + 0.3 * smoothstep(0.01, 0.2, vUnder)));`);
   };
-  mat.customProgramCacheKey = () => `fauna:${motion.canopyWalkerMotion ? 'canopy-walker-joints' : motion.canopyHanging ? 'hanging-grips' : motion.canopyFeet ? 'grips' : motion.primate === 3 ? 'swing' : motion.primate === 2 ? 'clamber' : 'base'}${motion.billSweep ? ':bill-sweep' : ''}${coats ? ':coat=' + coats.map(c => c.kind).join(',') : ''}`;
+  mat.customProgramCacheKey = () => `fauna:${motion.canopyWalkerMotion ? 'canopy-walker-joints' : motion.canopyHanging ? 'hanging-grips' : motion.canopyFeet ? 'grips' : motion.primate === 3 ? 'swing' : motion.primate === 2 ? 'clamber' : 'base'}${motion.billSweep ? ':bill-sweep' : ''}${motion.sprawl ? ':sprawl' : ''}${coats ? ':coat=' + coats.map(c => c.kind).join(',') : ''}`;
   return mat;
 }
