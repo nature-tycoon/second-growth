@@ -75,7 +75,7 @@ export default function buildSumatraAnimals(def) {
       prey: ['langur', 'macaque', 'mousedeer', 'civet'], preyPer: 6,
       suit: (W, i) => w[W.habitat[i]] * canopy(W, i),
       req: g => Math.min(1, g.forestTiles / 900),
-      sprite: { scale: 0.78, kind: 'feline', len: 32, h: 11, leg: 8, calm: 1, legs: 0.85, tailLen: 1.65, tailR: 0.16, tailDrop: 0.8, color: '#a89068', belly: '#e0d4bc', dark: '#2a2218', clouds: true },
+      sprite: { scale: 0.78, kind: 'feline', len: 32, h: 11, leg: 8, calm: 1, legs: 0.92, snout: 1.25, headTall: 0.88, legSpot: 0.11, headSpot: 0.065, tailLen: 1.65, tailR: 0.16, tailDrop: 0.8, color: '#a89068', belly: '#e0d4bc', dark: '#2a2218', clouds: true },
       desc: 'A secretive cat with cloud-shaped markings, the longest canine teeth for its size of any cat, and ankles that let it climb down trees head first.',
       hint: 'Tall forest with monkeys and mouse-deer.' });
   }

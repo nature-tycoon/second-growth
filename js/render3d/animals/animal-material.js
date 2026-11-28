@@ -107,10 +107,12 @@ const COAT_GLSL = `
   }
   // clouded leopard: black-rimmed blotches with darker fills between pale lanes, a few spots on the belly (A: cell size)
   vec3 coatClouds(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
-    vec2 c = coatCells(p, A.x);
+    vec3 w = p * (5.0 / A.x); // (wavy edges: a little sideways sway, so the clouds aren't straight-sided cells)
+    vec2 c = coatCells(p + vec3(sin(w.y + w.z), sin(w.z * 1.3 + w.x), sin(w.x * 0.8 + w.y)) * A.x * 0.07, A.x);
     float gap = c.x, id = c.y, detail = coatDetail(p.x / A.x * 4.0);
-    float on = step(0.12, id) * (1.0 - coatIn(gap, 0.08)), rim = on * coatIn(gap, 0.2 + id * 0.08), fill = on - rim;
-    vec3 flank = mix(mix(base, base * (0.6 + id * 0.15), fill), dark, rim);
+    // (fitted to clouded leopard photos: broad pale lanes between the clouds, a thick black rim, the fill well darker than the coat)
+    float lane = 0.15 + id * 0.06, on = step(0.12, id) * (1.0 - coatIn(gap, lane)), rim = on * coatIn(gap, lane + 0.13 + id * 0.08), fill = on - rim;
+    vec3 flank = mix(mix(base, base * (0.45 + id * 0.2), fill), dark, rim);
     vec3 under = mix(base, dark, (1.0 - coatIn(gap, 0.42)) * step(0.4, id));
     return mix(mix(base, dark * 0.5 + base * 0.4, 0.5), mix(under, flank, smoothstep(-0.63, -0.57, u.y)), detail);
   }

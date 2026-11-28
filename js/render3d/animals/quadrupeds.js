@@ -459,8 +459,8 @@ function catMarks(s) {
     [dark, 1, 's', [-1.3, -0.5], [-5.6, -1.5], 0.55], [dark, 1, 's', [-0.7, -2.2], [-5.0, -3.3], 0.55],
     [dark, 0.9, 't', [0.4, 0.62], [-3.0, 0.4], 0.34],
   ];
-  if (s.clouds) return [
-    [dark, 0.9, 's', [-1.4, -0.6], [-5.8, -1.4], 0.42], [dark, 0.85, 's', [-0.9, -2.1], [-5.2, -3.0], 0.42],
+  if (s.clouds) return [ // (bold black cheek stripes in the photos, back from the eye and from below it)
+    [dark, 1, 's', [-1.2, -0.5], [-6.2, -1.3], 0.6], [dark, 1, 's', [-0.8, -2.1], [-5.6, -3.1], 0.6],
     [dark, 0.85, 't', [-1.0, 0.25], [-4.4, 0.3], 0.32], [dark, 0.85, 't', [-1.0, 1.0], [-4.4, 1.05], 0.32],
   ];
   if (s.spotted) return [
@@ -668,7 +668,7 @@ const MAMMALS = {
     const coat = s.clouds ? b => cloudCoat(b, s.dark, H * 0.42) : k ? () => jaguarCoat(s, H, by) : stripes ? () => pixelCoat('tiger', tg.body, [sk, by / sk, 2.1 * (s.stripe ?? 1)], s.dark) : null;
     // (markings drawn per pixel: coatSpots, coatRings)
     const legColor = stripes ? pixelCoat('tigerLegs', tg.leg, [sk, Math.min(H * 0.24, H * 0.42 - H * (s.legR0 ?? 0.2)) / sk], s.dark)
-      : s.clouds ? felineSpots(s, H, solid(shade(s.color, -0.05)), H * 0.16)
+      : s.clouds ? felineSpots(s, H, solid(shade(s.color, -0.05)), H * (s.legSpot ?? 0.16))
       : s.spotted ? felineSpots(s, H, solid(shade(s.color, 0.05)), H * 0.1)
       : s.chains ? felineSpots(s, H, solid(s.color), H * 0.12) // (an ocelot's legs: solid spots)
       : s.legSpot && s.rosettes ? felineSpots(s, H, solid(s.color), H * s.legSpot) // (a leopard's legs: small solid spots)
@@ -677,7 +677,7 @@ const MAMMALS = {
     const ring = (n, f) => pixelCoat('rings', solid(s.color), [n, 0.19, 0, 0, 2, 2, -2, 0], tmp.copy(col(s.color)).lerp(dk, f));
     // the fitted head: placed a little low and forward, the skull's top about level with the back (headX, headY:
     // its place along the body and above the body's axis, in body lengths and depths; a jaguar's is lower and closer in)
-    const hp = fit ? [L * (s.headX ?? 0.55), by + H * (s.headY ?? 0.14)] : [L * 0.5, by + H * 0.3], hr = fit ? [H * 0.33 * hs, H * 0.3 * hs, H * 0.24 * hs] : [H * 0.34 * hs, H * 0.31 * hs, H * 0.32 * hs];
+    const hp = fit ? [L * (s.headX ?? 0.55), by + H * (s.headY ?? 0.14)] : [L * 0.5, by + H * 0.3], hr = fit ? [H * 0.33 * hs, H * 0.3 * hs * (s.headTall ?? 1), H * 0.24 * hs] /* (headTall: a clouded leopard's long, low skull) */ : [H * 0.34 * hs, H * 0.31 * hs, H * 0.32 * hs];
     const face = fit ? catFace(s, H, hp, hr, sl) : null;
     const spotted = s.rosettes || s.cheetah || s.spotted || s.bobtail;
     return {
@@ -699,7 +699,7 @@ const MAMMALS = {
       ears: lion ? 'none' : s.ears ?? 'round', ear: H * (lion ? 0.24 : k ? 0.18 : s.ear ?? 0.185), earTurn: fit ? 0.6 : undefined, earUp: fit ? 0.55 : undefined, earSide: fit ? 0.82 : undefined, crown: fit ? 0.3 : undefined, cheeks: fit ? s.cheeks ?? 0.32 : undefined, pads: fit ? 0.15 : undefined, cleft: fit ? 0.4 : undefined, muzzleTaper: fit ? 0.85 : undefined, muzzleBlend: fit ? 0.6 : undefined, bridge: fit ? 0.75 : undefined, earWidth: fit ? s.earWidth ?? 1.08 : undefined, earInner: fit ? s.earInner ?? '#b58a6c' : undefined, earSpot: s.earSpot, earOut: 0.2, earBack: 0.1, earW: s.earW ?? 0.45, tufts: s.tufts, muzzle: fit ? face.muzzle : grad(s.color, s.belly, 0.1, 0.4),
       // (ear backs dark, the eyes painted, the nose sculpted in face)
       earColor: fit ? shade(s.dark, -0.15) : null, eyeColor: fit ? catEye(s) : undefined, eyeFwd: fit ? 0.84 : undefined, eyeOut: fit ? 0.4 : undefined, muzzleDepth: fit ? 0.4 : undefined, brow: fit ? 0.14 : undefined, noseColor: fit ? '#7d5246' : undefined,
-      headPaint: plain || stripes ? face.head : s.clouds ? felineSpots(s, H, face.head, H * 0.1) : k ? felineSpots(s, H, face.head, H * (s.headSpot ?? 0.09))
+      headPaint: plain || stripes ? face.head : s.clouds ? felineSpots(s, H, face.head, H * (s.headSpot ?? 0.1)) : k ? felineSpots(s, H, face.head, H * (s.headSpot ?? 0.09))
         : spotted && !s.bobtail ? felineSpots(s, H, face.head, H * (s.headSpot ?? 0.07)) : s.bobtail ? face.head : null, // (small solid spots on the head; a bobcat's face is streaked instead: catMarks)
       face: (m, hp, hr, hd, sn) => {
         if (fit) {
