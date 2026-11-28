@@ -606,7 +606,10 @@ export function faunaMaterial(motion) {
           p = aPivot + (p - aPivot) * flick;
         } else if (aPart > 7.5) {
           ${motion.billSweep ? 'float sweep = sin(ph * 1.6) * max(0.0, aAnim.w) * .45; p = rotY(p, aPivot, sweep); n = rotY(n, zero, sweep);' : ''}
-          p = rotZ(p, aPivot, -${motion.canopyFeet ? 'max(0.0, aAnim.w)' : 'aAnim.w'} * uHead); n = rotZ(n, zero, -${motion.canopyFeet ? 'max(0.0, aAnim.w)' : 'aAnim.w'} * uHead);
+          // (the turn fades out behind the pivot, so the neck's root, back in the shoulders, stays put
+          // instead of rising through the back when the head dips: the cougar's stalk, Cole 2026-11-27)
+          float nod = -${motion.canopyFeet ? 'max(0.0, aAnim.w)' : 'aAnim.w'} * uHead * smoothstep(aPivot.x - uLength * 0.12, aPivot.x + uLength * 0.02, p.x);
+          p = rotZ(p, aPivot, nod); n = rotZ(n, zero, nod);
         }
       }
     ` + shader.vertexShader

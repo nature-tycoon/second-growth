@@ -696,19 +696,12 @@ const MAMMALS = {
       legR1: H * (lion ? 0.085 : k ? 0.09 : s.cheetah ? 0.09 : plain ? 0.085 : 0.14), // (a plain cat's slim ankle under a full forearm and thigh)
       // (a plain cat: the hind thigh runs back into the rump, the legs taper to slim ankles over big paws)
       thighBack: plain ? H * 0.18 : 0, paw: plain ? 1.4 : 1, legSub: plain ? 8 : undefined, stifle: plain ? 0.72 : undefined, legSeg: plain ? 16 : undefined,
-      // (the round head's neck, from deep in the chest near where the head turns, so its top stays in the
-      // back when the head dips to stalk: deep and flattened side to side where it leaves the shoulders,
-      // narrowing up the throat, then widening into the back of the skull so the head sits on it, not a
-      // cylinder; [up, across] at each point. Cole 2026-11-27)
-      neckPath: plain && !fit ? [[L * 0.27, by + H * 0.02, 0], [L * 0.39, by + H * 0.17, 0], [L * 0.55 - H * 0.36 * 0.15, by + H * 0.26 - H * 0.33 * 0.15, 0]] : undefined,
-      neckRadii: plain && !fit ? [[H * 0.36, H * 0.27], [H * 0.27, H * 0.22], [H * 0.3, H * 0.27]] : undefined,
       neckR: H * (lion ? 0.25 : fit ? 0.23 : 0.3 - k * 0.02), jawDepth: fit ? 0.72 : undefined, skullUnder: fit ? 0.75 : undefined, // (a plain cat: a lean throat under a clean jaw) dots: s.cheetah ? [s.dark, 9, 0.2] : s.spotted ? [s.dark, 11, 0.21] : s.bobtail ? [shade(s.color, -0.4), 13, 0.16] : null, coatFine: s.bobtail ? false : undefined, rosettes: s.rosettes,
       coat, legColor, fine: s.clouds ? 2 : lion, detail: !!(lion || k || plain), legRings: legColor ? 8 : undefined,
       paws: true, toes: plain ? 4 : true, // soft, articulated paws
       // (a plain cat carries a slightly smaller head lower and a little further forward, the skull's top
       // about level with the back, as the photos show)
-      head: plain ? [L * 0.55, by + H * (fit ? 0.14 : 0.26)] : // (the round head carried higher, toward where the week-old one was: low, it hung below the shoulders as a hunch, Cole)
-         [L * 0.5, by + H * (lion ? 0.3 : 0.38 - k * 0.1)], headR: [H * (lion ? 0.34 : fit ? 0.33 : 0.36) * hs, H * (lion ? 0.31 : fit ? 0.3 : 0.33) * hs, H * (lion ? 0.32 : fit ? 0.24 : 0.34) * hs], snout: H * 0.15 * hs,
+      head: plain ? [L * 0.55, by + H * 0.14] :  [L * 0.5, by + H * (lion ? 0.3 : 0.38 - k * 0.1)], headR: [H * (lion ? 0.34 : fit ? 0.33 : 0.36) * hs, H * (lion ? 0.31 : fit ? 0.3 : 0.33) * hs, H * (lion ? 0.32 : fit ? 0.24 : 0.34) * hs], snout: H * 0.15 * hs,
       nose: lion || k || plain ? false : undefined, eyeR: lion ? H * 0.038 : plain ? H * 0.0525 : undefined, // (a plain cat's eyes a little bigger than the shared size, Cole 2026-11-27)
       // (crown: a cougar's skull is broad across the top with the ears at its corners; head on, the shared head was a pear)
       ears: lion ? 'none' : s.bobtail ? 'point' : 'round', ear: H * (s.bobtail ? 0.2 : k ? 0.18 : s.rosettes || s.cheetah ? 0.27 : s.clouds ? 0.22 : plain ? 0.185 : 0.24), earTurn: fit ? 0.6 : undefined, earUp: fit ? 0.55 : undefined, earSide: fit ? 0.82 : undefined, crown: fit ? 0.3 : undefined, cheeks: fit ? 0.32 : undefined, pads: fit ? 0.15 : undefined, cleft: fit ? 0.4 : undefined, muzzleTaper: fit ? 0.85 : undefined, muzzleBlend: fit ? 0.6 : undefined, bridge: fit ? 0.75 : undefined, earWidth: plain ? 1.08 : undefined, earInner: plain ? '#b58a6c' : undefined, earOut: 0.2, earBack: 0.1, earW: s.bobtail ? 0.55 : 0.45, tufts: s.bobtail, muzzle: fit ? plainFace(s, H, L, by).muzzle : grad(s.color, s.belly, 0.1, 0.4),

@@ -75,3 +75,8 @@ skull, so it leaves the body evenly all round and its top stays in the back when
 Then "shouldn't just be a cylinder": the neck's sections now go deep and flattened at the shoulders
 ([0.36, 0.27] H up/across), slimmer up the throat ([0.27, 0.22]) and widen into the back of the skull
 ([0.3, 0.27]), which it enters further. Intro film not re-filmed (Cole: film only when asked).
+
+Then Cole: it "looked best before you fixed the neck root". Back to the original neck and head carriage
+(by + 0.14 H), haunches and arch kept. The stalk fix moved to the animation: the head's nod fades out behind
+its pivot (`nod` in animal-material.js), so the neck's root stays in the shoulders when the head dips.
+Shared by every animal that lowers its head; motion sweep, all maps, within limits.
