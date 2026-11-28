@@ -46,4 +46,6 @@ Stalk (pictures `cougar-stalk-*`): Cole saw the legs "weird and bent" in stalk m
 down, tipped the paws up and swung the thigh's top out of the rump. Now the paw turns back level about
 the ankle (lifted by what that would sink it), the knee bends over a broad band, and the leg's top
 inside the body stays put. The review page has a "Stalking (crouched)" pose (`?pose=stalk`).
-Motion sweep, all maps: within limits.
+Then "too bent in, almost touching": the upper leg now turns less than the shin (t = 0.55 of the old
+angle, s solved so the paw stays on the ground), so elbows and knees stay apart and the paws plant wider,
+fore ones forward and hind back. Motion sweep, all maps: within limits.
