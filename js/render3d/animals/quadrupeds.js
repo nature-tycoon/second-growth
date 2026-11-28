@@ -498,7 +498,7 @@ function catEye(s) {
 // adds a species' own soft marks over it (cheek stripes, forehead lines), at: { eye, sn, r, hr }.
 function catFace(s, H, hp, hr, sl, marks) {
   const sn = [hp[0] + hr[0] * 0.78, hp[1] - hr[1] * 0.28], snout = sl;
-  const eye = [hp[0] + hr[0] * 0.86, hp[1] + hr[1] * 0.28, hr[2] * 0.42], r = H * 0.045;
+  const eye = [hp[0] + hr[0] * 0.86, hp[1] + hr[1] * 0.28, hr[2] * 0.42], r = H * 0.045, calm = s.calm ?? 0;
   const tawny = col(s.color), bridge = shade(s.color, -0.16), pale = col(s.facePale ?? '#eadcc2'), white = col(s.lip ?? '#f1eadf'), patch = col('#3e2c21');
   const blob = (p, c, k) => Math.exp(-(((p.x - c[0]) / k[0]) ** 2 + ((p.y - c[1]) / k[1]) ** 2 + ((Math.abs(p.z) - c[2]) / k[2]) ** 2));
   const at = { eye, sn, r, hr, hp, snout, blob };
@@ -506,7 +506,7 @@ function catFace(s, H, hp, hr, sl, marks) {
     const az = Math.abs(p.z);
     // the bridge: the middle of the face from between the eyes to the nose, a shade darker
     o.lerp(bridge, 0.65 * smooth(hr[2] * 0.22, hr[2] * 0.06, az) * smooth(eye[0] - r * 2, eye[0], p.x) * smooth(sn[1], sn[1] + hr[1] * 0.25, p.y));
-    o.lerp(pale, 0.7 * blob(p, [eye[0] - r * 0.4, eye[1] + r * 1.3, eye[2] * 0.9], [r * 1.1, r * 0.8, r * 1.5]));
+    o.lerp(pale, 0.7 * (1 - 0.6 * calm) * blob(p, [eye[0] - r * 0.4, eye[1] + r * 1.3, eye[2] * 0.9], [r * 1.1, r * 0.8, r * 1.5])); // (calm: softer, so it can't read as a furrowed brow)
     o.lerp(pale, 0.4 * blob(p, [eye[0] - r * 0.8, eye[1] - r * 1.8, eye[2] * 1.15], [r * 1.8, r * 1.0, r * 1.4]));
     o.lerp(patch, 0.75 * blob(p, [sn[0] + snout * 0.55, sn[1] - hr[1] * 0.12, hr[2] * 0.5], [snout * 0.45, hr[1] * 0.13, hr[2] * 0.3]));
     return marks ? marks(o, p, at) : o;
@@ -726,6 +726,9 @@ const MAMMALS = {
     const hp = fit ? [L * 0.55, by + H * 0.14] : [L * 0.5, by + H * 0.3], hr = fit ? [H * 0.33 * hs, H * 0.3 * hs, H * 0.24 * hs] : [H * 0.34 * hs, H * 0.31 * hs, H * 0.32 * hs];
     const face = fit ? catFace(s, H, hp, hr, sl, catMarks(s)) : null;
     const spotted = s.rosettes || s.cheetah || s.spotted || s.bobtail;
+    // spots stay on the crown, cheeks and neck, off the front of the face: faded over the forehead and muzzle
+    // they showed as ghost dots, which read as a bad drawing (Cole 2026-11-27)
+    const faceOff = paint => { if (paint) paint.coatFade = (u, p) => (p.x < hp[0] + hr[0] * 0.35 ? 1 : 0); return paint; }; // (a step: a ramp left half-faded spots)
     return {
       H, leg, wide: lion && !s.mane ? 0.94 : k ? 0.9 : 1, chest: k ? 1 - k * 0.03 : fit ? s.chest ?? 0.84 : 1,
       // (an athletic cat: a defined haunch, a back rising gently over the loin, legs growing out of the body, compact paws)
@@ -745,8 +748,8 @@ const MAMMALS = {
       ears: lion ? 'none' : s.ears ?? 'round', ear: H * (lion ? 0.24 : k ? 0.18 : s.ear ?? 0.185), earTurn: fit ? 0.6 : undefined, earUp: fit ? 0.55 : undefined, earSide: fit ? 0.82 : undefined, crown: fit ? 0.3 : undefined, cheeks: fit ? s.cheeks ?? 0.32 : undefined, pads: fit ? 0.15 : undefined, cleft: fit ? 0.4 : undefined, muzzleTaper: fit ? 0.85 : undefined, muzzleBlend: fit ? 0.6 : undefined, bridge: fit ? 0.75 : undefined, earWidth: fit ? s.earWidth ?? 1.08 : undefined, earInner: fit ? s.earInner ?? '#b58a6c' : undefined, earSpot: s.earSpot, earOut: 0.2, earBack: 0.1, earW: s.earW ?? 0.45, tufts: s.tufts, muzzle: fit ? face.muzzle : grad(s.color, s.belly, 0.1, 0.4),
       // (ear backs dark, the eyes painted, the nose sculpted in face)
       earColor: fit ? shade(s.dark, -0.15) : null, eyeColor: fit ? catEye(s) : undefined, eyeFwd: fit ? 0.84 : undefined, eyeOut: fit ? 0.4 : undefined, muzzleDepth: fit ? 0.4 : undefined, brow: fit ? 0.14 : undefined, noseColor: fit ? '#7d5246' : undefined,
-      headPaint: plain ? face.head : s.clouds ? felineSpots(s, H, face.head, H * 0.1) : k ? felineSpots(s, H, face.head, H * 0.09)
-        : spotted ? felineSpots(s, H, face.head, H * 0.07) : null, // (small solid spots on the head)
+      headPaint: plain ? face.head : faceOff(s.clouds ? felineSpots(s, H, face.head, H * 0.065) : k ? felineSpots(s, H, face.head, H * 0.06)
+        : spotted ? felineSpots(s, H, face.head, H * 0.045) : null), // (small solid spots on the head: bigger ones read as dots drawn on the face)
       face: (m, hp, hr, hd, sn) => {
         if (fit) {
           const e = m.eyeAt, r = H * 0.045, noseX = sn[0] + sl * 1.22;
@@ -759,10 +762,13 @@ const MAMMALS = {
           // where a short dark tear mark starts and runs down past the eye's inner corner
           const er = H * 0.0525 * (s.eyeSize ?? 1); // (the eye's radius: brows, tear marks and the highlight follow it)
           const from = [e[0] - er * 1.6, e[1], 0];
+          // (calm: 0 for the cougar's serious look; toward 1 the brow lies level, lower and fainter and the mouth's
+          // corners level, a smaller cat's relaxed face: the cougar's scowl read as angry on the others, Cole 2026-11-27)
+          const calm = s.calm ?? 0, lf = 1 - 0.6 * calm;
           for (const side of [1, -1]) {
             const z = side * e[2];
-            surfaceStrip(m, [m.headGeo], from, [[e[0] - er * 1.5, e[1] + er * 0.9, z * 1.2], [e[0] - er * 0.5, e[1] + er * 1.0, z * 1.1], [e[0] + er * 0.4, e[1] + er * 0.85, z * 0.95], [e[0] + er * 1.1, e[1] + er * 0.5, z * 0.8]],
-              { ...hd, width: [er * 0.9, er * 1.2, er * 1.1, er * 0.8], lift: [er * 0.3, er * 0.5, er * 0.5, er * 0.3], strength: [0, 0, 0.15, 0.35], color: s.browTone ?? '#6a4c38' });
+            surfaceStrip(m, [m.headGeo], from, [[e[0] - er * 1.5, e[1] + er * 0.9, z * 1.2], [e[0] - er * 0.5, e[1] + er * 1.0, z * 1.1], [e[0] + er * 0.4, e[1] + er * (0.85 + 0.2 * calm), z * 0.95], [e[0] + er * 1.1, e[1] + er * (0.5 + 0.45 * calm), z * 0.8]],
+              { ...hd, width: [er * 0.9, er * 1.2, er * 1.1, er * 0.8], lift: [er * 0.3 * lf, er * 0.5 * lf, er * 0.5 * lf, er * 0.3 * lf], strength: [0, 0, 0.15 * (1 - calm), 0.35 * (1 - calm)], color: s.browTone ?? '#6a4c38' });
             surfaceStrip(m, [m.headGeo], from, [[e[0] + er * 0.8, e[1] + er * 0.7, z * 0.8], [e[0] + er * 1.0, e[1] - er * 0.1, z * 0.72], [e[0] + er * 1.35, e[1] - er * 0.9, z * 0.6]],
               { ...hd, width: [er * 0.3, er * 0.34, er * 0.2], strength: [0.45, 0.7, 0.05], color: s.tearTone ?? '#4a3427' });
           }
@@ -782,7 +788,7 @@ const MAMMALS = {
           const mf = [sn[0] + sl * 0.3, sn[1], 0], ny = nc[1] - r * 0.45, cy = nc[1] - r * 1.15;
           const muzzleTop = [m.headGeo, ...m.parts.slice(padsFrom, padsFrom + 2)]; // (the mouth line lies over the pads)
           surfaceStrip(m, muzzleTop, mf, [[noseX - r * 0.15, ny, 0], [noseX - r * 0.2, (ny + cy) / 2, 0], [noseX - r * 0.25, cy, 0]], { ...hd, width: r * 0.1, strength: [0.35, 0.4, 0.45], color: '#3a2a20' });
-          for (const side of [1, -1]) surfaceStrip(m, muzzleTop, mf, [[noseX - r * 0.25, cy, 0], [noseX - r * 0.7, cy - r * 0.3, side * r * 0.8], [noseX - r * 1.45, cy - r * 0.5, side * r * 1.35], [noseX - r * 2.1, cy - r * 0.45, side * r * 1.65]],
+          for (const side of [1, -1]) surfaceStrip(m, muzzleTop, mf, [[noseX - r * 0.25, cy, 0], [noseX - r * 0.7, cy - r * (0.3 - 0.3 * calm), side * r * 0.8], [noseX - r * 1.45, cy - r * (0.5 - 0.5 * calm), side * r * 1.35], [noseX - r * 2.1, cy - r * (0.45 - 0.45 * calm), side * r * 1.65]],
             { ...hd, width: [r * 0.1, r * 0.09, r * 0.08, r * 0.06], strength: [0.4, 0.35, 0.22, 0], color: '#3a2a20' });
           // a cheetah's black "tear" line, on from the tear mark down the side of the muzzle to the mouth's corner
           if (s.cheetah) for (const side of [1, -1]) surfaceStrip(m, [m.headGeo], mf, [[e[0] + er * 1.0, e[1] - er * 0.1, side * e[2] * 0.72], [e[0] + er * 2.0, e[1] - er * 1.6, side * e[2] * 0.68], [noseX - r * 2.2, cy - r * 0.1, side * r * 1.7]],
