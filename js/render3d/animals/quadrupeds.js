@@ -670,6 +670,11 @@ const MAMMALS = {
     // A plain coat (no spots, rosettes, clouds, stripes or bobbed tail: the cougar), shaped against
     // side-on photos of real cougars (tools/animal-photo-overlay.html): long legs under a shallow body.
     const plain = !(lion || k || s.clouds || s.spotted || s.cheetah || s.rosettes || s.bobtail || s.stripes);
+    // fit: the cougar's photo-fitted face (2026-11-26/27: brow ridges, deep-set forward eyes, narrow cat skull,
+    // whisker pads and mouth line). Cole set it aside on 2026-11-27 for the week-old round head (the shared
+    // cat head: smooth forehead into the muzzle, friendly), keeping the pink nose, painted round-pupil eyes,
+    // soft tear marks and the newer ears. true brings the fitted face back.
+    const fit = false;
     const L = s.len, H = s.h * (1 + k * 0.02), leg = s.leg * (lion ? 0.95 : k ? 0.92 : plain ? 1 : 0.85), by = leg + H * 0.5;
     const hs = lion ? (s.mane ? 1.1 : 1) : 1 + k * 0.08;
     // (The Sumatran tiger, stripes, has a builder of its own: see tiger.)
@@ -691,26 +696,27 @@ const MAMMALS = {
       legR1: H * (lion ? 0.085 : k ? 0.09 : s.cheetah ? 0.09 : plain ? 0.085 : 0.14), // (a plain cat's slim ankle under a full forearm and thigh)
       // (a plain cat: the hind thigh runs back into the rump, the legs taper to slim ankles over big paws)
       thighBack: plain ? H * 0.18 : 0, paw: plain ? 1.4 : 1, legSub: plain ? 8 : undefined, stifle: plain ? 0.72 : undefined, legSeg: plain ? 16 : undefined,
-      neckR: H * (lion ? 0.25 : plain ? 0.23 : 0.3 - k * 0.02), jawDepth: plain ? 0.72 : undefined, skullUnder: plain ? 0.75 : undefined, // (a plain cat: a lean throat under a clean jaw) dots: s.cheetah ? [s.dark, 9, 0.2] : s.spotted ? [s.dark, 11, 0.21] : s.bobtail ? [shade(s.color, -0.4), 13, 0.16] : null, coatFine: s.bobtail ? false : undefined, rosettes: s.rosettes,
+      neckR: H * (lion ? 0.25 : fit ? 0.23 : 0.3 - k * 0.02), jawDepth: fit ? 0.72 : undefined, skullUnder: fit ? 0.75 : undefined, // (a plain cat: a lean throat under a clean jaw) dots: s.cheetah ? [s.dark, 9, 0.2] : s.spotted ? [s.dark, 11, 0.21] : s.bobtail ? [shade(s.color, -0.4), 13, 0.16] : null, coatFine: s.bobtail ? false : undefined, rosettes: s.rosettes,
       coat, legColor, fine: s.clouds ? 2 : lion, detail: !!(lion || k || plain), legRings: legColor ? 8 : undefined,
       paws: true, toes: plain ? 4 : true, // soft, articulated paws
       // (a plain cat carries a slightly smaller head lower and a little further forward, the skull's top
       // about level with the back, as the photos show)
-      head: plain ? [L * 0.55, by + H * 0.14] : [L * 0.5, by + H * (lion ? 0.3 : 0.38 - k * 0.1)], headR: [H * (lion ? 0.34 : plain ? 0.33 : 0.36) * hs, H * (lion ? 0.31 : plain ? 0.3 : 0.33) * hs, H * (lion ? 0.32 : plain ? 0.24 : 0.34) * hs], snout: H * 0.15 * hs,
+      head: plain ? [L * 0.55, by + H * 0.14] : [L * 0.5, by + H * (lion ? 0.3 : 0.38 - k * 0.1)], headR: [H * (lion ? 0.34 : fit ? 0.33 : 0.36) * hs, H * (lion ? 0.31 : fit ? 0.3 : 0.33) * hs, H * (lion ? 0.32 : fit ? 0.24 : 0.34) * hs], snout: H * 0.15 * hs,
       nose: lion || k || plain ? false : undefined, eyeR: lion ? H * 0.038 : plain ? H * 0.0525 : undefined, // (a plain cat's eyes a little bigger than the shared size, Cole 2026-11-27)
       // (crown: a cougar's skull is broad across the top with the ears at its corners; head on, the shared head was a pear)
-      ears: lion ? 'none' : s.bobtail ? 'point' : 'round', ear: H * (s.bobtail ? 0.2 : k ? 0.18 : s.rosettes || s.cheetah ? 0.27 : s.clouds ? 0.22 : plain ? 0.185 : 0.24), earTurn: plain ? 0.6 : undefined, earUp: plain ? 0.55 : undefined, earSide: plain ? 0.82 : undefined, crown: plain ? 0.3 : undefined, cheeks: plain ? 0.32 : undefined, pads: plain ? 0.15 : undefined, cleft: plain ? 0.4 : undefined, muzzleTaper: plain ? 0.85 : undefined, muzzleBlend: plain ? 0.6 : undefined, bridge: plain ? 0.75 : undefined, earWidth: plain ? 1.08 : undefined, earInner: plain ? '#b58a6c' : undefined, earOut: 0.2, earBack: 0.1, earW: s.bobtail ? 0.55 : 0.45, tufts: s.bobtail, muzzle: plain ? plainFace(s, H, L, by).muzzle : grad(s.color, s.belly, 0.1, 0.4),
+      ears: lion ? 'none' : s.bobtail ? 'point' : 'round', ear: H * (s.bobtail ? 0.2 : k ? 0.18 : s.rosettes || s.cheetah ? 0.27 : s.clouds ? 0.22 : plain ? 0.185 : 0.24), earTurn: fit ? 0.6 : undefined, earUp: fit ? 0.55 : undefined, earSide: fit ? 0.82 : undefined, crown: fit ? 0.3 : undefined, cheeks: fit ? 0.32 : undefined, pads: fit ? 0.15 : undefined, cleft: fit ? 0.4 : undefined, muzzleTaper: fit ? 0.85 : undefined, muzzleBlend: fit ? 0.6 : undefined, bridge: fit ? 0.75 : undefined, earWidth: plain ? 1.08 : undefined, earInner: plain ? '#b58a6c' : undefined, earOut: 0.2, earBack: 0.1, earW: s.bobtail ? 0.55 : 0.45, tufts: s.bobtail, muzzle: fit ? plainFace(s, H, L, by).muzzle : grad(s.color, s.belly, 0.1, 0.4),
       // (a plain cat, the cougar: ear backs dark, amber eyes, a pinkish-brown nose)
-      earColor: plain ? shade(s.dark, -0.15) : null, eyeColor: plain ? cougarEye(H, hs) : undefined, eyeFwd: plain ? 0.84 : undefined, eyeOut: plain ? 0.4 : undefined, muzzleDepth: plain ? 0.4 : undefined, brow: plain ? 0.14 : undefined, noseColor: plain ? '#7d5246' : undefined,
-      headPaint: plain ? plainFace(s, H, L, by).head : s.clouds ? felineSpots(s, H, base, H * 0.1) : k ? felineSpots(s, H, undefined, H * 0.09)
+      earColor: plain ? shade(s.dark, -0.15) : null, eyeColor: fit ? cougarEye(H, hs) : undefined, // (the round head: plain black eyes, Cole 2026-11-27) eyeFwd: fit ? 0.84 : undefined, eyeOut: fit ? 0.4 : plain ? 0.72 : undefined, muzzleDepth: fit ? 0.4 : undefined, brow: fit ? 0.14 : undefined, noseColor: plain ? '#7d5246' : undefined,
+      headPaint: fit ? plainFace(s, H, L, by).head : s.clouds ? felineSpots(s, H, base, H * 0.1) : k ? felineSpots(s, H, undefined, H * 0.09)
         : s.rosettes || s.cheetah || s.spotted || s.bobtail ? felineSpots(s, H, base, H * 0.07) : null, // (small solid spots on the head)
       face: (m, hp, hr, hd, sn) => {
         if (plain) {
           const e = m.eyeAt, r = Math.max(0.55, H * 0.045), noseX = sn[0] + H * 0.15 * hs * 1.22;
           // the nose: pink and softly triangular (broad on top, narrowing down to the cleft; bigger and pink, Cole 2026-11-27), lying
           // on the slope of the muzzle's tip rather than a ball on it
-          const nc = [noseX - r * 0.12, sn[1] + hr[1] * 0.16], tilt = -0.55, ct = Math.cos(tilt), st = Math.sin(tilt);
-          sculpt(m, d => { const x = d.x * r * 0.42, y = d.y * r * 0.75, z = d.z * r * 1.5 * (0.22 + 0.78 * (d.y + 1) / 2); return [nc[0] + x * ct - y * st, nc[1] + x * st + y * ct, z]; }, '#b8746c', { ...hd, gloss: 1 }, SPH);
+          // (the round head's fuller muzzle reaches further: the nose sits on its tip, and broader there: nb)
+          const nc = fit ? [noseX - r * 0.12, sn[1] + hr[1] * 0.16] : [noseX + r * 0.18, sn[1] + hr[1] * 0.12], tilt = -0.55, ct = Math.cos(tilt), st = Math.sin(tilt);
+          sculpt(m, d => { const nb = fit ? 1 : 1.3, x = d.x * r * 0.42 * nb, y = d.y * r * 0.75 * nb, z = d.z * r * 1.5 * nb * (0.22 + 0.78 * (d.y + 1) / 2); return [nc[0] + x * ct - y * st, nc[1] + x * st + y * ct, z]; }, '#b8746c', { ...hd, gloss: 1 }, SPH);
           // Brows and tear marks laid on the head itself, so they follow the face and grow out of the fur:
           // each brow a low ridge over the eye, slanting down to its inner end (the alert, serious look),
           // where a short dark tear mark starts and runs down past the eye's inner corner
@@ -718,14 +724,14 @@ const MAMMALS = {
           const from = [e[0] - er * 1.6, e[1], 0];
           for (const side of [1, -1]) {
             const z = side * e[2];
-            surfaceStrip(m, [m.headGeo], from, [[e[0] - er * 1.5, e[1] + er * 0.9, z * 1.2], [e[0] - er * 0.5, e[1] + er * 1.0, z * 1.1], [e[0] + er * 0.4, e[1] + er * 0.85, z * 0.95], [e[0] + er * 1.1, e[1] + er * 0.5, z * 0.8]],
+            if (fit) surfaceStrip(m, [m.headGeo], from, [[e[0] - er * 1.5, e[1] + er * 0.9, z * 1.2], [e[0] - er * 0.5, e[1] + er * 1.0, z * 1.1], [e[0] + er * 0.4, e[1] + er * 0.85, z * 0.95], [e[0] + er * 1.1, e[1] + er * 0.5, z * 0.8]],
               { ...hd, width: [er * 0.9, er * 1.2, er * 1.1, er * 0.8], lift: [er * 0.3, er * 0.5, er * 0.5, er * 0.3], strength: [0, 0, 0.15, 0.35], color: '#6a4c38' });
-            surfaceStrip(m, [m.headGeo], from, [[e[0] + er * 0.8, e[1] + er * 0.7, z * 0.8], [e[0] + er * 1.0, e[1] - er * 0.1, z * 0.72], [e[0] + er * 1.35, e[1] - er * 0.9, z * 0.6]],
+            if (fit) surfaceStrip(m, [m.headGeo], from, [[e[0] + er * 0.8, e[1] + er * 0.7, z * 0.8], [e[0] + er * 1.0, e[1] - er * 0.1, z * 0.72], [e[0] + er * 1.35, e[1] - er * 0.9, z * 0.6]],
               { ...hd, width: [er * 0.3, er * 0.34, er * 0.2], strength: [0.45, 0.7, 0.05], color: '#4a3427' });
           }
           // a small highlight on each eye, up and forward of the pupil, so the eye reads from a distance
           const first = m.parts.length;
-          for (const side of [1, -1]) {
+          if (fit) for (const side of [1, -1]) {
             const g0 = [0.894, 0.036, side * 0.447], g1 = [g0[0] - 0.1, g0[1] + 0.55, g0[2]], gl = Math.hypot(...g1), g = g1.map(v => v / gl * er * 0.96); // (the gaze, turned up)
             m.ell([e[0] + g[0], e[1] + g[1], side * e[2] + g[2]], [er * 0.11, er * 0.11, er * 0.11], '#fff8ec', { ...hd, lo: true, gloss: 2 });
           }
@@ -733,13 +739,13 @@ const MAMMALS = {
           // two whisker pads under the nose, either side of a small cleft: soft swellings of the muzzle itself
           const mzIn = [sn[0] + H * 0.15 * hs * 0.3, sn[1], 0];
           const padsFrom = m.parts.length;
-          for (const side of [1, -1]) surfacePatch(m, [m.headGeo], mzIn, [noseX - r * 0.8, nc[1] - r * 1.35, side * r * 1.0], { ...hd, r: [r * 1.4, r * 1.15], lift: r * 0.38, rings: 6, segs: 16, color: s.belly, strength: 0.3 }); // (big enough that the two together make the front of the muzzle, as a real cougar's do)
+          if (fit) for (const side of [1, -1]) surfacePatch(m, [m.headGeo], mzIn, [noseX - r * 0.8, nc[1] - r * 1.35, side * r * 1.0], { ...hd, r: [r * 1.4, r * 1.15], lift: r * 0.38, rings: 6, segs: 16, color: s.belly, strength: 0.3 }); // (big enough that the two together make the front of the muzzle, as a real cougar's do)
           // the mouth: a short soft line on the muzzle, down from the nose between the pads (the cleft),
           // then back under each pad to the corner of the mouth
           const mf = [sn[0] + H * 0.15 * hs * 0.3, sn[1], 0], ny = nc[1] - r * 0.45, cy = nc[1] - r * 1.15;
           const muzzleTop = [m.headGeo, ...m.parts.slice(padsFrom, padsFrom + 2)]; // (the mouth line lies over the pads)
-          surfaceStrip(m, muzzleTop, mf, [[noseX - r * 0.15, ny, 0], [noseX - r * 0.2, (ny + cy) / 2, 0], [noseX - r * 0.25, cy, 0]], { ...hd, width: r * 0.1, strength: [0.35, 0.4, 0.45], color: '#3a2a20' });
-          for (const side of [1, -1]) surfaceStrip(m, muzzleTop, mf, [[noseX - r * 0.25, cy, 0], [noseX - r * 0.7, cy - r * 0.3, side * r * 0.8], [noseX - r * 1.45, cy - r * 0.5, side * r * 1.35], [noseX - r * 2.1, cy - r * 0.45, side * r * 1.65]],
+          if (fit) surfaceStrip(m, muzzleTop, mf, [[noseX - r * 0.15, ny, 0], [noseX - r * 0.2, (ny + cy) / 2, 0], [noseX - r * 0.25, cy, 0]], { ...hd, width: r * 0.1, strength: [0.35, 0.4, 0.45], color: '#3a2a20' });
+          if (fit) for (const side of [1, -1]) surfaceStrip(m, muzzleTop, mf, [[noseX - r * 0.25, cy, 0], [noseX - r * 0.7, cy - r * 0.3, side * r * 0.8], [noseX - r * 1.45, cy - r * 0.5, side * r * 1.35], [noseX - r * 2.1, cy - r * 0.45, side * r * 1.65]],
             { ...hd, width: [r * 0.1, r * 0.09, r * 0.08, r * 0.06], strength: [0.4, 0.35, 0.22, 0], color: '#3a2a20' });
         }
         if (k) m.ell([hp[0] + hr[0] * 0.78 + H * 0.15 * hs * 1.18, hp[1] - hr[1] * 0.17, 0], [H * 0.045, H * 0.035, H * 0.075], '#34251d', hd);
@@ -765,8 +771,8 @@ const MAMMALS = {
         }
         if (lion || k) for (const side of [-1, 1]) tube(m, [[hp[0] + hr[0] * 0.72, hp[1] - hr[1] * 0.58, side * hr[2] * 0.37], [hp[0] + hr[0] * 1.1, hp[1] - hr[1] * 0.57, side * hr[2] * 0.34]], [H * 0.01, H * 0.007], '#443428', { ...hd, sub: 3, seg: 5 });
         // (pale whisker pads; a plain cat's a little smaller and lower, off the cheek under the eye)
-        if (!plain) for (const side of [-1, 1]) m.ell([hp[0] + hr[0] * 0.9, hp[1] - hr[1] * 0.3, side * hr[2] * 0.24], [hr[0] * 0.33, hr[1] * 0.24, hr[2] * 0.34], s.belly || s.color, hd);
-        if (plain) m.ell([hp[0] + hr[0] * 0.74, hp[1] - hr[1] * 0.54, 0], [hr[0] * 0.56, hr[1] * 0.17, hr[2] * 0.46], '#efe7dc', hd); // (a lower jaw that shows under the mouth, long enough to taper back into the jaw's line) // (a cougar's strong, rounded white chin)
+        if (!fit) for (const side of [-1, 1]) m.ell([hp[0] + hr[0] * 0.9, hp[1] - hr[1] * 0.3, side * hr[2] * 0.24], [hr[0] * 0.33, hr[1] * 0.24, hr[2] * 0.34], s.belly || s.color, hd);
+        if (fit) m.ell([hp[0] + hr[0] * 0.74, hp[1] - hr[1] * 0.54, 0], [hr[0] * 0.56, hr[1] * 0.17, hr[2] * 0.46], '#efe7dc', hd); // (a lower jaw that shows under the mouth, long enough to taper back into the jaw's line) // (a cougar's strong, rounded white chin)
         else m.ell([hp[0] + hr[0] * 0.7, hp[1] - hr[1] * 0.65, 0], [hr[0] * 0.4, hr[1] * 0.14, hr[2] * 0.39], s.belly || s.color, hd);
         const markings = s.spotted ? (m, hp, hr, hd) => {
           // two dark lines running back over the crown from between the eyes, white streaks beside them

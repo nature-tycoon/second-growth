@@ -47,6 +47,12 @@ eyes sit on the head surface, no new shader program.
 Numbers help but never decide. A model can match ten measured ratios and still look wrong (the drooped
 neck). Measure to find the biggest mismatch, then judge by eye against the photo, then Cole decides.
 
+> **Cougar head, Cole 2026-11-27:** after the photo-fitted face below was finished, Cole chose the
+> earlier round, friendly cat head for the cougar instead (plain black eyes, broad pink nose, no brows or
+> eye marks; `fit = false` in `feline`). Don't re-fit the cougar's face unasked. The rules below still
+> hold for the body and for other animals, but ask Cole before applying the face rules (brows, painted
+> eyes, markings) to a new animal: he may want the friendlier look.
+
 ## Cole's taste (from the cougar; holds for every animal)
 
 - **As realistic as possible, cheaply** (Cole, 2026-11-26). The goal is the real animal, limited only by

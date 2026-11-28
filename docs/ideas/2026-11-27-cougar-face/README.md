@@ -52,3 +52,10 @@ fore ones forward and hind back. Motion sweep, all maps: within limits.
 
 Brows: a flatter version (inner ends raised, less slant toward the nose) was shown and Cole kept the
 current slant ("Keep current"). Don't flatten them unasked.
+
+Round head (pictures `round-head-*`): later the same day Cole set the fitted face aside and asked for the
+week-old head back (the shared cat head before 370f080: bigger and rounder, a smooth forehead into the
+muzzle, eyes on the sides, a friendly look), with the broad pink nose, and then plain black eyes and no
+marks under the eyes. Built behind `fit = false` in `feline` (quadrupeds.js): true brings the fitted face
+(brows, painted eyes, pads, mouth line, face fur) back. The body, ears, thicker old neck and pink nose
+(broader, `nb`) stay. Intro film re-filmed.
