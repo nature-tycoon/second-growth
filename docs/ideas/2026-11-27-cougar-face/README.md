@@ -19,9 +19,17 @@ Body
   into the rump (`thighTaper` 0.35, `thighZ` 0.75); slimmer ankles (`legR1` 0.085 H).
 - Paws: compact, narrower and rounder (`pawW`, `pawH`), four toes (`toes: 4`); no cuff at the ankle.
 
+Muzzle, third round (pictures `-muzzle`)
+- Two subtle, distinct whisker pads grown out of the muzzle (`surfacePatch`: a round swelling cast onto
+  the head, rim in the surface's own colour and facing), either side of a small cleft (`cleft` dips the
+  midline between the loft's `pads`); the mouth line thinner and fainter.
+- The muzzle narrows toward the nose (`muzzleTaper` 0.85) and runs more softly back into the cheeks
+  (`muzzleBlend` 0.6).
+
 Tried and dropped (don't retry)
 - The loft's brow ridge moved forward over the eyes (`browAt` 0.6 to 0.8): buried the eyes.
-- Whisker pads as separate ellipsoids: dots or white balls at every depth.
+- Whisker pads as separate ellipsoids: dots or white balls at every depth. Pads made only by swelling
+  the loft (`pads` alone) sat on the muzzle's lower sides and never read as two from the front.
 - Pads swelling the muzzle's very tip: opened a hole there (now faded to nothing at the tip).
 - Flat paws (`pawH` 0.8): read as discs under each leg.
 

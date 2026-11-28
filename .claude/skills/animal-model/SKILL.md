@@ -109,8 +109,10 @@ neck). Measure to find the biggest mismatch, then judge by eye against the photo
   past it, slanting down to its inner end for an alert, serious look; the tear mark starts there; the
   mouth is a short line down from the nose between the pads, then back under each pad. A strip's ends
   fade by themselves; a square-cut end shows as a pale block.
-- **Whisker pads are part of the muzzle** (`pads`), never balls: sunk ellipsoids showed as dots or white
-  balls at every depth tried. A cat's nose is small, softly triangular (broad top, narrowing to the
+- **Whisker pads are part of the muzzle**, never balls: sunk ellipsoids showed as dots or white balls
+  at every depth tried, and swelling the loft (`pads`) only filled its lower sides. Grow each pad out of
+  the muzzle with `surfacePatch` just under the nose, either side of a small `cleft`; narrow the muzzle
+  toward the nose (`muzzleTaper`) and soften it into the cheeks (`muzzleBlend`). A cat's nose is small, softly triangular (broad top, narrowing to the
   cleft) and lies on the muzzle's slope; Cole wants the cougar's pink and a little bigger. A `bridge`
   above default gives a straighter forehead-to-nose line, but it raises the face round the eyes:
   check they still show.

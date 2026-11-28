@@ -1,5 +1,5 @@
 // Quadruped proportions and specialist big-mammal model builders.
-import { P, SPH, SPH_HI, SPH_XL, cloudCoat, col, ellHi, felineSpots, flat, grad, hash3, jaguarCoat, locks, onProfile, pinna, pinnaAt, pixelCoat, place, sculpt, shade, smooth, solid, surfaceStrip, tmp, tube } from './model-core.js';
+import { P, SPH, SPH_HI, SPH_XL, cloudCoat, col, ellHi, felineSpots, flat, grad, hash3, jaguarCoat, locks, onProfile, pinna, pinnaAt, pixelCoat, place, sculpt, shade, smooth, solid, surfacePatch, surfaceStrip, tmp, tube } from './model-core.js';
 
 // Common palm civet: long, low and slim on short dark legs, grizzled grey-brown with faint rows of
 // dark spots and stripes down the back and flanks, a dark mask with white patches above and below
@@ -699,7 +699,7 @@ const MAMMALS = {
       head: plain ? [L * 0.55, by + H * 0.14] : [L * 0.5, by + H * (lion ? 0.3 : 0.38 - k * 0.1)], headR: [H * (lion ? 0.34 : plain ? 0.33 : 0.36) * hs, H * (lion ? 0.31 : plain ? 0.3 : 0.33) * hs, H * (lion ? 0.32 : plain ? 0.24 : 0.34) * hs], snout: H * 0.15 * hs,
       nose: lion || k || plain ? false : undefined, eyeR: lion ? H * 0.038 : undefined,
       // (crown: a cougar's skull is broad across the top with the ears at its corners; head on, the shared head was a pear)
-      ears: lion ? 'none' : s.bobtail ? 'point' : 'round', ear: H * (s.bobtail ? 0.2 : k ? 0.18 : s.rosettes || s.cheetah ? 0.27 : s.clouds ? 0.22 : plain ? 0.185 : 0.24), earTurn: plain ? 0.6 : undefined, earUp: plain ? 0.55 : undefined, earSide: plain ? 0.82 : undefined, crown: plain ? 0.3 : undefined, cheeks: plain ? 0.32 : undefined, pads: plain ? 0.25 : undefined, bridge: plain ? 0.75 : undefined, earWidth: plain ? 1.08 : undefined, earInner: plain ? '#b58a6c' : undefined, earOut: 0.2, earBack: 0.1, earW: s.bobtail ? 0.55 : 0.45, tufts: s.bobtail, muzzle: plain ? plainFace(s, H, L, by).muzzle : grad(s.color, s.belly, 0.1, 0.4),
+      ears: lion ? 'none' : s.bobtail ? 'point' : 'round', ear: H * (s.bobtail ? 0.2 : k ? 0.18 : s.rosettes || s.cheetah ? 0.27 : s.clouds ? 0.22 : plain ? 0.185 : 0.24), earTurn: plain ? 0.6 : undefined, earUp: plain ? 0.55 : undefined, earSide: plain ? 0.82 : undefined, crown: plain ? 0.3 : undefined, cheeks: plain ? 0.32 : undefined, pads: plain ? 0.15 : undefined, cleft: plain ? 0.4 : undefined, muzzleTaper: plain ? 0.85 : undefined, muzzleBlend: plain ? 0.6 : undefined, bridge: plain ? 0.75 : undefined, earWidth: plain ? 1.08 : undefined, earInner: plain ? '#b58a6c' : undefined, earOut: 0.2, earBack: 0.1, earW: s.bobtail ? 0.55 : 0.45, tufts: s.bobtail, muzzle: plain ? plainFace(s, H, L, by).muzzle : grad(s.color, s.belly, 0.1, 0.4),
       // (a plain cat, the cougar: ear backs dark, amber eyes, a pinkish-brown nose)
       earColor: plain ? shade(s.dark, -0.15) : null, eyeColor: plain ? cougarEye(H, hs) : undefined, eyeFwd: plain ? 0.84 : undefined, eyeOut: plain ? 0.37 : undefined, muzzleDepth: plain ? 0.4 : undefined, brow: plain ? 0.14 : undefined, noseColor: plain ? '#7d5246' : undefined,
       headPaint: plain ? plainFace(s, H, L, by).head : s.clouds ? felineSpots(s, H, base, H * 0.1) : k ? felineSpots(s, H, undefined, H * 0.09)
@@ -729,12 +729,15 @@ const MAMMALS = {
             m.ell([e[0] + g[0], e[1] + g[1], side * e[2] + g[2]], [r * 0.11, r * 0.11, r * 0.11], '#fff8ec', { ...hd, lo: true, gloss: 2 });
           }
           for (let i = first; i < m.parts.length; i++) m.parts[i].userData = { ...m.parts[i].userData, eye: true };
+          // two whisker pads under the nose, either side of a small cleft: soft swellings of the muzzle itself
+          const mzIn = [sn[0] + H * 0.15 * hs * 0.3, sn[1], 0];
+          for (const side of [1, -1]) surfacePatch(m, [m.headGeo], mzIn, [noseX - r * 0.55, nc[1] - r * 1.05, side * r * 0.72], { ...hd, r: [r * 0.85, r * 0.68], lift: r * 0.26, color: s.belly, strength: 0.3 });
           // the mouth: a short soft line on the muzzle, down from the nose between the pads (the cleft),
           // then back under each pad to the corner of the mouth
           const mf = [sn[0] + H * 0.15 * hs * 0.3, sn[1], 0], ny = nc[1] - r * 0.45, cy = nc[1] - r * 1.15;
-          surfaceStrip(m, [m.headGeo], mf, [[noseX - r * 0.15, ny, 0], [noseX - r * 0.2, (ny + cy) / 2, 0], [noseX - r * 0.25, cy, 0]], { ...hd, width: r * 0.14, strength: [0.45, 0.55, 0.6], color: '#3a2a20' });
+          surfaceStrip(m, [m.headGeo], mf, [[noseX - r * 0.15, ny, 0], [noseX - r * 0.2, (ny + cy) / 2, 0], [noseX - r * 0.25, cy, 0]], { ...hd, width: r * 0.1, strength: [0.35, 0.4, 0.45], color: '#3a2a20' });
           for (const side of [1, -1]) surfaceStrip(m, [m.headGeo], mf, [[noseX - r * 0.25, cy, 0], [noseX - r * 0.7, cy - r * 0.3, side * r * 0.8], [noseX - r * 1.45, cy - r * 0.5, side * r * 1.35], [noseX - r * 2.1, cy - r * 0.45, side * r * 1.65]],
-            { ...hd, width: [r * 0.14, r * 0.13, r * 0.11, r * 0.08], strength: [0.5, 0.45, 0.3, 0], color: '#3a2a20' });
+            { ...hd, width: [r * 0.1, r * 0.09, r * 0.08, r * 0.06], strength: [0.4, 0.35, 0.22, 0], color: '#3a2a20' });
         }
         if (k) m.ell([hp[0] + hr[0] * 0.78 + H * 0.15 * hs * 1.18, hp[1] - hr[1] * 0.17, 0], [H * 0.045, H * 0.035, H * 0.075], '#34251d', hd);
         if (lion || k) for (const side of [-1, 1]) {
