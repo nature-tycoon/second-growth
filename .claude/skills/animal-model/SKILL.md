@@ -103,6 +103,22 @@ neck). Measure to find the biggest mismatch, then judge by eye against the photo
   pupil sits in the middle of its eye (turn the gaze out to match how the eyes are set, or they look
   crossed). The iris covers all of the eye that shows: a black band on the side reads as a second pupil.
   Pupils a little small rather than big.
+- **Brows, tear marks and the mouth are laid on the head, not added to it** (Cole, cougar 2026-11-27:
+  ellipsoid brows and tube streaks read as "separate rods or dangling pieces"). Use `surfaceStrip` on
+  `m.headGeo`: a brow is a low ridge over the eyeball (`lift`), longer than the eye so its faded ends sit
+  past it, slanting down to its inner end for an alert, serious look; the tear mark starts there; the
+  mouth is a short line down from the nose between the pads, then back under each pad. A strip's ends
+  fade by themselves; a square-cut end shows as a pale block.
+- **Whisker pads are part of the muzzle** (`pads`), never balls: sunk ellipsoids showed as dots or white
+  balls at every depth tried. A cat's nose is small, softly triangular (broad top, narrowing to the
+  cleft) and lies on the muzzle's slope; Cole wants the cougar's pink and a little bigger. A `bridge`
+  above default gives a straighter forehead-to-nose line, but it raises the face round the eyes:
+  check they still show.
+- **Eyes read from a distance with a highlight**: a tiny pale `gloss: 2` dot up and forward of the pupil,
+  tagged `eye`. A brow ridge moved forward in the loft (`browAt` near the eyes) buried them: keep the
+  loft's brow back and shape the brow with a strip.
+- **Ears a little smaller and rounder than first guessed** (`earWidth` above 1 for round ears), with a
+  restrained warm inside (`earInner`), not the default grey-pink.
 - **Words of size and place are about one dimension.** When Cole says "less prominent", "thicker",
   "narrow", ask which axis he means if it isn't plain, rather than changing the obvious one twice.
 
@@ -139,7 +155,7 @@ neck). Measure to find the biggest mismatch, then judge by eye against the photo
 - Shape options in `quadruped()` (`js/render3d/animals/model-core.js`), each defaulting to the old
   look so one species can use it without changing the rest: `legRoot`, `thighBack`, `stifle`, `paw`,
   `legSub`, `eyeFwd`, `eyeOut`, `eyeColor`, `noseColor`, `muzzleDepth`, `jawDepth`, `brow`, `earTurn`,
-  `earUp`, `earSide`, `earFwd`, `earTurn` (pointed ears too), `noseSize`, `headSeg`, `eyeFar`, `flatBack`, `thighZ`, `thighUp`, `thighTaper`, ear shape `deer`, `neckPath`/`neckRadii`, plus the older `hip`, `shoulder`, `chest`, `haunch`,
+  `earUp`, `earSide`, `earFwd`, `earTurn` (pointed ears too), `earWidth`, `browAt`, `bridge`, `pads`, `surfaceStrip` (marks and ridges on the head), `noseSize`, `headSeg`, `eyeFar`, `flatBack`, `thighZ`, `thighUp`, `thighTaper`, ear shape `deer`, `neckPath`/`neckRadii`, plus the older `hip`, `shoulder`, `chest`, `haunch`,
   `tuck`, `sag`, `wide`. Add a new option there rather than a per-species branch, defaulted off.
 - A species-specific look goes behind a trait or a sprite field (the cougar: the plain coat), never a
   species name (`node tools/species-name-count.mjs`).

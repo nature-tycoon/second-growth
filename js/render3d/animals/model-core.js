@@ -348,19 +348,20 @@ function pinnaAt(m, at, r, rot, color, o = {}) {
 // than a sausage); keel: how far the chest drops between the forelegs. Both shape only the
 // underside, so the back keeps its line.
 // flatBack (0..1): the back stays level further toward the ends before rounding off (a deer's straight back), the underside as before.
-function loftBody(m, { x0, x1, cy0, cy1, ry0, ry1, rz0, rz1, sag = 0, shoulderBulk = 0, fine = false, tuck = 0, keel = 0, flatBack = 0 }, paint, o = {}) {
+function loftBody(m, { x0, x1, cy0, cy1, ry0, ry1, rz0, rz1, sag = 0, shoulderBulk = 0, fine = false, tuck = 0, keel = 0, flatBack = 0, haunchBulk = 0, arch = 0 }, paint, o = {}) {
   const R = m.seg(fine === 3 ? 128 : fine === 2 ? 84 : fine ? 56 : 22), A = m.seg(fine === 3 ? 88 : fine === 2 ? 60 : fine ? 36 : 14), pos = [], idx = [], u = [];
   for (let i = 0; i <= R; i++) {
     const t = i / R, x = x0 + (x1 - x0) * t;
     const w = Math.sqrt(Math.max(0, 1 - Math.pow(Math.abs(2 * t - 1), 2.6))); // rounded, blunt ends
     const e = t * t * (3 - 2 * t);
     const bulk = shoulderBulk * Math.exp(-(((t - 0.73) / 0.18) ** 2));
+    const hb = haunchBulk * Math.exp(-(((t - 0.2) / 0.12) ** 2)), ar = arch * ry0 * Math.exp(-(((t - 0.4) / 0.2) ** 2)); // (haunchBulk: the haunch swelling over the hind legs, so the rump reads apart from the waist; arch: the back rising over the loin)
     const wTop = flatBack ? Math.sqrt(Math.max(0, 1 - Math.pow(Math.abs(2 * t - 1), 2.6 + flatBack * 5))) : w;
-    const ry = (ry0 + (ry1 - ry0) * e) * w * (1 + bulk), ryTop = ry * (w ? wTop / w : 1), rz = (rz0 + (rz1 - rz0) * e) * w * (1 + bulk * 0.5), cy = cy0 + (cy1 - cy0) * e - sag * Math.sin(t * Math.PI);
+    const ry = (ry0 + (ry1 - ry0) * e) * w * (1 + bulk + hb * 0.4), ryTop = ry * (w ? wTop / w : 1), rz = (rz0 + (rz1 - rz0) * e) * w * (1 + bulk * 0.5 + hb), cy = cy0 + (cy1 - cy0) * e - sag * Math.sin(t * Math.PI);
     const waist = tuck * Math.exp(-(((t - 0.36) / 0.17) ** 2)), under = 1 - waist + keel * Math.exp(-(((t - 0.7) / 0.14) ** 2));
     for (let j = 0; j <= A; j++) {
       const a = j / A * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a), k = smooth(0.15, -0.55, c); // (0 on the back, 1 under the belly)
-      pos.push(x, cy + c * (flatBack && c > 0 ? ry + (ryTop - ry) * smooth(0, 0.7, c) : ry) * (1 + (under - 1) * k), sn * rz * (1 - waist * 0.3 * k));
+      pos.push(x, cy + c * (flatBack && c > 0 ? ry + (ryTop - ry) * smooth(0, 0.7, c) : ry) * (1 + (under - 1) * k) + ar * smooth(-0.3, 0.7, c), sn * rz * (1 - waist * 0.3 * k));
       u.push(2 * t - 1, c, sn);
     }
   }
@@ -415,6 +416,57 @@ function tube(m, pts, rad, paint, o = {}) {
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
   const unitG = new THREE.BufferGeometry(); unitG.setAttribute('position', new THREE.Float32BufferAttribute(u, 3));
   m.add(g, new THREE.Matrix4(), paint, { ...o, paintGeo: unitG });
+}
+
+// A soft mark or a low ridge laid on a surface already built (the head), so it reads as part of the fur
+// rather than a piece stuck on: a strip along pts, found on the surface by casting from `from` (a point
+// inside it) through each point, its edges taking the surface's own colour and facing exactly, so only
+// its middle shows. targets: the surface's geometries (model space, painted). o.width, o.lift (ridge
+// height at the middle) and o.strength (how far toward o.color) may be one value or one per point.
+const RAY = new THREE.Raycaster(), RAY_MAT = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+function surfaceStrip(m, targets, from, pts, o) {
+  const meshes = targets.map(g => new THREE.Mesh(g, RAY_MAT)), per = (v, i, t) => Array.isArray(v) ? v[i] + (v[Math.min(i + 1, v.length - 1)] - v[i]) * t : v ?? 0;
+  const sub = m.seg(o.sub ?? 4), n = pts.length, at = (i, k) => pts[Math.max(0, Math.min(n - 1, i))][k], S = [];
+  for (let i = 0; i < n - 1; i++) for (let j = 0; j < sub; j++) {
+    const t = j / sub, t2 = t * t, t3 = t2 * t;
+    S.push({ p: [0, 1, 2].map(k => 0.5 * (2 * at(i, k) + (at(i + 1, k) - at(i - 1, k)) * t + (2 * at(i - 1, k) - 5 * at(i, k) + 4 * at(i + 1, k) - at(i + 2, k)) * t2 + (3 * at(i, k) - at(i - 1, k) - 3 * at(i + 1, k) + at(i + 2, k)) * t3)), i, t });
+  }
+  S.push({ p: pts[n - 1], i: n - 1, t: 0 });
+  const c = V(...from), tri = new THREE.Triangle(), bc = new THREE.Vector3(), A = V(0, 0, 0), B = V(0, 0, 0), C = V(0, 0, 0);
+  const hits = S.map(s => {
+    const d = V(...s.p).sub(c).normalize();
+    RAY.set(c.clone().addScaledVector(d, 1e3), d.clone().negate());
+    const h = RAY.intersectObjects(meshes, false)[0];
+    if (!h) return null;
+    const g = h.object.geometry, P = g.attributes.position, Nm = g.attributes.normal, Cl = g.attributes.color, f = [h.face.a, h.face.b, h.face.c];
+    tri.set(A.fromBufferAttribute(P, f[0]), B.fromBufferAttribute(P, f[1]), C.fromBufferAttribute(P, f[2])).getBarycoord(h.point, bc);
+    const w = [bc.x, bc.y, bc.z], mix = (att) => [0, 1, 2].map(k => f.reduce((sum, v, j) => sum + att.getComponent(v, k) * w[j], 0));
+    return { p: h.point.clone(), nrm: V(...mix(Nm)).normalize(), col: Cl ? new THREE.Color(...mix(Cl)) : col('#808080'), s };
+  }).filter(Boolean);
+  if (hits.length < 2) return;
+  const K = [-1, -0.5, 0, 0.5, 1], eps = o.eps ?? 0.02, mark = col(o.color ?? '#000000'), pos = [], nrm = [], u = [], cols = [], idx = [];
+  hits.forEach((h, i) => {
+    const T = hits[Math.min(hits.length - 1, i + 1)].p.clone().sub(hits[Math.max(0, i - 1)].p).normalize(), X = h.nrm.clone().cross(T).normalize();
+    const f = i / (hits.length - 1), end = smooth(0, 0.3, f) * smooth(1, 0.7, f); // (both ends fade into the surface: no square edge)
+    const w = per(o.width, h.s.i, h.s.t) * (0.4 + 0.6 * end), lift = per(o.lift, h.s.i, h.s.t) * end, str = per(o.strength, h.s.i, h.s.t) * end;
+    for (const a of K) {
+      const bump = (1 - a * a) ** 2;
+      const q = h.p.clone().addScaledVector(X, a * w / 2).addScaledVector(h.nrm, eps + lift * bump);
+      pos.push(q.x, q.y, q.z); nrm.push(h.nrm.x, h.nrm.y, h.nrm.z); u.push(a, i, cols.length);
+      cols.push(h.col.clone().lerp(mark, str * bump));
+    }
+  });
+  for (let i = 0; i < hits.length - 1; i++) for (let k = 0; k < K.length - 1; k++) { const a = i * K.length + k, b = a + K.length; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
+  if (hits.some((h, i) => per(o.lift, h.s.i, h.s.t) > 0)) {
+    // (a ridge: its own facing in the middle, the surface's at the edges, so it rises out of it without a seam)
+    const flat = Float32Array.from(nrm); g.computeVertexNormals();
+    const nm = g.attributes.normal;
+    for (let v = 0; v < nm.count; v++) { const a = u[v * 3], e = 1 - (1 - a * a) ** 2; const q = V(nm.getX(v), nm.getY(v), nm.getZ(v)).lerp(V(flat[v * 3], flat[v * 3 + 1], flat[v * 3 + 2]), e).normalize(); nm.setXYZ(v, q.x, q.y, q.z); }
+  } else g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+  const unitG = new THREE.BufferGeometry(); unitG.setAttribute('position', new THREE.Float32BufferAttribute(u, 3));
+  m.add(g, new THREE.Matrix4(), uu => cols[Math.round(uu.z)], { ...o, paintGeo: unitG });
 }
 
 // Long hair hanging off a limb or a flank: thin tapering locks falling from points along a line
@@ -499,7 +551,7 @@ function headLoft(m, hp, hr, snout, sn, paint, muzzlePaint, o, hd) {
   const x0 = hx - rx, x1 = snout ? Math.max(hx + rx, mx + snout) : hx + rx;
   const oval = (cx, cy, a, b, c, x) => { const q = 1 - ((x - cx) / a) ** 2, s = Math.sign(q) * Math.sqrt(Math.abs(q)); return [cy + b * s, cy - b * s, c * s]; };
   const jaw = [hx - rx * 0.35, hy - ry * (o.jawDepth ?? 0.9)], chin = [mx + snout * 0.25, my - mry * 0.93];
-  const brow = o.brow ?? 0.08, cheek = o.cheeks ?? 0.08, ex = hx + rx * 0.42;
+  const brow = o.brow ?? 0.08, cheek = o.cheeks ?? 0.08, ex = hx + rx * (o.browAt ?? 0.42); // (browAt: how far forward the brow ridge stands, a share of the skull; a cat's over its forward eyes)
   const R = m.seg(o.headSeg?.[0] ?? (o.detail ? 30 : 18)), A = m.seg(o.headSeg?.[1] ?? (o.detail ? 24 : 14)), pos = [], idx = [], u = []; // (headSeg: rings along and round the head, for soft face markings without the rest of detail)
   for (let i = 0; i <= R; i++) {
     const s = i / R, x = x0 + (x1 - x0) * (1 - Math.cos(Math.PI * s)) / 2; // (rings closer together at the ends, where it rounds off)
@@ -507,7 +559,7 @@ function headLoft(m, hp, hr, snout, sn, paint, muzzlePaint, o, hd) {
     let [top, bot, w] = sk;
     if (snout) {
       const t = Math.min(1, Math.max(0, (x - mx) / snout)), mz = oval(mx, my, snout, mry * (1 - 0.12 * t * taper), mrz * (1 - 0.25 * t * taper), x);
-      top = smax(top, mz[0], ry * 0.55); // (the forehead runs down into the bridge of the nose)
+      top = smax(top, mz[0], ry * (o.bridge ?? 0.55)); // (the forehead runs down into the bridge of the nose; bridge: how gently)
       bot = -smax(-bot, -mz[1], ry * 0.3);
       w = smax(w, mz[2], rz * 0.35);
       if (x > jaw[0] && x < chin[0]) bot = Math.min(bot, jaw[1] + (chin[1] - jaw[1]) * (x - jaw[0]) / (chin[0] - jaw[0]));
@@ -517,13 +569,14 @@ function headLoft(m, hp, hr, snout, sn, paint, muzzlePaint, o, hd) {
     // a little squarer than an oval in the muzzle (its sides and the line of the lips)
     const n = 2 + 0.6 * smooth(hx + rx * 0.4, hx + rx * 0.9, x);
     const fb = brow * Math.exp(-(((x - ex) / (rx * 0.28)) ** 2)), fc = cheek * Math.exp(-(((x - hx - rx * 0.15) / (rx * 0.42)) ** 2));
+    const fp = o.pads && snout ? o.pads * Math.exp(-(((x - mx - snout * 0.75) / (snout * 0.45)) ** 2)) * smooth(x1, x1 - snout * 0.35, x) : 0; // (none at the very tip, which closes to a point) // (pads: two whisker pads swelling the muzzle's lower front, either side of the cleft)
     const ux = 2 * (x - x0) / (x1 - x0) - 1, ur = Math.sqrt(Math.max(0, 1 - ux * ux));
     for (let j = 0; j <= A; j++) {
       const a = j / A * Math.PI * 2, c = Math.cos(a), sn2 = Math.sin(a);
       const e = (v) => Math.sign(v) * Math.abs(v) ** (2 / n);
       // the brow stands out over the eyes (up and out, on the upper side), the cheeks below and behind them
       const ang = Math.abs(Math.atan2(sn2, c)); // 0 on top, pi underneath
-      const out = fb * Math.exp(-(((ang - 0.8) / 0.38) ** 2)) * ry + fc * Math.exp(-(((ang - 1.95) / 0.45) ** 2)) * rz;
+      const out = fb * Math.exp(-(((ang - 0.8) / 0.38) ** 2)) * ry + fc * Math.exp(-(((ang - 1.95) / 0.45) ** 2)) * rz + fp * Math.exp(-(((ang - 2.2) / 0.5) ** 2)) * mrz;
       // (crown: the skull wider across its upper half, back from the muzzle: a cat's broad head over a narrower jaw)
       const cw = o.crown ? 1 + o.crown * Math.exp(-(((ang - 0.75) / 0.5) ** 2)) * smooth(hx + rx * 0.7, hx + rx * 0.1, x) : 1;
       // (skullUnder: the skull's underside pulled up behind the jaw, a share of its depth, so the head
@@ -550,6 +603,7 @@ function headLoft(m, hp, hr, snout, sn, paint, muzzlePaint, o, hd) {
     else fn = blend;
   }
   m.add(g, new THREE.Matrix4(), fn, { ...hd, paintGeo: unitG });
+  m.headGeo = m.parts[m.parts.length - 1]; // (the head as built and painted, for marks laid on it: surfaceStrip)
 }
 
 function quadruped(m, s, o) {
@@ -564,7 +618,7 @@ function quadruped(m, s, o) {
     cy0: by + H * (o.hip ?? 0.02), cy1: by + H * (o.shoulder ?? 0.04),
     ry0: H * 0.52 * (o.haunch ?? 1), ry1: H * 0.54 * (o.chest ?? 1),
     rz0: H * 0.42 * W, rz1: H * 0.41 * W, sag: H * (o.sag ?? 0.04), shoulderBulk: o.shoulderBulk ?? 0, fine: coat.coat ? o.coatFine ?? 1 : o.fine && !o.detail ? 2 : o.fine || false, // (a per-pixel coat needs only a smooth outline; coatFine: false keeps a small animal's plain one)
-    tuck: o.tuck ?? 0.4, keel: o.keel ?? 0.1, flatBack: o.flatBack ?? 0,
+    tuck: o.tuck ?? 0.4, keel: o.keel ?? 0.1, flatBack: o.flatBack ?? 0, haunchBulk: o.haunchBulk ?? 0, arch: o.arch ?? 0,
   }, coat);
   if (o.extra) o.extra(m, { L, H, leg, by, W, coat });
   // legs: upper and lower segment, swinging from the hip
@@ -642,7 +696,8 @@ function quadruped(m, s, o) {
       if (thigh) {
         // (the elbow, too, sits up against the chest on a long leg, the forearm running straight down)
         const el = [elbow[0], leg * (0.62 + 0.2 * lk), z], mid = [(hip[0] + el[0]) / 2, (hip[1] + el[1]) / 2, z];
-        tube(m, [hip, mid, el, wrist, foot], [[rx, rz], [(rx + rm) / 2, rz * 0.92], [rm * 1.05, rm], r1 * 1.08, r1], legPaint(c), { ...lo, up: [1, 0, 0] });
+        const st = o.shoulderTaper ?? 0, top = st ? [hip[0] + rx * 0.15 * st, hip[1] + H * 0.12 * st, z * (1 - 0.15 * st)] : hip; // (shoulderTaper: the top of the foreleg narrowing up into the chest, as the shoulder blade does, with no rim showing on the flank)
+        tube(m, [top, mid, el, wrist, foot], [[rx * (1 - st * 0.35), rz * (1 - st * 0.5)], [(rx + rm) / 2, rz * (0.92 - 0.12 * st)], [rm * 1.05, rm], r1 * 1.08, r1], legPaint(c), { ...lo, up: [1, 0, 0] });
       }
       else if (smoothLegs) tube(m, [hip, elbow, wrist, foot], [r0, rm, r1 * 1.08, r1], c, lo);
       else { m.limb(hip, elbow, r0, rm, c, lo); m.limb(elbow, wrist, rm, r1 * 1.08, c, lo); m.limb(wrist, foot, r1 * 1.08, r1, c, lo); }
@@ -654,8 +709,9 @@ function quadruped(m, s, o) {
     else if (o.paws && (o.toes || smoothLegs)) {
       // (paw: a paw broader than the slim ankle above it, grown up from the ground, never into it)
       const pw = o.paw ?? 1;
-      m.ell([foot[0] + r1 * 0.45 * pw, r1 * (0.63 + 0.62 * (pw - 1)), z], [r1 * 1.35 * pw, r1 * 0.62 * pw, r1 * 1.1 * pw], c, { part, pivot: hip, fine: o.detail });
-      if (o.toes) for (const t of [-1, 0, 1]) m.ell([foot[0] + r1 * 1.15 * pw, r1 * (0.48 + 0.38 * (pw - 1)), z + t * r1 * 0.52 * pw], [r1 * 0.42 * pw, r1 * 0.38 * pw, r1 * 0.32 * pw], c, { part, pivot: hip });
+      const ph = o.pawH ?? 1, pz = o.pawW ?? 1; // (pawH, pawW: the paw's height and width, shares of the old; a cat's compact paw is low and no wider than the ankle's line, so no cuff rings the ankle)
+      m.ell([foot[0] + r1 * 0.45 * pw, r1 * (0.63 + 0.62 * (pw - 1)) * ph, z], [r1 * 1.35 * pw, r1 * 0.62 * pw * ph, r1 * 1.1 * pw * pz], c, { part, pivot: hip, fine: o.detail });
+      if (o.toes) for (const t of (o.toes === 4 ? [-1.5, -0.5, 0.5, 1.5] : [-1, 0, 1])) m.ell([foot[0] + r1 * (1.15 - 0.12 * Math.abs(t) * (o.toes === 4 ? 1 : 0)) * pw, r1 * (0.48 + 0.38 * (pw - 1)) * ph, z + t * r1 * (o.toes === 4 ? 0.36 : 0.52) * pw * pz], [r1 * 0.42 * pw, r1 * 0.38 * pw * ph, r1 * (o.toes === 4 ? 0.26 : 0.32) * pw * pz], c, { part, pivot: hip }); // (toes: 4 for a cat's four soft toes, the middle two furthest forward)
     }
     else if (o.paws) m.ell([foot[0] + r1 * 0.4, r1 * 0.72, z], [r1 * 1.4, r1 * 0.75, r1 * 1.12], c, { part, pivot: hip, lo: true });
   }
@@ -692,8 +748,8 @@ function quadruped(m, s, o) {
     const look = { ...hd, inner: o.earInner, tip: o.earTip, tipAt: o.earTipAt, rim: o.earRim, cup: o.earCup };
     if (o.ears === 'round') {
       const tip = [base[0] - o.ear * 0.12, base[1] + o.ear * 0.85, base[2] + side * o.ear * 0.3];
-      if (side > 0) m.earMarks = { base: [base[0] + o.ear * 0.95 * 0.45, base[1]], tip: [tip[0], tip[1]] }; // (for review tools: the ear's front root and tip, side on)
-      pinna(m, base, tip, o.ear * 0.95, ec, { ...look, shape: o.earShape ?? 'round', cup: o.earCup ?? 0.4, out: o.earTurn ?? 0.35 }); // (earTurn: how far the opening turns out to the side)
+      if (side > 0) m.earMarks = { base: [base[0] + o.ear * (o.earWidth ?? 0.95) * 0.45, base[1]], tip: [tip[0], tip[1]] }; // (for review tools: the ear's front root and tip, side on)
+      pinna(m, base, tip, o.ear * (o.earWidth ?? 0.95), ec, { ...look, shape: o.earShape ?? 'round', cup: o.earCup ?? 0.4, out: o.earTurn ?? 0.35 }); // (earTurn: how far the opening turns out to the side)
     } else {
       const tip = [base[0] - o.ear * (o.earBack ?? 0.25), base[1] + o.ear, base[2] + side * o.ear * (o.earOut ?? 0.35)];
       if (side > 0) m.earMarks = { base: [base[0] + o.ear * (o.earW ?? 0.32) * 2.2 * 0.45, base[1]], tip: [tip[0], tip[1]] }; // (for review tools, as for round ears)
@@ -742,4 +798,4 @@ function stumpLegs(m, legs, hoof) {
   });
 }
 
-export { Model, P, SCALE, SPH, SPH_HI, SPH_XL, cells, cloudCoat, pixelCoat, col, cyl, ellHi, eyes, felineSpots, flat, grad, hash3, jaguarCoat, locks, loftBody, onProfile, pinna, pinnaAt, place, quadruped, sculpt, shade, smooth, solid, stumpLegs, tmp, tube, wingShape };
+export { Model, P, SCALE, SPH, SPH_HI, SPH_XL, cells, surfaceStrip, cloudCoat, pixelCoat, col, cyl, ellHi, eyes, felineSpots, flat, grad, hash3, jaguarCoat, locks, loftBody, onProfile, pinna, pinnaAt, place, quadruped, sculpt, shade, smooth, solid, stumpLegs, tmp, tube, wingShape };
