@@ -413,22 +413,24 @@ function mouseDeer(s) {
   const olive = col(s.back || shade(s.color, -0.12)), warm = col(s.color), bo = col('#000').clone();
   const side = u => bo.copy(warm).lerp(olive, smooth(-0.1, 0.55, u.y)), back = u => u.y < -0.35 ? bo.copy(warm).lerp(white, smooth(-0.35, -0.55, u.y)) : side(u);
   // (the throat stripes, laid out in world space so they run on from the chin down the neck)
-  const nx = L * 0.32, ny = by, hx = L * 0.62, hy = by + H * 0.3;
+  const nx = L * 0.3, ny = by, hx = L * 0.54, hy = by + H * 0.3;
   // (round the neck from its underside: a white line down the middle, brown, then a white stripe up
   // each side running from the chin back to the chest, then the coat: the kanchil's throat)
-  const throat = base => (u, p) => {
+  const tc = col('#000').clone(), throat = base => (u, p) => {
     if (p.x < nx - H * 0.1) return base(u);
     const t = Math.min(1, Math.max(0, (p.x - nx) / (hx - nx))), cy = ny + (hy - ny) * t, below = cy - p.y;
     if (below < H * 0.02) return base(u);
-    const a = Math.atan2(Math.abs(p.z), below);
-    return a < 0.35 ? white : a < 0.7 ? brown : a < 1.1 ? white : base(u);
+    const a = Math.atan2(Math.abs(p.z), below), k = smooth(L * 0.37, L * 0.43, p.x); // (k: the stripes fade in up the neck, never a hard patch at its root)
+    if (a >= 1.1 || k <= 0) return base(u);
+    return tc.copy(base(u)).lerp(a < 0.35 ? white : a < 0.7 ? brown : white, k);
   };
   return {
     H, leg, hindX: 0.33, wide: 0.86, hip: 0.1, shoulder: -0.06, haunch: 1.02, chest: 0.8, sag: -0.04, legR0: H * 0.065, legR1: H * 0.028, legColor: shade(s.color, 0.02), hoof: '#1e1612',
     // (a short thick neck leaving the whole front of the chest, tapering forward to the head, not a pipe off the shoulders)
-    neckPath: [[L * 0.3, by - H * 0.02, 0], [L * 0.44, by + H * 0.14, 0], [L * 0.55, by + H * 0.29, 0]], neckRadii: [[H * 0.32, H * 0.28], [H * 0.26, H * 0.23], [H * 0.2, H * 0.18]], neckSub: 4, neckSeg: 14, // (enough round the neck for its stripes)
-    coat: () => throat(back), headPaint: throat(side), // (the head and neck brown down to the throat's stripes)
-    head: [L * 0.64, by + H * 0.35], headR: [H * 0.3, H * 0.22, H * 0.2], snout: H * 0.24, muzzle: shade(s.color, -0.25), eyeR: H * 0.08, eyeFwd: 0.55, eyeOut: 0.52, eyeColor: deerEye(), eyeFar: '#1a110c', noseColor: '#3a2a26', noseSize: 0.6, // (big dark eyes set into the head, painted on the close-up; a small dark nose)
+    neckPath: [[L * 0.32, by + H * 0.06, 0], [L * 0.41, by + H * 0.18, 0], [L * 0.47, by + H * 0.29, 0]], // (short: the head close in front of the shoulders, Cole)
+    neckRadii: [[H * 0.27, H * 0.26], [H * 0.24, H * 0.22], [H * 0.2, H * 0.18]], neckSub: 4, neckSeg: 14, // (enough round the neck for its stripes)
+    coat: () => back, headPaint: throat(side), // (stripes on the neck and head only: on the body's coarse rings they broke into jagged patches) // (the head and neck brown down to the throat's stripes)
+    head: [L * 0.56, by + H * 0.35], headR: [H * 0.3, H * 0.22, H * 0.2], snout: H * 0.3, muzzle: shade(s.color, -0.25), eyeR: H * 0.08, eyeFwd: 0.55, eyeOut: 0.52, eyeColor: deerEye(), eyeFar: '#1a110c', noseColor: '#3a2a26', noseSize: 0.6, // (big dark eyes set into the head, painted on the close-up; a small dark nose)
     ears: 'point', earShape: 'round', ear: H * 0.21, earW: 0.55, earOut: 0.45, earBack: 0.08, earFwd: 0.1, earColor: shade(s.color, -0.25), earInner: '#b89584',
     tail: (m, b) => m.ell([-L * 0.47, b.by + H * 0.12, 0], [H * 0.09, H * 0.16, H * 0.07], u => (u.x > 0.1 ? white : col(s.color)), { part: P.TAIL, pivot: [-L * 0.45, b.by + H * 0.2, 0], rot: [0, 0, -0.5] }),
   };
@@ -600,7 +602,7 @@ const MAMMALS = {
       head, headR: fit ? hrF : [H * 0.3, H * 0.24, H * 0.21], snout,
       ears: 'point', ear: H * 0.34, earOut: 0.8, earBack: 0.1, earW: 0.3, headColor: s.neck ? s.neck : null,
       // (a short skull behind big ears set at its back, the eye halfway along, a slim jaw: the photos)
-      ...(fit ? { eyeFwd: 0.68, jawDepth: 0.8, ...(s.muzzleDepth ? { muzzleDepth: s.muzzleDepth } : {}), // (muzzleDepth: a deeper, blunter muzzle, an elk's)
+      ...(fit ? { eyeFwd: 0.68, jawDepth: 0.8, ...(s.muzzleDepth ? { muzzleDepth: s.muzzleDepth } : {}), ...(s.muzzleWidth ? { muzzleWidth: s.muzzleWidth } : {}), // (muzzleDepth: a deeper, blunter muzzle, an elk's)
          earFwd: -0.55, ear: H * 0.29 * es, earShape: s.earShape || 'deer', // (earShape: a sambar's round ears)
         earTurn: 0.55, earBack: 0.2, earOut: 0.95, earW: 0.45 * (s.earWide ?? 1),
         eyeR: Math.max(0.55, H * 0.05), eyeOut: 0.52, eyeColor: deerEye(), eyeFar: '#20150e', headSeg: [20, 16], headPaint: deerFace(s, H, head, hrF, snout, 0.68), noseColor: '#16120f', noseSize: 0.6,

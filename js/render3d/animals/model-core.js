@@ -495,7 +495,8 @@ function headLoft(m, hp, hr, snout, sn, paint, muzzlePaint, o, hd) {
   const [hx, hy] = hp, [rx, ry, rz] = hr;
   // the muzzle: an oval a little narrower toward the nose; the jaw line runs from under the ear to the chin
   // (a long muzzle narrows to the nose; a cat's short one stays blunt)
-  const mx = sn[0] + snout * 0.3, my = sn[1], mry = ry * (o.muzzleDepth ?? 0.55), mrz = rz * 0.58, taper = smooth(0.55, 1.1, snout / ry);
+  const mx = sn[0] + snout * 0.3, my = sn[1], mry = ry * (o.muzzleDepth ?? 0.55), mrz = rz * (o.muzzleWidth ?? 0.58), // (muzzleWidth: a narrower muzzle side to side)
+    taper = smooth(0.55, 1.1, snout / ry);
   const x0 = hx - rx, x1 = snout ? Math.max(hx + rx, mx + snout) : hx + rx;
   const oval = (cx, cy, a, b, c, x) => { const q = 1 - ((x - cx) / a) ** 2, s = Math.sign(q) * Math.sqrt(Math.abs(q)); return [cy + b * s, cy - b * s, c * s]; };
   const jaw = [hx - rx * 0.35, hy - ry * (o.jawDepth ?? 0.9)], chin = [mx + snout * 0.25, my - mry * 0.93];
