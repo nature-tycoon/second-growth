@@ -59,3 +59,7 @@ muzzle, eyes on the sides, a friendly look), with the broad pink nose, and then 
 marks under the eyes. Built behind `fit = false` in `feline` (quadrupeds.js): true brings the fitted face
 (brows, painted eyes, pads, mouth line, face fur) back. The body, ears, thicker old neck and pink nose
 (broader, `nb`) stay. Intro film re-filmed.
+
+Stalking with the round head: the thicker neck's root showed through the back as the head dipped (Cole).
+Its root now sits lower and further forward in the chest (`neckLow` 0.5) and the neck is a little
+slimmer (0.27 H).

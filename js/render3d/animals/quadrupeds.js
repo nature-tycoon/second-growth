@@ -696,7 +696,7 @@ const MAMMALS = {
       legR1: H * (lion ? 0.085 : k ? 0.09 : s.cheetah ? 0.09 : plain ? 0.085 : 0.14), // (a plain cat's slim ankle under a full forearm and thigh)
       // (a plain cat: the hind thigh runs back into the rump, the legs taper to slim ankles over big paws)
       thighBack: plain ? H * 0.18 : 0, paw: plain ? 1.4 : 1, legSub: plain ? 8 : undefined, stifle: plain ? 0.72 : undefined, legSeg: plain ? 16 : undefined,
-      neckR: H * (lion ? 0.25 : fit ? 0.23 : 0.3 - k * 0.02), jawDepth: fit ? 0.72 : undefined, skullUnder: fit ? 0.75 : undefined, // (a plain cat: a lean throat under a clean jaw) dots: s.cheetah ? [s.dark, 9, 0.2] : s.spotted ? [s.dark, 11, 0.21] : s.bobtail ? [shade(s.color, -0.4), 13, 0.16] : null, coatFine: s.bobtail ? false : undefined, rosettes: s.rosettes,
+      neckR: H * (lion ? 0.25 : fit ? 0.23 : plain ? 0.27 : 0.3 - k * 0.02), neckLow: plain && !fit ? 0.5 : undefined, // (the round head's neck: rooted low in the chest, or it shows through the back when stalking, Cole) jawDepth: fit ? 0.72 : undefined, skullUnder: fit ? 0.75 : undefined, // (a plain cat: a lean throat under a clean jaw) dots: s.cheetah ? [s.dark, 9, 0.2] : s.spotted ? [s.dark, 11, 0.21] : s.bobtail ? [shade(s.color, -0.4), 13, 0.16] : null, coatFine: s.bobtail ? false : undefined, rosettes: s.rosettes,
       coat, legColor, fine: s.clouds ? 2 : lion, detail: !!(lion || k || plain), legRings: legColor ? 8 : undefined,
       paws: true, toes: plain ? 4 : true, // soft, articulated paws
       // (a plain cat carries a slightly smaller head lower and a little further forward, the skull's top

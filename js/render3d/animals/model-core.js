@@ -767,7 +767,7 @@ function quadruped(m, s, o) {
   else if (o.neckR) {
     // rooted low and back in the chest, deep and flattened from side to side where it leaves the
     // shoulders, narrowing up to the head (a straight pipe of one width read as a head on a stick)
-    const end = [hp[0] - hr[0] * 0.3, hp[1] - hr[1] * 0.2, 0], r = o.neckR, root = [neck[0] - r * 0.5, Math.min(neck[1], end[1]) - r * 0.35, 0];
+    const end = [hp[0] - hr[0] * 0.3, hp[1] - hr[1] * 0.2, 0], r = o.neckR, nl = o.neckLow ?? 0, root = [neck[0] - r * 0.5 * (1 - nl), Math.min(neck[1], end[1]) - r * (0.35 + nl), 0]; // (neckLow: the root set lower and further forward, inside the chest, so when the head dips the root's top doesn't rise through the back)
     const mid = [(root[0] + end[0]) / 2 + r * 0.1, (root[1] + end[1]) / 2 + r * 0.12, 0];
     tube(m, [root, mid, end], [[r * 1.45, r * 1.12], [r * 1.05, r * 0.9], [r * 0.85, r * 0.78]], nc, { ...hd, seg: o.neckSeg ?? (o.detail ? 14 : 10), sub: 3, capRings: 2 });
   }
