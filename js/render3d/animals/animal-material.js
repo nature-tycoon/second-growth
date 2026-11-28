@@ -478,14 +478,26 @@ export function faunaMaterial(motion) {
         else if (aPart > 7.5 && aPart < 10.5) { p = mix(p, toSegment(p, uNeck, uSnout), wither); vMeat = wither * 0.7; }
       }
       // A crouching walker's leg folds at the knee, halfway down from the hip (feet stand at y 0):
-      // the thigh turns by a and the shin back by 2a, so the paw stays under the hip, raised by
-      // exactly drop, which the body is lowered by (headPose). Elbows go back, knees forward.
+      // the thigh turns by t and the shin back past it to s, the paw raised by exactly drop, which the
+      // body is lowered by (headPose). Elbows go back, knees forward.
+      // The paw turns back level about the ankle (lifted by what that turn would sink it), the knee bends
+      // over a broad band so it rounds instead of creasing, and the leg's top, up inside the body, stays
+      // with the body instead of swinging out of the rump (the cougar's stalk, Cole 2026-11-27).
       void foldLeg(inout vec3 p, inout vec3 n, float drop) {
-        float H = max(aPivot.y, 1e-3);
-        float a = acos(clamp(1.0 - drop / H, 0.4, 1.0)) * (aPart < 2.5 ? -1.0 : 1.0);
-        float w = 1.0 - smoothstep(H * 0.44, H * 0.56, p.y); // (the shin)
-        vec3 knee = rotZ(vec3(aPivot.x, H * 0.5, aPivot.z), aPivot, a);
-        p = rotZ(rotZ(p, aPivot, a), knee, -2.0 * a * w); n = rotZ(n, vec3(0.0), a - 2.0 * a * w);
+        // (The upper leg turns less than the shin, t then s, so elbows and knees stay apart under the
+        // body instead of meeting, and the paws plant wider, the fore ones forward and the hind back, as
+        // a stalking cat's do: cos t + cos s = 2(1 - drop/H) keeps the paw on the ground.)
+        float H = max(aPivot.y, 1e-3), c0 = clamp(1.0 - drop / H, 0.4, 1.0), sg = aPart < 2.5 ? -1.0 : 1.0;
+        float t = 0.55 * acos(c0), s = acos(clamp(2.0 * c0 - cos(t), -1.0, 1.0));
+        t *= sg; s *= sg;
+        float top = 1.0 - smoothstep(H * 0.8, H * 1.1, p.y); // (the thigh or shoulder: none of the turn up inside the body)
+        float w = 1.0 - smoothstep(H * 0.36, H * 0.64, p.y); // (the shin)
+        float wp = 1.0 - smoothstep(H * 0.1, H * 0.2, p.y); // (the paw)
+        vec3 knee = rotZ(vec3(aPivot.x, H * 0.5, aPivot.z), aPivot, t);
+        vec3 ankle = rotZ(rotZ(vec3(aPivot.x, H * 0.15, aPivot.z), aPivot, t), knee, -(t + s));
+        p = rotZ(rotZ(p, aPivot, t * top), knee, -(t + s) * w);
+        p = rotZ(p, ankle, s * wp); p.y += wp * H * 0.15 * (1.0 - cos(s));
+        n = rotZ(n, vec3(0.0), t * top - (t + s) * w + s * wp);
       }
       // Rotate lighting normals alongside each rigid part. Birds also flex the outer wing and
       // interpolate a compact resting tail into a modest flight fan; other fauna keep their poses.
