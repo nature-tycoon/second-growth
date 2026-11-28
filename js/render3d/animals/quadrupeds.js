@@ -495,14 +495,13 @@ function catEye(s) {
 // A cat's face fur, in the head's vertex colours (fitted on the cougar from photos): a darker bridge down
 // the middle of the face, a pale spot over each eye and a paler cheek under it, a white upper lip, and the
 // dark patch where the whiskers start on each side of the muzzle. Soft-edged, fur not paint. Positions
-// follow the fitted cat's head in feline (hp, hr, sl: its place, radii and muzzle length). marks(o, p, at)
-// adds a species' own soft marks over it (cheek stripes, forehead lines), at: { eye, sn, r, hr }.
-function catFace(s, H, hp, hr, sl, marks) {
+// follow the fitted cat's head in feline (hp, hr, sl: its place, radii and muzzle length); a species' own
+// marks are laid on as strips (catMarks).
+function catFace(s, H, hp, hr, sl) {
   const sn = [hp[0] + hr[0] * 0.78, hp[1] - hr[1] * 0.28], snout = sl;
   const eye = [hp[0] + hr[0] * 0.86, hp[1] + hr[1] * 0.28, hr[2] * 0.42], r = H * 0.045, calm = s.calm ?? 0;
   const tawny = col(s.color), bridge = shade(s.color, -0.16), pale = col(s.facePale ?? '#eadcc2'), white = col(s.lip ?? '#f1eadf'), patch = col('#3e2c21');
   const blob = (p, c, k) => Math.exp(-(((p.x - c[0]) / k[0]) ** 2 + ((p.y - c[1]) / k[1]) ** 2 + ((Math.abs(p.z) - c[2]) / k[2]) ** 2));
-  const at = { eye, sn, r, hr, hp, snout, blob };
   const fur = (o, p) => {
     const az = Math.abs(p.z);
     // the bridge: the middle of the face from between the eyes to the nose, a shade darker
@@ -511,7 +510,7 @@ function catFace(s, H, hp, hr, sl, marks) {
     if (calm) o.lerp(pale, 0.55 * calm * blob(p, [eye[0] - r * 0.1, eye[1] - r * 0.15, eye[2] * 1.05], [r * 1.5, r * 1.25, r * 1.6])); // (a cat's pale fur round the eye instead)
     o.lerp(pale, 0.4 * blob(p, [eye[0] - r * 0.8, eye[1] - r * 1.8, eye[2] * 1.15], [r * 1.8, r * 1.0, r * 1.4]));
     o.lerp(patch, 0.75 * blob(p, [sn[0] + snout * 0.55, sn[1] - hr[1] * 0.12, hr[2] * 0.5], [snout * 0.45, hr[1] * 0.13, hr[2] * 0.3]));
-    return marks ? marks(o, p, at) : o;
+    return o;
   };
   const headOut = col('#000').clone(), mzOut = col('#000').clone(), base = grad(s.color, s.belly, -0.3, 0.5);
   return {
@@ -818,6 +817,11 @@ const MAMMALS = {
           if (calm < 1) surfaceStrip(m, muzzleTop, mf, [[noseX - r * 0.15, ny, 0], [noseX - r * 0.2, (ny + cy) / 2, 0], [noseX - r * 0.25, cy, 0]], { ...hd, width: r * 0.1, strength: [0.35, 0.4, 0.45], color: '#3a2a20' });
           if (calm < 1) for (const side of [1, -1]) surfaceStrip(m, muzzleTop, mf, [[noseX - r * 0.25, cy, 0], [noseX - r * 0.7, cy - r * (0.3 - 0.3 * calm), side * r * 0.8], [noseX - r * 1.45, cy - r * (0.5 - 0.5 * calm), side * r * 1.35], [noseX - r * 2.1, cy - r * (0.45 - 0.45 * calm), side * r * 1.65]],
             { ...hd, width: [r * 0.1, r * 0.09, r * 0.08, r * 0.06], strength: [0.4, 0.35, 0.22, 0], color: '#3a2a20' });
+          // whiskers: three fine pale hairs from each pad, spreading out and back (the cougar's approved face has none)
+          if (calm) for (const side of [1, -1]) for (let row = 0; row < 3; row++) {
+            const x = noseX - r * (0.9 + row * 0.25), y = nc[1] - r * (1.1 + row * 0.3), z = side * r * 1.75;
+            tube(m, [[x, y, z], [x - r * 0.6, y + r * (0.15 - row * 0.15), z + side * H * 0.12], [x - r * (2.2 + row * 0.4), y + r * (0.2 - row * 0.5), z + side * H * (0.34 + row * 0.03)]], [H * 0.0045, H * 0.0032, H * 0.0012], '#d5c7aa', { ...hd, sub: 2, seg: 4 });
+          }
           // the species' own face marks, laid on the head as strips (catMarks)
           const q = hr[1] * 0.15, mid = [hp[0], hp[1], 0];
           for (const [c, f, kind, A, B, w] of catMarks(s) || []) for (const side of [1, -1]) {
