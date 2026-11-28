@@ -33,7 +33,7 @@ Tried and dropped (don't retry)
 - Pads swelling the muzzle's very tip: opened a hole there (now faded to nothing at the tip).
 - Flat paws (`pawH` 0.8): read as discs under each leg.
 
-Triangles: close-up 48.7k to 45.8k, usual model 20.1k to 18.9k. Not yet judged by Cole as a whole.
+Triangles: close-up 48.7k to 45.8k, usual model 20.1k to 18.9k. Cole approved the whole look on 2026-11-27 ("Looks right").
 The intro film still shows the old cougar; re-film it once Cole approves the look.
 
 Fourth round (pictures `-eyes`): the pads flatter (lift 0.75 to 0.38 of the eye size), the eyes a little
