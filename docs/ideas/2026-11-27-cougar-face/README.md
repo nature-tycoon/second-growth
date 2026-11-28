@@ -65,3 +65,4 @@ Its root now sits lower and further forward in the chest (`neckLow` 0.5) and the
 slimmer (0.27 H).
 Then "a hunch back": the round head hung below the shoulders. It's carried higher (by + 0.26 H, was 0.14;
 the week-old one was 0.38), level with the back; flattening the back's arch made no visible difference.
+Then the haunches showing and an arched back (Cole): `haunchBulk` 0.2 to 0.3, `arch` 0.06 to 0.13.
