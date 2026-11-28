@@ -49,7 +49,7 @@ export default function buildAmazonAnimals(def) {
       speed: 1.4, hr: 80, max: 5, sources: ['N', 'E'], mig: 0.25, breed: [2, 3], litter: [1, 2], life: 10, mature: 2,
       prey: ['agouti', 'armadillo'], preyPer: 5,
       suit: (W, i) => w[W.habitat[i]] * near(W.distForest[i], 2, 0.2),
-      sprite: { kind: 'feline', len: 28, h: 12, leg: 10, calm: 1, eyeSize: 1.15, legs: 0.85, tailLen: 0.8, color: '#c8a068', belly: '#f0e4c8', dark: '#2a2018', longtail: true, rosettes: true, chains: true },
+      sprite: { kind: 'feline', len: 28, h: 11, leg: 10, calm: 1, eyeSize: 1.25, legs: 0.78, headSize: 1.12, tailLen: 0.62, tailDrop: 0.75, color: '#c8a068', belly: '#f0e4c8', dark: '#2a2018', longtail: true, rosettes: true, chains: 1.35 },
       desc: 'A night-hunting spotted cat about twice the size of a house cat. Stalks agoutis along forest trails.',
       hint: 'Young or old forest with agoutis and armadillos.' });
   }

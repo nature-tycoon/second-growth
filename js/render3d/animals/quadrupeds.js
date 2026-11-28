@@ -521,42 +521,34 @@ function catFace(s, H, hp, hr, sl, marks) {
   };
 }
 
-// A species' own soft face marks over the fitted cat's face fur (catFace), chosen by its coat (seen in
-// photos): soft streaks of fur with fading ends, painted in the head's vertex colours, never parts laid on.
-// Bobbed tail (bobcat): dark bars across the cheek ruff and short dark streaks up the forehead. Chains
-// (ocelot): two black stripes back along each cheek and a black line from each eye's inner corner up the
-// forehead. Spotted (leopard cat): a white streak from each eye's inner corner up the forehead between
-// dark lines, and dark cheek bars. Units follow the head (q: a sixth of its height).
+// A species' own face marks (seen in photos), as strokes for feline to lay on the head with surfaceStrip, so
+// each is crisp yet its edges take the fur's own colour (painted in the head's vertex colours they smudged,
+// Cole 2026-11-27). Each stroke: [colour, strength, kind, A, B, width]; kind 's' lies on the side of the
+// head, A and B [forward, up] from the eye; 't' on the forehead, A and B [forward, out], out a share of the
+// eye's distance from the middle. Units: q, a sixth of the head's height.
+// Bobbed tail (bobcat): dark bars across the cheek ruff, short dark streaks up the forehead. Chains (ocelot)
+// and clouds (clouded leopard): two black stripes back along each cheek, dark lines from the eyes over the
+// forehead. Spotted (leopard cat): a white streak from each eye's inner corner up the forehead between dark
+// lines, dark cheek bars.
 function catMarks(s) {
-  const dark = col(shade(s.dark, -0.3)).clone(), white = col(s.lip ?? '#f1eadf').clone();
-  // how close the point (x, y) lies to the segment from A to B, 1 on it, fading over w, and toward its ends
-  const near = (x, y, A, B, w) => {
-    const dx = B[0] - A[0], dy = B[1] - A[1], k = Math.max(0, Math.min(1, ((x - A[0]) * dx + (y - A[1]) * dy) / (dx * dx + dy * dy)));
-    return Math.exp(-((Math.hypot(x - A[0] - dx * k, y - A[1] - dy * k) / w) ** 2)) * smooth(0, 0.3, Math.min(k, 1 - k));
-  };
-  // side marks ('s': A, B are [forward, up] from the eye in q) lie on the side of the head, past the eye;
-  // top marks ('t': [forward, out], out a share of the eye's spacing) on the forehead, above the eyes
-  const streaks = list => (o, p, at) => {
-    const [ex, ey, ez] = at.eye, q = at.hr[1] * 0.15, az = Math.abs(p.z), side = smooth(ez * 0.9, ez * 1.25, az), top = smooth(ey - q * 0.2, ey + q * 0.6, p.y);
-    for (const [c, f, kind, A, B, w] of list) {
-      const v = kind === 's' ? side * near((p.x - ex) / q, (p.y - ey) / q, A, B, w) : top * near((p.x - ex) / q, az / ez, A, B, w);
-      if (v > 0.002) o.lerp(c, f * v);
-    }
-    return o;
-  };
-  if (s.bobtail) return streaks([
+  const dark = shade(s.dark, -0.3), white = s.lip ?? '#f1eadf';
+  if (s.bobtail) return [
     [dark, 0.85, 's', [-1.4, -1.2], [-5.0, -2.0], 0.5], [dark, 0.8, 's', [-1.0, -2.6], [-4.6, -3.6], 0.5],
-    [dark, 0.7, 't', [-0.8, 0.45], [-3.6, 0.4], 0.14], [dark, 0.7, 't', [-0.9, 0.95], [-3.8, 0.9], 0.14],
-  ]);
-  if (s.chains) return streaks([
-    [dark, 0.9, 's', [-1.3, -0.5], [-5.6, -1.5], 0.4], [dark, 0.9, 's', [-0.7, -2.2], [-5.0, -3.3], 0.4],
-    [dark, 0.85, 't', [0.4, 0.62], [-3.0, 0.4], 0.11],
-  ]);
-  if (s.spotted) return streaks([
-    [white, 0.8, 't', [0.5, 0.55], [-3.0, 0.38], 0.12],
-    [dark, 0.85, 't', [-0.6, 0.12], [-3.8, 0.12], 0.09], [dark, 0.8, 't', [-0.6, 0.95], [-3.8, 0.85], 0.1],
-    [dark, 0.8, 's', [-1.3, -0.7], [-5.0, -1.6], 0.32], [dark, 0.75, 's', [-0.8, -2.3], [-4.6, -3.2], 0.32],
-  ]);
+    [dark, 0.7, 't', [-0.8, 0.45], [-3.6, 0.4], 0.32], [dark, 0.7, 't', [-0.9, 0.95], [-3.8, 0.9], 0.32],
+  ];
+  if (s.chains) return [
+    [dark, 1, 's', [-1.3, -0.5], [-5.6, -1.5], 0.55], [dark, 1, 's', [-0.7, -2.2], [-5.0, -3.3], 0.55],
+    [dark, 0.9, 't', [0.4, 0.62], [-3.0, 0.4], 0.34],
+  ];
+  if (s.clouds) return [
+    [dark, 0.9, 's', [-1.4, -0.6], [-5.8, -1.4], 0.42], [dark, 0.85, 's', [-0.9, -2.1], [-5.2, -3.0], 0.42],
+    [dark, 0.85, 't', [-1.0, 0.25], [-4.4, 0.3], 0.32], [dark, 0.85, 't', [-1.0, 1.0], [-4.4, 1.05], 0.32],
+  ];
+  if (s.spotted) return [
+    [white, 0.8, 't', [0.5, 0.55], [-3.0, 0.38], 0.36],
+    [dark, 0.85, 't', [-0.6, 0.12], [-3.8, 0.12], 0.26], [dark, 0.8, 't', [-0.6, 0.95], [-3.8, 0.85], 0.28],
+    [dark, 0.8, 's', [-1.3, -0.7], [-5.0, -1.6], 0.36], [dark, 0.75, 's', [-0.8, -2.3], [-4.6, -3.2], 0.36],
+  ];
   return null;
 }
 // A deer's eye, painted on the eyeball (from the photos): almost all dark brown iris, a darker
@@ -756,12 +748,13 @@ const MAMMALS = {
     // (markings drawn per pixel: coatSpots, coatRings)
     const legColor = s.clouds ? felineSpots(s, H, solid(shade(s.color, -0.05)), H * 0.16)
       : s.spotted ? felineSpots(s, H, solid(shade(s.color, 0.05)), H * 0.1)
+      : s.chains ? felineSpots(s, H, solid(s.color), H * 0.12) // (an ocelot's legs: solid spots)
       : k ? felineSpots(s, H) : null;
     // rings round the tail, n of them, a fraction f of the way to the dark colour
     const ring = (n, f) => pixelCoat('rings', solid(s.color), [n, 0.19, 0, 0, 2, 2, -2, 0], tmp.copy(col(s.color)).lerp(dk, f));
     // the fitted head: placed a little low and forward, the skull's top about level with the back
     const hp = fit ? [L * 0.55, by + H * 0.14] : [L * 0.5, by + H * 0.3], hr = fit ? [H * 0.33 * hs, H * 0.3 * hs, H * 0.24 * hs] : [H * 0.34 * hs, H * 0.31 * hs, H * 0.32 * hs];
-    const face = fit ? catFace(s, H, hp, hr, sl, catMarks(s)) : null;
+    const face = fit ? catFace(s, H, hp, hr, sl) : null;
     const spotted = s.rosettes || s.cheetah || s.spotted || s.bobtail;
     return {
       H, leg, wide: lion && !s.mane ? 0.94 : k ? 0.9 : 1, chest: k ? 1 - k * 0.03 : fit ? s.chest ?? 0.84 : 1,
@@ -825,6 +818,12 @@ const MAMMALS = {
           if (calm < 1) surfaceStrip(m, muzzleTop, mf, [[noseX - r * 0.15, ny, 0], [noseX - r * 0.2, (ny + cy) / 2, 0], [noseX - r * 0.25, cy, 0]], { ...hd, width: r * 0.1, strength: [0.35, 0.4, 0.45], color: '#3a2a20' });
           if (calm < 1) for (const side of [1, -1]) surfaceStrip(m, muzzleTop, mf, [[noseX - r * 0.25, cy, 0], [noseX - r * 0.7, cy - r * (0.3 - 0.3 * calm), side * r * 0.8], [noseX - r * 1.45, cy - r * (0.5 - 0.5 * calm), side * r * 1.35], [noseX - r * 2.1, cy - r * (0.45 - 0.45 * calm), side * r * 1.65]],
             { ...hd, width: [r * 0.1, r * 0.09, r * 0.08, r * 0.06], strength: [0.4, 0.35, 0.22, 0], color: '#3a2a20' });
+          // the species' own face marks, laid on the head as strips (catMarks)
+          const q = hr[1] * 0.15, mid = [hp[0], hp[1], 0];
+          for (const [c, f, kind, A, B, w] of catMarks(s) || []) for (const side of [1, -1]) {
+            const pts = [0, 1 / 3, 2 / 3, 1].map(t => { const a = A[0] + (B[0] - A[0]) * t, b = A[1] + (B[1] - A[1]) * t; return kind === 's' ? [e[0] + a * q, e[1] + b * q, side * hr[2] * 1.2] : [e[0] + a * q, e[1] + q * (0.9 + 2.1 * t), side * e[2] * b]; }); // (forehead strokes rise from just above the eye over the brow)
+            surfaceStrip(m, [m.headGeo], mid, pts, { ...hd, width: w * q * 2, strength: f, color: c });
+          }
           // a cheetah's black "tear" line, on from the tear mark down the side of the muzzle to the mouth's corner
           if (s.cheetah) for (const side of [1, -1]) surfaceStrip(m, [m.headGeo], mf, [[e[0] + er * 1.0, e[1] - er * 0.1, side * e[2] * 0.72], [e[0] + er * 2.0, e[1] - er * 1.6, side * e[2] * 0.68], [noseX - r * 2.2, cy - r * 0.1, side * r * 1.7]],
             { ...hd, width: [er * 0.34, er * 0.32, er * 0.26], strength: [0.7, 0.8, 0.5], color: s.dark });
@@ -891,7 +890,7 @@ const MAMMALS = {
           const tl = s.tailLen, X = tl ? xs.map(x => 0.38 + (x - 0.38) * tl) : xs, D = s.tailDrop != null ? H * s.tailDrop : H, r = H * (s.tailR ?? 0.09);
           const tt = s.tailTip, t0 = tt ? X[6] - (X[6] - X[0]) * tt * 1.1 : 0.78, t1 = tt ? X[6] - (X[6] - X[0]) * tt * 0.25 : 0.84; // (tailTip: the dark tip's share of the tail)
           const tip = (u, p) => tmp.copy(col(s.color)).lerp(dk, smooth(-L * t0, -L * t1, p.x));
-          const paint = plain || s.tailTip ? tip : s.clouds ? ring(4.5, 0.85) : s.spotted ? ring(3, 0.65) : s.cheetah ? ring(4, 0.65) : s.color;
+          const paint = plain || s.tailTip ? tip : s.clouds ? ring(4.5, 0.85) : s.chains ? ring(6, 0.85) : s.spotted ? ring(3, 0.65) : s.cheetah ? ring(4, 0.65) : s.color;
           tube(m, X.map((x, i) => [-L * x, b.by - D * ys[i], 0]), [r * 1.5, r * 1.3, r * 1.08, r, r, r, r * 0.92], paint, { ...o, sub: 5, seg: 14 });
           return;
         }

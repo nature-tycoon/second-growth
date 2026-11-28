@@ -537,7 +537,7 @@ function locks(m, a, b, count, len, r, paint, o = {}, seed = 1, down = [0, -1, 0
 // (roughly square cells round the body's axis at height by, body length L and depth H; chains:
 // longer cells, so the rings stretch into open blotches along the body; drawn per pixel: coatRosettes)
 function rosettes(base, dark, belly, chains, { L, H, by }) {
-  return pixelCoat('rosettes', grad(base, belly, -0.3, 0.5), [by, H * 0.53, L * (chains ? 0.15 : 0.1), chains ? 2.2 : 1.6, 0.15], dark, shade(base, -0.18));
+  return pixelCoat('rosettes', grad(base, belly, -0.3, 0.5), [by, H * 0.53, L * (chains ? 0.15 * chains : 0.1), chains ? 2.2 : 1.6, 0.15], dark, shade(base, -0.18));
 }
 
 // Jaguar rosettes use one coat coordinate system across the torso and shoulder muscles.
