@@ -480,12 +480,20 @@ export function faunaMaterial(motion) {
       // A crouching walker's leg folds at the knee, halfway down from the hip (feet stand at y 0):
       // the thigh turns by a and the shin back by 2a, so the paw stays under the hip, raised by
       // exactly drop, which the body is lowered by (headPose). Elbows go back, knees forward.
+      // The paw turns back level about the ankle (lifted by what that turn would sink it), the knee bends
+      // over a broad band so it rounds instead of creasing, and the leg's top, up inside the body, stays
+      // with the body instead of swinging out of the rump (the cougar's stalk, Cole 2026-11-27).
       void foldLeg(inout vec3 p, inout vec3 n, float drop) {
         float H = max(aPivot.y, 1e-3);
         float a = acos(clamp(1.0 - drop / H, 0.4, 1.0)) * (aPart < 2.5 ? -1.0 : 1.0);
-        float w = 1.0 - smoothstep(H * 0.44, H * 0.56, p.y); // (the shin)
+        float top = 1.0 - smoothstep(H * 0.8, H * 1.1, p.y); // (the thigh or shoulder: none of the turn up inside the body)
+        float w = 1.0 - smoothstep(H * 0.36, H * 0.64, p.y); // (the shin)
+        float wp = 1.0 - smoothstep(H * 0.1, H * 0.2, p.y); // (the paw)
         vec3 knee = rotZ(vec3(aPivot.x, H * 0.5, aPivot.z), aPivot, a);
-        p = rotZ(rotZ(p, aPivot, a), knee, -2.0 * a * w); n = rotZ(n, vec3(0.0), a - 2.0 * a * w);
+        vec3 ankle = rotZ(rotZ(vec3(aPivot.x, H * 0.15, aPivot.z), aPivot, a), knee, -2.0 * a);
+        p = rotZ(rotZ(p, aPivot, a * top), knee, -2.0 * a * w);
+        p = rotZ(p, ankle, a * wp); p.y += wp * H * 0.15 * (1.0 - cos(a));
+        n = rotZ(n, vec3(0.0), a * top - 2.0 * a * w + a * wp);
       }
       // Rotate lighting normals alongside each rigid part. Birds also flex the outer wing and
       // interpolate a compact resting tail into a modest flight fan; other fauna keep their poses.

@@ -40,3 +40,10 @@ Fourth round (pictures `-eyes`): the pads flatter (lift 0.75 to 0.38 of the eye 
 bigger (`eyeR` 0.0525 H, was 0.045) and set a little further out (`eyeOut` 0.37 to 0.40) so the pupils
 clear the face; 0.43 cleared them too but bulged from the side. Brows, tear marks and the highlight
 follow the eye's radius.
+
+Stalk (pictures `cougar-stalk-*`): Cole saw the legs "weird and bent" in stalk mode. The crouch fold
+(`foldLeg` in `animal-material.js`, shared by every crouching walker) bent each leg at a hard band halfway
+down, tipped the paws up and swung the thigh's top out of the rump. Now the paw turns back level about
+the ankle (lifted by what that would sink it), the knee bends over a broad band, and the leg's top
+inside the body stays put. The review page has a "Stalking (crouched)" pose (`?pose=stalk`).
+Motion sweep, all maps: within limits.
