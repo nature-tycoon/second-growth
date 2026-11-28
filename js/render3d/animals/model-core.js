@@ -544,8 +544,8 @@ function rosettes(base, dark, belly, chains, { L, H, by }) {
 // Jittered, wavy rings and occasional central dots avoid a repeated checkerboard pattern.
 // (laid out in model space round the body's axis at height by; drawn per pixel: coatJaguar)
 function jaguarCoat(s, H, by) {
-  const base = grad(s.color, s.belly, -0.3, 0.5);
-  return pixelCoat('jaguar', (u, p) => base({ y: (p.y - by) / (H * 0.55) }), [by, H * 0.55, H * 0.34, 1.55], s.dark, shade(s.color, -0.12));
+  const base = grad(s.color, s.belly, -0.3, 0.5), r = s.rosette ?? 1; // (rosette: their size, a share of the first guess; a jaguar's, fitted to photos, 0.72)
+  return pixelCoat('jaguar', (u, p) => base({ y: (p.y - by) / (H * 0.55) }), [by, H * 0.55, H * 0.34 * r, 1.55 / r], s.dark, shade(s.color, -0.12));
 }
 
 // Small solid spots scattered over a part (a jaguar's legs and head): coatSpots. size: the cell.

@@ -80,13 +80,17 @@ const COAT_GLSL = `
     return mix(mix(base, mid, core), dark, ring);
   }
   // jaguar: bigger, wavier rosettes, many with a central dot (A: axis height, body depth, cell, cells per radian)
+  // (fitted to jaguar photos: rosettes of varied size, irregular rings of four to six blotches round a darker
+  // centre holding a dot or two, so no two match and they don't read as one stamped shape)
   vec3 coatJaguar(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
-    vec2 g = coatAround(p, A), cell, dv = coatJitter(g, 0.35, cell);
-    float id = coatHash(vec3(cell, 3.0)), angle = atan(dv.y, dv.x), d = length(dv) / (1.0 + sin(angle * 5.0 + id * 8.0) * 0.14);
-    float broken = smoothstep(-0.9, -0.8, sin(angle * 3.0 + id * 8.0)), spot = coatIn(d, 0.075) * step(0.25, id);
+    vec2 g = coatAround(p, A), cell, dv = coatJitter(g, 0.5, cell);
+    float id = coatHash(vec3(cell, 3.0)), id2 = coatHash(vec3(cell, 6.0)), angle = atan(dv.y, dv.x);
+    float d = length(dv) / (1.0 + sin(angle * 2.0 + id * 9.0) * 0.12 + sin(angle * 5.0 + id2 * 11.0) * 0.08) / (0.82 + id2 * 0.3);
+    float broken = smoothstep(-0.75, -0.45, sin(angle * (4.0 + floor(id * 3.0)) + id2 * 13.0));
+    float sp = id2 > 0.6 ? 0.06 : 0.0, spot = max(coatIn(length(dv - vec2(0.05, 0.04) * (id - 0.5) * 2.0), 0.07) * step(0.22, id), coatIn(length(dv + vec2(0.07, -0.05)), sp));
     float detail = coatDetail(g.x), body = smoothstep(-0.53, -0.47, (p.y - A.x) / A.y);
-    float ring = mix(0.33, max((coatIn(d, 0.39) - coatIn(d, 0.2)) * broken, spot), detail) * body;
-    float core = mix(0.1, coatIn(d, 0.2) * (1.0 - spot), detail) * body;
+    float ring = mix(0.33, max((coatIn(d, 0.39) - coatIn(d, 0.22)) * broken, spot), detail) * body;
+    float core = mix(0.1, coatIn(d, 0.22) * (1.0 - spot), detail) * body;
     return mix(mix(base, mid, core), dark, ring);
   }
   // cheetah and leopard cat: solid round spots under the belly line (A as for rosettes; B.x: spot radius)
