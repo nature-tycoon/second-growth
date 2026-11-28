@@ -49,3 +49,6 @@ inside the body stays put. The review page has a "Stalking (crouched)" pose (`?p
 Then "too bent in, almost touching": the upper leg now turns less than the shin (t = 0.55 of the old
 angle, s solved so the paw stays on the ground), so elbows and knees stay apart and the paws plant wider,
 fore ones forward and hind back. Motion sweep, all maps: within limits.
+
+Brows: a flatter version (inner ends raised, less slant toward the nose) was shown and Cole kept the
+current slant ("Keep current"). Don't flatten them unasked.
