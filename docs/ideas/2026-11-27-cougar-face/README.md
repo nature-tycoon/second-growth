@@ -72,3 +72,6 @@ it read as a hunch and "doesn't go all the way around". Making the body reach fo
 was wrong ("it still needs to have a neck"; reverted, with the low root). Now: one even, round tube
 (`neckPath`, `neckRadii` about 0.26 H) from deep in the chest near where the head turns to inside the
 skull, so it leaves the body evenly all round and its top stays in the back when stalking.
+Then "shouldn't just be a cylinder": the neck's sections now go deep and flattened at the shoulders
+([0.36, 0.27] H up/across), slimmer up the throat ([0.27, 0.22]) and widen into the back of the skull
+([0.3, 0.27]), which it enters further. Intro film not re-filmed (Cole: film only when asked).
