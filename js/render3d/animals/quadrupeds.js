@@ -690,8 +690,7 @@ const MAMMALS = {
     const ring = (n, f) => pixelCoat('rings', solid(s.color), [n, 0.19, 0, 0, 2, 2, -2, 0], tmp.copy(col(s.color)).lerp(dk, f));
     return {
       H, leg, wide: lion && !s.mane ? 0.94 : k ? 0.9 : 1, chest: plain ? 0.84 : 1 - k * 0.03,
-      haunchBulk: plain ? 0.3 : undefined, front: plain && !fit ? 0.53 : undefined, keel: plain && !fit ? 0.3 : undefined, // (the round head: the body runs on forward to make the chest under the neck, Cole)
-       arch: plain ? 0.13 : undefined, tuck: plain ? 0.5 : undefined, shoulderBulk: plain ? 0.06 : undefined, shoulderTaper: plain ? 1 : undefined, thighTaper: plain ? 0.35 : undefined, thighZ: plain ? 0.75 : undefined, pawH: plain ? 1.15 : undefined, pawW: plain ? 0.78 : undefined, // (an athletic cat: a defined haunch, a back rising gently over the loin, legs growing out of the body, compact paws)
+      haunchBulk: plain ? 0.3 : undefined, arch: plain ? 0.13 : undefined, tuck: plain ? 0.5 : undefined, shoulderBulk: plain ? 0.06 : undefined, shoulderTaper: plain ? 1 : undefined, thighTaper: plain ? 0.35 : undefined, thighZ: plain ? 0.75 : undefined, pawH: plain ? 1.15 : undefined, pawW: plain ? 0.78 : undefined, // (an athletic cat: a defined haunch, a back rising gently over the loin, legs growing out of the body, compact paws)
       shoulder: lion ? 0.09 : k ? 0.07 : 0.04, haunch: lion ? 0.94 : k ? 0.9 : plain ? 0.82 : 1, sag: lion ? 0.01 : k ? -0.02 : 0.04,
       legR0: H * (lion ? (s.mane ? 0.19 : 0.18) : k ? 0.205 : s.cheetah ? 0.16 : plain ? 0.2 : 0.22),
       legR1: H * (lion ? 0.085 : k ? 0.09 : s.cheetah ? 0.09 : plain ? 0.085 : 0.14), // (a plain cat's slim ankle under a full forearm and thigh)

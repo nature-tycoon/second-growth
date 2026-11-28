@@ -66,6 +66,3 @@ slimmer (0.27 H).
 Then "a hunch back": the round head hung below the shoulders. It's carried higher (by + 0.26 H, was 0.14;
 the week-old one was 0.38), level with the back; flattening the back's arch made no visible difference.
 Then the haunches showing and an arched back (Cole): `haunchBulk` 0.2 to 0.3, `arch` 0.06 to 0.13.
-Then the neck "doesn't go all the way around" and "the torso should cover the chest" (Cole): the neck root
-stays low but no longer moves forward (its underside stopped short), and the body reaches further forward
-(`front` 0.53 of the length, was 0.45) with a fuller lower chest (`keel` 0.3), so the body makes the chest.
