@@ -655,7 +655,7 @@ function quadruped(m, s, o) {
   const coat = o.coat ? o.coat(base) : o.dots ? dots(base, o.dots[0], o.dots[1], o.dots[2], { L, H, by }) : o.rosettes ? rosettes(s.color, s.dark, s.belly, s.chains, { L, H, by })
     : o.spots ? (u => (u.y > -0.35 && hash3(Math.round(u.x * 16), Math.round(u.y * 8), Math.round(u.z * 8)) > 0.7 ? col(o.spots) : base(u))) : base;
   loftBody(m, {
-    x0: -L * 0.47, x1: L * 0.45,
+    x0: -L * 0.47, x1: L * (o.front ?? 0.45), // (front: how far forward the body reaches; further, it makes the chest instead of the neck)
     cy0: by + H * (o.hip ?? 0.02), cy1: by + H * (o.shoulder ?? 0.04),
     ry0: H * 0.52 * (o.haunch ?? 1), ry1: H * 0.54 * (o.chest ?? 1),
     rz0: H * 0.42 * W, rz1: H * 0.41 * W, sag: H * (o.sag ?? 0.04), shoulderBulk: o.shoulderBulk ?? 0, fine: coat.coat ? o.coatFine ?? 1 : o.fine && !o.detail ? 2 : o.fine || false, // (a per-pixel coat needs only a smooth outline; coatFine: false keeps a small animal's plain one)
@@ -767,7 +767,7 @@ function quadruped(m, s, o) {
   else if (o.neckR) {
     // rooted low and back in the chest, deep and flattened from side to side where it leaves the
     // shoulders, narrowing up to the head (a straight pipe of one width read as a head on a stick)
-    const end = [hp[0] - hr[0] * 0.3, hp[1] - hr[1] * 0.2, 0], r = o.neckR, nl = o.neckLow ?? 0, root = [neck[0] - r * 0.5 * (1 - nl), Math.min(neck[1], end[1]) - r * (0.35 + nl), 0]; // (neckLow: the root set lower and further forward, inside the chest, so when the head dips the root's top doesn't rise through the back)
+    const end = [hp[0] - hr[0] * 0.3, hp[1] - hr[1] * 0.2, 0], r = o.neckR, nl = o.neckLow ?? 0, root = [neck[0] - r * 0.5, Math.min(neck[1], end[1]) - r * (0.35 + nl), 0]; // (neckLow: the root set lower inside the chest, so when the head dips the root's top doesn't rise through the back; moved forward too, its underside stopped short of the chest)
     const mid = [(root[0] + end[0]) / 2 + r * 0.1, (root[1] + end[1]) / 2 + r * 0.12, 0];
     tube(m, [root, mid, end], [[r * 1.45, r * 1.12], [r * 1.05, r * 0.9], [r * 0.85, r * 0.78]], nc, { ...hd, seg: o.neckSeg ?? (o.detail ? 14 : 10), sub: 3, capRings: 2 });
   }
