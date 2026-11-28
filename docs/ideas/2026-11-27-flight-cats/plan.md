@@ -33,15 +33,15 @@ Branch: `claude/ideas-flight-cats` (from origin/main 1f3b1ad). Sessions run one 
 
 | # | Title | Ideas | Model | Size | Status |
 |---|---|---|---|---|---|
-| 1 | Amazon water animals: caiman arms, fish through water | 6, 7 | Opus | S–M | [ ] |
-| 2 | Bird flight: landing flare, swoops by flight style | 3, 4 | Opus | M | [ ] |
-| 3 | Flood water look | 5 | Opus | S–M | [ ] |
-| 4 | Interaction to Next Paint | 2 | Opus | M | [ ] |
-| 5 | PostHog drop-off tracking | 1 | Opus | M | [ ] |
-| 6 | Deer upgrades | 8 | Opus | L | [ ] |
-| 7 | Cats 1: shared feline fixes + bobcat, ocelot, leopard cat | 9 | Opus | L | [ ] |
-| 8 | Cats 2: jaguar, leopard, tiger, clouded leopard | 9 | Opus | L | [ ] |
-| 9 | Cats 3: lion, cheetah | 9 | Opus | M | [ ] |
-| 10 | Black bear | 10 | Opus | M | [ ] |
+| 1 | Amazon water animals: caiman arms, fish through water | 6, 7 | Opus | S–M | [x] d188441 |
+| 2 | Bird flight: landing flare, swoops by flight style | 3, 4 | Opus | M | [x] 1da116e (not eyeballed in game) |
+| 3 | Flood water look | 5 | Opus | S–M | [x] 902fb1c (seen in review page only) |
+| 4 | Interaction to Next Paint | 2 | Opus | M | [x] fb86017 (A/B needs 2 weeks of data) |
+| 5 | PostHog drop-off tracking | 1 | Opus | M | [x] e51e8f6 (dashboard 2423211) |
+| 6 | Deer upgrades | 8 | Opus | L | [x] 5d191b7 6ed2188 b39095e 7055781 |
+| 7 | Cats 1: shared feline fixes + bobcat, ocelot, leopard cat | 9 | Opus | L | reverted (Cole: cats back to old models) |
+| 8 | Cats 2: jaguar, leopard, tiger, clouded leopard | 9 | Opus | L | reverted (Cole: cats back to old models) |
+| 9 | Cats 3: lion, cheetah | 9 | Opus | M | dropped (hit usage limit; cats reverted) |
+| 10 | Black bear | 10 | Opus | M | not run (Cole shipped the batch first) |
 
 Regression-reviewer on plan and diff: sessions 1, 2, 3 (movement, water, drawing through water).

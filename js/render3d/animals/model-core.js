@@ -536,17 +536,16 @@ function locks(m, a, b, count, len, r, paint, o = {}, seed = 1, down = [0, -1, 0
 // chains: the ocelot's markings stretch into long open blotches running along the body
 // (roughly square cells round the body's axis at height by, body length L and depth H; chains:
 // longer cells, so the rings stretch into open blotches along the body; drawn per pixel: coatRosettes)
-// (r: the rosettes' size, a share of the first guess; a leopard's, fitted to photos, smaller and denser)
-function rosettes(base, dark, belly, chains, { L, H, by }, r = 1) {
-  return pixelCoat('rosettes', grad(base, belly, -0.3, 0.5), [by, H * 0.53, L * (chains ? 0.15 * chains : 0.1 * r), chains ? 2.2 : 1.6 / r, 0.15], dark, shade(base, -0.18));
+function rosettes(base, dark, belly, chains, { L, H, by }) {
+  return pixelCoat('rosettes', grad(base, belly, -0.3, 0.5), [by, H * 0.53, L * (chains ? 0.15 : 0.1), chains ? 2.2 : 1.6, 0.15], dark, shade(base, -0.18));
 }
 
 // Jaguar rosettes use one coat coordinate system across the torso and shoulder muscles.
 // Jittered, wavy rings and occasional central dots avoid a repeated checkerboard pattern.
 // (laid out in model space round the body's axis at height by; drawn per pixel: coatJaguar)
 function jaguarCoat(s, H, by) {
-  const base = grad(s.color, s.belly, -0.3, 0.5), r = s.rosette ?? 1; // (rosette: their size, a share of the first guess; a jaguar's, fitted to photos, 0.72)
-  return pixelCoat('jaguar', (u, p) => base({ y: (p.y - by) / (H * 0.55) }), [by, H * 0.55, H * 0.34 * r, 1.55 / r], s.dark, shade(s.color, -0.12));
+  const base = grad(s.color, s.belly, -0.3, 0.5);
+  return pixelCoat('jaguar', (u, p) => base({ y: (p.y - by) / (H * 0.55) }), [by, H * 0.55, H * 0.34, 1.55], s.dark, shade(s.color, -0.12));
 }
 
 // Small solid spots scattered over a part (a jaguar's legs and head): coatSpots. size: the cell.
@@ -654,7 +653,7 @@ function quadruped(m, s, o) {
   const by = leg + H * 0.5;
   const base = grad(s.color, s.belly || s.color, -0.3, 0.5);
   // spotted coats (bobcat): small dark rosettes on the back and flanks
-  const coat = o.coat ? o.coat(base) : o.dots ? dots(base, o.dots[0], o.dots[1], o.dots[2], { L, H, by }) : o.rosettes ? rosettes(s.color, s.dark, s.belly, s.chains, { L, H, by }, s.rosette)
+  const coat = o.coat ? o.coat(base) : o.dots ? dots(base, o.dots[0], o.dots[1], o.dots[2], { L, H, by }) : o.rosettes ? rosettes(s.color, s.dark, s.belly, s.chains, { L, H, by })
     : o.spots ? (u => (u.y > -0.35 && hash3(Math.round(u.x * 16), Math.round(u.y * 8), Math.round(u.z * 8)) > 0.7 ? col(o.spots) : base(u))) : base;
   loftBody(m, {
     x0: -L * 0.47, x1: L * 0.45,
@@ -789,7 +788,7 @@ function quadruped(m, s, o) {
     const base = [hp[0] + hr[0] * (o.earFwd ?? -0.2), hp[1] + hr[1] * (o.earUp ?? 0.75), side * hr[2] * (o.earSide ?? 0.55)]; // (earFwd, earUp, earSide: where the root sits on the skull; a cat's lower and wider, a deer's further back)
     if (o.ears === 'none') continue;
     // (earShape, earInner, earTip, earTipAt, earRim and earCup fine-tune the shared pinna)
-    const look = { ...hd, inner: o.earInner, tip: o.earTip, tipAt: o.earTipAt, rim: o.earRim, cup: o.earCup, spot: o.earSpot }; // (earSpot: a pale spot on the back of the ear, as most spotted cats have)
+    const look = { ...hd, inner: o.earInner, tip: o.earTip, tipAt: o.earTipAt, rim: o.earRim, cup: o.earCup };
     if (o.ears === 'round') {
       const tip = [base[0] - o.ear * 0.12, base[1] + o.ear * 0.85, base[2] + side * o.ear * 0.3];
       if (side > 0) m.earMarks = { base: [base[0] + o.ear * (o.earWidth ?? 0.95) * 0.45, base[1]], tip: [tip[0], tip[1]] }; // (for review tools: the ear's front root and tip, side on)

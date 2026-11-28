@@ -83,7 +83,7 @@ export default function buildChinandegaAnimals(def) {
       prey: ['agouti', 'armadillo', 'iguana'], preyPer: 7,
       suit: (W, i) => w[W.habitat[i]],
       req: g => Math.min(1, (g.forestTiles || 0) / 400),
-      sprite: { kind: 'feline', len: 30, h: 11, leg: 10, calm: 1, eyeSize: 1.25, legs: 0.78, headSize: 1.12, tailLen: 0.62, tailDrop: 0.75, color: '#c8a068', belly: '#f0e4c8', dark: '#2a2018', longtail: true, rosettes: true, chains: 1.35 },
+      sprite: { kind: 'feline', len: 30, h: 12, leg: 10, color: '#c8a068', belly: '#f0e4c8', dark: '#2a2018', longtail: true, rosettes: true, chains: true },
       desc: 'Tigrillo. A beautiful spotted cat that hunts agoutis and iguanas at night. Its return means the forest is big and whole again.',
       hint: 'A large area of connected dry forest with agoutis and iguanas.' });
   }

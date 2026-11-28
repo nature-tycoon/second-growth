@@ -80,17 +80,13 @@ const COAT_GLSL = `
     return mix(mix(base, mid, core), dark, ring);
   }
   // jaguar: bigger, wavier rosettes, many with a central dot (A: axis height, body depth, cell, cells per radian)
-  // (fitted to jaguar photos: rosettes of varied size, irregular rings of four to six blotches round a darker
-  // centre holding a dot or two, so no two match and they don't read as one stamped shape)
   vec3 coatJaguar(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
-    vec2 g = coatAround(p, A), cell, dv = coatJitter(g, 0.5, cell);
-    float id = coatHash(vec3(cell, 3.0)), id2 = coatHash(vec3(cell, 6.0)), angle = atan(dv.y, dv.x);
-    float d = length(dv) / (1.0 + sin(angle * 2.0 + id * 9.0) * 0.12 + sin(angle * 5.0 + id2 * 11.0) * 0.08) / (0.82 + id2 * 0.3);
-    float broken = smoothstep(-0.75, -0.45, sin(angle * (4.0 + floor(id * 3.0)) + id2 * 13.0));
-    float sp = id2 > 0.6 ? 0.06 : 0.0, spot = max(coatIn(length(dv - vec2(0.05, 0.04) * (id - 0.5) * 2.0), 0.07) * step(0.22, id), coatIn(length(dv + vec2(0.07, -0.05)), sp));
+    vec2 g = coatAround(p, A), cell, dv = coatJitter(g, 0.35, cell);
+    float id = coatHash(vec3(cell, 3.0)), angle = atan(dv.y, dv.x), d = length(dv) / (1.0 + sin(angle * 5.0 + id * 8.0) * 0.14);
+    float broken = smoothstep(-0.9, -0.8, sin(angle * 3.0 + id * 8.0)), spot = coatIn(d, 0.075) * step(0.25, id);
     float detail = coatDetail(g.x), body = smoothstep(-0.53, -0.47, (p.y - A.x) / A.y);
-    float ring = mix(0.33, max((coatIn(d, 0.39) - coatIn(d, 0.22)) * broken, spot), detail) * body;
-    float core = mix(0.1, coatIn(d, 0.22) * (1.0 - spot), detail) * body;
+    float ring = mix(0.33, max((coatIn(d, 0.39) - coatIn(d, 0.2)) * broken, spot), detail) * body;
+    float core = mix(0.1, coatIn(d, 0.2) * (1.0 - spot), detail) * body;
     return mix(mix(base, mid, core), dark, ring);
   }
   // cheetah and leopard cat: solid round spots under the belly line (A as for rosettes; B.x: spot radius)
@@ -107,12 +103,10 @@ const COAT_GLSL = `
   }
   // clouded leopard: black-rimmed blotches with darker fills between pale lanes, a few spots on the belly (A: cell size)
   vec3 coatClouds(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
-    vec3 w = p * (5.0 / A.x); // (wavy edges: a little sideways sway, so the clouds aren't straight-sided cells)
-    vec2 c = coatCells(p + vec3(sin(w.y + w.z), sin(w.z * 1.3 + w.x), sin(w.x * 0.8 + w.y)) * A.x * 0.07, A.x);
+    vec2 c = coatCells(p, A.x);
     float gap = c.x, id = c.y, detail = coatDetail(p.x / A.x * 4.0);
-    // (fitted to clouded leopard photos: broad pale lanes between the clouds, a thick black rim, the fill well darker than the coat)
-    float lane = 0.15 + id * 0.06, on = step(0.12, id) * (1.0 - coatIn(gap, lane)), rim = on * coatIn(gap, lane + 0.13 + id * 0.08), fill = on - rim;
-    vec3 flank = mix(mix(base, base * (0.45 + id * 0.2), fill), dark, rim);
+    float on = step(0.12, id) * (1.0 - coatIn(gap, 0.08)), rim = on * coatIn(gap, 0.2 + id * 0.08), fill = on - rim;
+    vec3 flank = mix(mix(base, base * (0.6 + id * 0.15), fill), dark, rim);
     vec3 under = mix(base, dark, (1.0 - coatIn(gap, 0.42)) * step(0.4, id));
     return mix(mix(base, dark * 0.5 + base * 0.4, 0.5), mix(under, flank, smoothstep(-0.63, -0.57, u.y)), detail);
   }

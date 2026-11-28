@@ -39,7 +39,7 @@ export default function buildAmazonAnimals(def) {
       prey: ['capybara', 'peccary', 'caiman', 'tapir', 'agouti'], preyPer: 8,
       suit: (W, i) => w[W.habitat[i]] * near(W.distForest[i], 3, 0.2),
       req: g => Math.min(1, g.forestTiles / 1500), // a big, grown forest
-      sprite: { kind: 'feline', len: 44, h: 13.5, leg: 11.5, headSize: 1.3, snout: 0.85, headX: 0.52, headY: 0.02, eyeSize: 1.2, tuck: 0.3, rosette: 0.72, legSpot: 0.1, headSpot: 0.065, calm: 0.8, tailLen: 0.65, tailDrop: 0.45, color: '#d8a040', belly: '#f0e0c0', dark: '#2a2018', longtail: true, rosettes: true, stocky: true },
+      sprite: { kind: 'feline', len: 44, h: 17, leg: 14, color: '#d8a040', belly: '#f0e0c0', dark: '#2a2018', longtail: true, rosettes: true, stocky: true },
       desc: "The Americas' greatest cat. It swims rivers, hunts caiman and capybara, and needs a huge, connected forest.",
       hint: 'Lots of connected forest, with capybara, peccaries or caiman to hunt.' });
   }
@@ -49,7 +49,7 @@ export default function buildAmazonAnimals(def) {
       speed: 1.4, hr: 80, max: 5, sources: ['N', 'E'], mig: 0.25, breed: [2, 3], litter: [1, 2], life: 10, mature: 2,
       prey: ['agouti', 'armadillo'], preyPer: 5,
       suit: (W, i) => w[W.habitat[i]] * near(W.distForest[i], 2, 0.2),
-      sprite: { kind: 'feline', len: 28, h: 11, leg: 10, calm: 1, eyeSize: 1.25, legs: 0.78, headSize: 1.12, tailLen: 0.62, tailDrop: 0.75, color: '#c8a068', belly: '#f0e4c8', dark: '#2a2018', longtail: true, rosettes: true, chains: 1.35 },
+      sprite: { kind: 'feline', len: 28, h: 12, leg: 10, color: '#c8a068', belly: '#f0e4c8', dark: '#2a2018', longtail: true, rosettes: true, chains: true },
       desc: 'A night-hunting spotted cat about twice the size of a house cat. Stalks agoutis along forest trails.',
       hint: 'Young or old forest with agoutis and armadillos.' });
   }

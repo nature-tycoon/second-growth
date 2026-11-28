@@ -64,7 +64,7 @@ export default function buildSumatraAnimals(def) {
       prey: ['sambar', 'boar', 'mousedeer', 'tapir', 'macaque'], preyPer: 8,
       suit: (W, i) => w[W.habitat[i]] * near(W.distForest[i], 3, 0.2),
       req: g => Math.min(1, g.forestTiles / 2400) * Math.min(1, g.matureTiles / 120), // a big, grown forest, joined to Leuser
-      sprite: { kind: 'feline', len: 46, h: 17, leg: 13, calm: 1, legs: 0.95, headSize: 1.25, eyeSize: 1.15, cheeks: 0.5, cheekPale: 0.9, cheekSize: 1.8, earSpot: '#f0ebe0', tailLen: 0.8, tailDrop: 1.0, tailR: 0.1, color: '#d8742a', belly: '#f2ebdc', dark: '#1a1410', stripes: true, show: 0.9 },
+      sprite: { kind: 'feline', len: 46, h: 17, leg: 13, color: '#d8742a', belly: '#f2ebdc', dark: '#1a1410', stripes: true, show: 0.9 },
       desc: 'The smallest, darkest and most densely striped tiger, and the last of the island tigers. Perhaps 600 are left. It needs a huge forest with plenty of deer and wild pigs, and forest corridors to move between.',
       hint: 'A large, connected forest with sambar deer and wild boar to hunt.' });
   }
@@ -75,7 +75,7 @@ export default function buildSumatraAnimals(def) {
       prey: ['langur', 'macaque', 'mousedeer', 'civet'], preyPer: 6,
       suit: (W, i) => w[W.habitat[i]] * canopy(W, i),
       req: g => Math.min(1, g.forestTiles / 900),
-      sprite: { scale: 0.78, kind: 'feline', len: 32, h: 11, leg: 8, calm: 1, legs: 0.92, snout: 1.25, headTall: 0.88, legSpot: 0.11, headSpot: 0.065, tailLen: 1.65, tailR: 0.16, tailDrop: 0.8, color: '#a89068', belly: '#e0d4bc', dark: '#2a2218', clouds: true },
+      sprite: { scale: 0.78, kind: 'feline', len: 32, h: 11, leg: 8, color: '#a89068', belly: '#e0d4bc', dark: '#2a2218', clouds: true },
       desc: 'A secretive cat with cloud-shaped markings, the longest canine teeth for its size of any cat, and ankles that let it climb down trees head first.',
       hint: 'Tall forest with monkeys and mouse-deer.' });
   }
@@ -85,7 +85,7 @@ export default function buildSumatraAnimals(def) {
       speed: 1.3, hr: 14, max: 10, sources: ['W', 'N', 'E'], mig: 0.35, breed: [2, 8], litter: [2, 3], life: 10, mature: 1,
       prey: ['woodrat'], preyPer: 5,
       suit: (W, i) => w[W.habitat[i]] * near(W.distCover[i], 2, 0.3),
-      sprite: { kind: 'feline', len: 18, h: 7, leg: 6, calm: 1, eyeSize: 1.15, legs: 0.95, legR0: 0.17, legR1: 0.075, ear: 0.23, earSpot: '#ece4d6', tailLen: 0.9, tailDrop: 0.75, color: '#c8a064', belly: '#f2e8d4', dark: '#2a2018', spotted: true },
+      sprite: { kind: 'feline', len: 18, h: 7, leg: 6, color: '#c8a064', belly: '#f2e8d4', dark: '#2a2018', spotted: true },
       desc: 'A spotted wild cat the size of a house cat. It hunts rats through the palms at night, and is one of the few wild cats that does well on plantation edges.',
       hint: 'Cover near the palms, where the rats are.' });
   }

@@ -138,7 +138,7 @@ export default function buildSerengetiAnimals(def) {
       prey: ['gazelle', 'impala', 'warthog'], preyPer: 6,
       suit: (W, i) => w[W.habitat[i]],
       req: g => Math.min(1, g.meadowTiles / 1500),
-      sprite: { kind: 'feline', len: 38, h: 14, leg: 16, calm: 1, legs: 0.85, legR0: 0.16, legR1: 0.09, tailLen: 1.15, color: '#d8a852', belly: '#f0e4c4', dark: '#1e1812', longtail: true, cheetah: true },
+      sprite: { kind: 'feline', len: 38, h: 14, leg: 16, color: '#d8a852', belly: '#f0e4c4', dark: '#1e1812', longtail: true, cheetah: true },
       desc: 'The fastest land animal, built for short sprints across open plains. Loses its kills to lions and hyenas, so it avoids them.',
       hint: 'Wide open short-grass plains with gazelles.' });
   }
@@ -149,7 +149,7 @@ export default function buildSerengetiAnimals(def) {
       prey: ['impala', 'gazelle', 'warthog'], preyPer: 6,
       suit: (W, i) => w[W.habitat[i]] * near(W.distForest[i], 2, 0.2),
       req: g => Math.min(1, g.forestTiles / 160),
-      sprite: { kind: 'feline', len: 36, h: 11, leg: 9.5, calm: 1, legs: 0.85, headSize: 0.95, headX: 0.51, headY: 0.08, rosette: 0.75, legSpot: 0.08, headSpot: 0.04, tailSpot: 0.11, earSpot: '#ddd0b8', tailLen: 1.15, tailDrop: 1.2, color: '#d8a44a', belly: '#f2e2c0', dark: '#241a10', longtail: true, rosettes: true },
+      sprite: { kind: 'feline', len: 36, h: 14, leg: 12, color: '#d8a44a', belly: '#f2e2c0', dark: '#241a10', longtail: true, rosettes: true },
       desc: 'Hauls its kills up into a tree, out of reach of lions and hyenas. Needs thick cover along rivers and kopjes.',
       hint: 'Riverine woodland and big trees, with impala to hunt.' });
   }
