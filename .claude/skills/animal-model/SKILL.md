@@ -144,6 +144,10 @@ neck). Measure to find the biggest mismatch, then judge by eye against the photo
   900-pixel thumbnail displayed 960 wide put every mark 7% off): divide by the size you actually measured on.
 - **Head size is a photo question, not a memory one**: the elk's ears looked right "small" from field-guide
   numbers and came out half the size of a cow's in profile. Size ears and heads in the overlay's head mode.
+- Cole's first look at the deer batch (2026-11-27, approved after): the mouse-deer's neck "too long"
+  (head moved back to sit close in front of the shoulders, snout lengthened to keep the face's length),
+  the elk's nose "too wide/thick" (`muzzleWidth` and `muzzleDepth`). A head carried far forward to match a
+  photo reads as a long neck in 3D: keep the neck short and put the length in the face.
 - **Chevrotains and other small hunched animals**: measure leg length as ground to belly against body
   depth (the mouse-deer's legs are about 0.55 of it), and set the hind legs back under the rump (`hindX`).
 
