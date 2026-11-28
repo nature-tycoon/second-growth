@@ -1,4 +1,5 @@
 // Quadruped proportions and specialist big-mammal model builders.
+import * as THREE from 'three';
 import { P, SPH, SPH_HI, SPH_XL, cloudCoat, col, ellHi, felineSpots, flat, grad, hash3, jaguarCoat, locks, onProfile, pinna, pinnaAt, pixelCoat, place, sculpt, shade, smooth, solid, surfacePatch, surfaceStrip, tmp, tube } from './model-core.js';
 
 // Common palm civet: long, low and slim on short dark legs, grizzled grey-brown with faint rows of
@@ -520,9 +521,44 @@ function catFace(s, H, hp, hr, sl, marks) {
   };
 }
 
-// A species' own soft face marks over the fitted cat's face fur (catFace), chosen by its coat. None yet: a
-// species fitted to photos adds its own.
-function catMarks(s) { return null; }
+// A species' own soft face marks over the fitted cat's face fur (catFace), chosen by its coat (seen in
+// photos): soft streaks of fur with fading ends, painted in the head's vertex colours, never parts laid on.
+// Bobbed tail (bobcat): dark bars across the cheek ruff and short dark streaks up the forehead. Chains
+// (ocelot): two black stripes back along each cheek and a black line from each eye's inner corner up the
+// forehead. Spotted (leopard cat): a white streak from each eye's inner corner up the forehead between
+// dark lines, and dark cheek bars. Units follow the head (q: a sixth of its height).
+function catMarks(s) {
+  const dark = col(shade(s.dark, -0.3)).clone(), white = col(s.lip ?? '#f1eadf').clone();
+  // how close the point (x, y) lies to the segment from A to B, 1 on it, fading over w, and toward its ends
+  const near = (x, y, A, B, w) => {
+    const dx = B[0] - A[0], dy = B[1] - A[1], k = Math.max(0, Math.min(1, ((x - A[0]) * dx + (y - A[1]) * dy) / (dx * dx + dy * dy)));
+    return Math.exp(-((Math.hypot(x - A[0] - dx * k, y - A[1] - dy * k) / w) ** 2)) * smooth(0, 0.3, Math.min(k, 1 - k));
+  };
+  // side marks ('s': A, B are [forward, up] from the eye in q) lie on the side of the head, past the eye;
+  // top marks ('t': [forward, out], out a share of the eye's spacing) on the forehead, above the eyes
+  const streaks = list => (o, p, at) => {
+    const [ex, ey, ez] = at.eye, q = at.hr[1] * 0.15, az = Math.abs(p.z), side = smooth(ez * 0.9, ez * 1.25, az), top = smooth(ey - q * 0.2, ey + q * 0.6, p.y);
+    for (const [c, f, kind, A, B, w] of list) {
+      const v = kind === 's' ? side * near((p.x - ex) / q, (p.y - ey) / q, A, B, w) : top * near((p.x - ex) / q, az / ez, A, B, w);
+      if (v > 0.002) o.lerp(c, f * v);
+    }
+    return o;
+  };
+  if (s.bobtail) return streaks([
+    [dark, 0.85, 's', [-1.4, -1.2], [-5.0, -2.0], 0.5], [dark, 0.8, 's', [-1.0, -2.6], [-4.6, -3.6], 0.5],
+    [dark, 0.7, 't', [-0.8, 0.45], [-3.6, 0.4], 0.14], [dark, 0.7, 't', [-0.9, 0.95], [-3.8, 0.9], 0.14],
+  ]);
+  if (s.chains) return streaks([
+    [dark, 0.9, 's', [-1.3, -0.5], [-5.6, -1.5], 0.4], [dark, 0.9, 's', [-0.7, -2.2], [-5.0, -3.3], 0.4],
+    [dark, 0.85, 't', [0.4, 0.62], [-3.0, 0.4], 0.11],
+  ]);
+  if (s.spotted) return streaks([
+    [white, 0.8, 't', [0.5, 0.55], [-3.0, 0.38], 0.12],
+    [dark, 0.85, 't', [-0.6, 0.12], [-3.8, 0.12], 0.09], [dark, 0.8, 't', [-0.6, 0.95], [-3.8, 0.85], 0.1],
+    [dark, 0.8, 's', [-1.3, -0.7], [-5.0, -1.6], 0.32], [dark, 0.75, 's', [-0.8, -2.3], [-4.6, -3.2], 0.32],
+  ]);
+  return null;
+}
 // A deer's eye, painted on the eyeball (from the photos): almost all dark brown iris, a darker
 // wide pupil, a black rim, looking out to the side and a little forward (a prey animal's).
 function deerEye() {
@@ -747,7 +783,7 @@ const MAMMALS = {
       // (ear backs dark, the eyes painted, the nose sculpted in face)
       earColor: fit ? shade(s.dark, -0.15) : null, eyeColor: fit ? catEye(s) : undefined, eyeFwd: fit ? 0.84 : undefined, eyeOut: fit ? 0.4 : undefined, muzzleDepth: fit ? 0.4 : undefined, brow: fit ? 0.14 : undefined, noseColor: fit ? '#7d5246' : undefined,
       headPaint: plain ? face.head : s.clouds ? felineSpots(s, H, face.head, H * 0.1) : k ? felineSpots(s, H, face.head, H * 0.09)
-        : spotted ? felineSpots(s, H, face.head, H * 0.07) : null, // (small solid spots on the head)
+        : spotted && !s.bobtail ? felineSpots(s, H, face.head, H * 0.07) : s.bobtail ? face.head : null, // (small solid spots on the head; a bobcat's face is streaked instead: catMarks)
       face: (m, hp, hr, hd, sn) => {
         if (fit) {
           const e = m.eyeAt, r = H * 0.045, noseX = sn[0] + sl * 1.22;
