@@ -536,8 +536,9 @@ function locks(m, a, b, count, len, r, paint, o = {}, seed = 1, down = [0, -1, 0
 // chains: the ocelot's markings stretch into long open blotches running along the body
 // (roughly square cells round the body's axis at height by, body length L and depth H; chains:
 // longer cells, so the rings stretch into open blotches along the body; drawn per pixel: coatRosettes)
-function rosettes(base, dark, belly, chains, { L, H, by }) {
-  return pixelCoat('rosettes', grad(base, belly, -0.3, 0.5), [by, H * 0.53, L * (chains ? 0.15 * chains : 0.1), chains ? 2.2 : 1.6, 0.15], dark, shade(base, -0.18));
+// (r: the rosettes' size, a share of the first guess; a leopard's, fitted to photos, smaller and denser)
+function rosettes(base, dark, belly, chains, { L, H, by }, r = 1) {
+  return pixelCoat('rosettes', grad(base, belly, -0.3, 0.5), [by, H * 0.53, L * (chains ? 0.15 * chains : 0.1 * r), chains ? 2.2 : 1.6 / r, 0.15], dark, shade(base, -0.18));
 }
 
 // Jaguar rosettes use one coat coordinate system across the torso and shoulder muscles.
@@ -653,7 +654,7 @@ function quadruped(m, s, o) {
   const by = leg + H * 0.5;
   const base = grad(s.color, s.belly || s.color, -0.3, 0.5);
   // spotted coats (bobcat): small dark rosettes on the back and flanks
-  const coat = o.coat ? o.coat(base) : o.dots ? dots(base, o.dots[0], o.dots[1], o.dots[2], { L, H, by }) : o.rosettes ? rosettes(s.color, s.dark, s.belly, s.chains, { L, H, by })
+  const coat = o.coat ? o.coat(base) : o.dots ? dots(base, o.dots[0], o.dots[1], o.dots[2], { L, H, by }) : o.rosettes ? rosettes(s.color, s.dark, s.belly, s.chains, { L, H, by }, s.rosette)
     : o.spots ? (u => (u.y > -0.35 && hash3(Math.round(u.x * 16), Math.round(u.y * 8), Math.round(u.z * 8)) > 0.7 ? col(o.spots) : base(u))) : base;
   loftBody(m, {
     x0: -L * 0.47, x1: L * 0.45,

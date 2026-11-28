@@ -748,6 +748,7 @@ const MAMMALS = {
     const legColor = s.clouds ? felineSpots(s, H, solid(shade(s.color, -0.05)), H * 0.16)
       : s.spotted ? felineSpots(s, H, solid(shade(s.color, 0.05)), H * 0.1)
       : s.chains ? felineSpots(s, H, solid(s.color), H * 0.12) // (an ocelot's legs: solid spots)
+      : s.legSpot && s.rosettes ? felineSpots(s, H, solid(s.color), H * s.legSpot) // (a leopard's legs: small solid spots)
       : k ? felineSpots(s, H, undefined, H * (s.legSpot ?? 0.15)) : null; // (legSpot: their size; a jaguar's legs carry smaller spots than its body's rosettes)
     // rings round the tail, n of them, a fraction f of the way to the dark colour
     const ring = (n, f) => pixelCoat('rings', solid(s.color), [n, 0.19, 0, 0, 2, 2, -2, 0], tmp.copy(col(s.color)).lerp(dk, f));
@@ -776,7 +777,7 @@ const MAMMALS = {
       // (ear backs dark, the eyes painted, the nose sculpted in face)
       earColor: fit ? shade(s.dark, -0.15) : null, eyeColor: fit ? catEye(s) : undefined, eyeFwd: fit ? 0.84 : undefined, eyeOut: fit ? 0.4 : undefined, muzzleDepth: fit ? 0.4 : undefined, brow: fit ? 0.14 : undefined, noseColor: fit ? '#7d5246' : undefined,
       headPaint: plain ? face.head : s.clouds ? felineSpots(s, H, face.head, H * 0.1) : k ? felineSpots(s, H, face.head, H * (s.headSpot ?? 0.09))
-        : spotted && !s.bobtail ? felineSpots(s, H, face.head, H * 0.07) : s.bobtail ? face.head : null, // (small solid spots on the head; a bobcat's face is streaked instead: catMarks)
+        : spotted && !s.bobtail ? felineSpots(s, H, face.head, H * (s.headSpot ?? 0.07)) : s.bobtail ? face.head : null, // (small solid spots on the head; a bobcat's face is streaked instead: catMarks)
       face: (m, hp, hr, hd, sn) => {
         if (fit) {
           const e = m.eyeAt, r = H * 0.045, noseX = sn[0] + sl * 1.22;
@@ -895,7 +896,7 @@ const MAMMALS = {
           const tl = s.tailLen, X = tl ? xs.map(x => 0.38 + (x - 0.38) * tl) : xs, D = s.tailDrop != null ? H * s.tailDrop : H, r = H * (s.tailR ?? 0.09);
           const tt = s.tailTip, t0 = tt ? X[6] - (X[6] - X[0]) * tt * 1.1 : 0.78, t1 = tt ? X[6] - (X[6] - X[0]) * tt * 0.25 : 0.84; // (tailTip: the dark tip's share of the tail)
           const tip = (u, p) => tmp.copy(col(s.color)).lerp(dk, smooth(-L * t0, -L * t1, p.x));
-          const paint = plain || s.tailTip ? tip : s.clouds ? ring(4.5, 0.85) : s.chains ? ring(6, 0.85) : s.spotted ? ring(3, 0.65) : s.cheetah ? ring(4, 0.65) : s.color;
+          const paint = plain || s.tailTip ? tip : s.clouds ? ring(4.5, 0.85) : s.chains ? ring(6, 0.85) : s.spotted ? ring(3, 0.65) : s.cheetah ? ring(4, 0.65) : s.tailSpot ? felineSpots(s, H, solid(s.color), H * s.tailSpot) : s.color; // (tailSpot: a leopard's spotted tail)
           tube(m, X.map((x, i) => [-L * x, b.by - D * ys[i], 0]), [r * 1.5, r * 1.3, r * 1.08, r, r, r, r * 0.92], paint, { ...o, sub: 5, seg: 14 });
           return;
         }
